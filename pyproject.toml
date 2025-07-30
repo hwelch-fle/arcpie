@@ -1,0 +1,10 @@
+[project]
+name = "arcpie"
+version = "0.1.0"
+description = "A simplified wrapper library for arcpy that makes it less painful"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.28.1",
+    "numpy>=2.3.2",
+]
