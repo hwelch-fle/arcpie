@@ -149,9 +149,9 @@ class FeatureClass:
     def shapes(self) -> Generator[Geometry]:
         yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
-    def format_query(self, ids: set[int]) -> str:
-        """Format a list of object IDs into a SQL query to be used with cursors or layer selections"""
-        return f"{self.describe.OIDFieldName} IN ({','.join(map(str, ids))})"
+    def format_query(self, vals: Iterable[Any]) -> str:
+        """Format a list of values into a SQL list"""
+        return f"({','.join(map(str, vals))})"
     
     # Option Resolvers (base options from kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
@@ -285,8 +285,9 @@ class FeatureClass:
                 raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
-        fc.search_options = SearchOptions(where_clause=fc.format_query(selected_ids))
-        fc.update_options = UpdateOptions(where_clause=fc.format_query(selected_ids))
+        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        fc.search_options = SearchOptions(where_clause=selected)
+        fc.update_options = UpdateOptions(where_clause=selected)
         return fc
     
 
