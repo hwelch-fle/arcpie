@@ -249,9 +249,15 @@ class FeatureClass:
         
         Parameters:
             layer (Layer): The layer to convert to a FeatureClass
-        
+            max_selection (int): Maximum number of records allowed in the selection
+                use this to prevent a SQL query with millions of OIDs from being generated
+            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
+                otherwise, it will print a warning to `stdout` and continue
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
+        
+        Raises:
+            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
         selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
