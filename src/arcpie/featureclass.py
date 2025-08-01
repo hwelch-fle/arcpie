@@ -169,6 +169,44 @@ class FeatureClass:
                       *,
                       search_options: Optional[SearchOptions]=None, 
                       **overrides: Unpack[SearchOptions]) -> SearchCursor:
+        """Get a `SearchCursor` for the `FeatureClass`
+        Supplied search options are resolved by updating the base FeatureClass Search options in this order:
+
+            `FeatureClass.search_options -> search_options -> **overrides['option_key']`
+        
+        With direct key word arguments shadowing all other supplied options. This allows a Feature Class to
+        be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
+        then a direct keyword override to be supplied while never mutating the base options of the feature class.
+        
+        Arguments:
+            field_names (str | Iterable[str]): The column names to include from the `FeatureClass`
+            search_options (Optional[SearchOptions]): A `SeachOptions` instance that will be used to shadow
+                `search_options` set on the `FeatureClass`
+            **overrides ( Unpack[SeachOptions] ): Additional keyword arguments for the cursor that shadow 
+                both the `seach_options` variable and the `FeatureClass` instance `SearchOptions`
+        
+        Returns:
+            ( SearchCursor ): A `SearchCursor` for the `FeatureClass` instance that has all supplied options
+                resolved and applied
+                
+        Example:
+            ```python
+                >>> cleese_search = SearchOptions(where_clause="NAME = 'John Cleese'")
+                >>> idle_search = SearchOptions(where_clause="NAME = 'Eric Idle'")
+                >>> monty = FeatureClass('<path>', search_options=cleese_search)
+                >>> print(list(monty.search_cursor('NAME')))
+                [('John Cleese',)]
+                >>> print(list(monty.search_cursor('NAME', search_options=idle_search)))
+                [('Eric Idle', )]
+                >>> print(list(monty.search_cursor('NAME', search_options=idle_search)), where_clause="NAME = Graham Chapman")
+                [('Graham Chapman', )]
+            ```
+        In this example, you can see that the keyword override is the most important. The fact that the other searches are
+        created outside initialization allows you to store common queries in one place and update them for all cursors using 
+        them at the same time, while still allowing specific instances of a cursor to override those shared/stored defaults.
+        """
+        return SearchCursor(self.path, field_names, **self._resolve_search_options(search_options, overrides))
+
     def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
                       insert_options: Optional[InsertOptions], 
