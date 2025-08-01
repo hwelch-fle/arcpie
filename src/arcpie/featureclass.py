@@ -31,6 +31,10 @@ from typing import (
     Callable,
 )
 
+from typing_extensions import (
+    Unpack,
+)
+
 from .cursor import (
     SearchOptions, 
     InsertOptions, 
@@ -39,15 +43,17 @@ from .cursor import (
     EditToken,
     CursorToken,
     CursorTokens,
+    SQLClause,
 )
 
 from functools import lru_cache, wraps
+
+FieldName = CursorToken | str
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
 
 class FeatureClass:
-    _cache_enabled: bool = False # Set to True to enable caching on all FeatureClass objects
 
     def __init__(
             self, path: str,
@@ -55,16 +61,16 @@ class FeatureClass:
             search_options: Optional[SearchOptions]=None, 
             update_options: Optional[UpdateOptions]=None, 
             insert_options: Optional[InsertOptions]=None,
-            enable_cache: bool=False,
+            clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
+        self._clause = clause or None
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
         self._layer: Optional[Layer] = None
 
     @property
-    @lru_cache(maxsize=_cache_enabled)
     def describe(self) -> dt.FeatureClass:
         return Describe(self.path)
 
@@ -97,6 +103,18 @@ class FeatureClass:
         self._update_options = update_options
 
     @property
+    def clause(self) -> SQLClause | None:
+        return self._clause
+
+    @clause.setter
+    def clause(self, clause: SQLClause) -> None:
+        """Set a feature level SQL clause on all Insert and Search operations
+        
+        This clause is overridden by all Option level clauses
+        """
+        self._clause = clause
+
+    @property
     def fields(self) -> tuple[str, ...]:
         """Tuple of all fieldnames in the FeatureClass"""
         with self.search_cursor('*') as c:
@@ -119,11 +137,6 @@ class FeatureClass:
         self._layer = layer
 
     @property
-    def geometry(self, geometry_type: ShapeToken='SHAPE@') -> Generator[Geometry, None, None]:
-        yield from ( shape for shape, in self.get_tuples(geometry_type) )
-
-    @property
-    @lru_cache(maxsize=_cache_enabled)
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
         return ListSubtypes(self.path)
@@ -133,41 +146,106 @@ class FeatureClass:
         return Editor(self.describe.workspace.catalogPath)
 
     @property
-    @lru_cache(maxsize=_cache_enabled)
-    def attribute_rules(self):
-        return self.describe.fields
+    def shapes(self) -> Generator[Geometry]:
+        yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
-    def format_query(self, ids: set[int]) -> str:
-        """Format a list of object IDs into a SQL query to be used with cursors or layer selections"""
-        return f"{self.describe.OIDFieldName} IN ({','.join(map(str, ids))})"
-
-    def search_cursor(self, field_names: str | Iterable[str], **options) -> SearchCursor:
-        _options = self.search_options
-        _options.update(**options)
-        return SearchCursor(self.path, field_names, **_options)
-
-    def insert_cursor(self, field_names: str | Iterable[str], **options) -> InsertCursor:
-        _options = self.insert_options
-        _options.update(**options)
-        return InsertCursor(self.path, field_names, **_options)
+    def format_query(self, vals: Iterable[Any]) -> str:
+        """Format a list of values into a SQL list"""
+        return f"({','.join(map(str, vals))})"
     
-    def update_cursor(self, field_names: str | Iterable[str], **options) -> UpdateCursor:
-        _options = self.update_options
-        _options.update(**options)
-        return UpdateCursor(self.path, field_names, **_options)
+    # Option Resolvers (base options from kwargs -> Options Object -> FeatureClass Options)
+    def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
+        """Combine all provided SearchOptions into one dictionary"""
+        return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
+
+    def _resolve_insert_options(self, options: Optional[InsertOptions], overrides: InsertOptions) -> InsertOptions:
+        """Combine all provided InsertOptions into one dictionary"""
+        return {**self.insert_options, **(options or {}), **overrides}
+
+    def _resolve_update_options(self, options: Optional[UpdateOptions], overrides: UpdateOptions) -> UpdateOptions:
+        """Combine all provided UpdateOptions into one dictionary"""
+        return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
+
+    def search_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      search_options: Optional[SearchOptions]=None, 
+                      **overrides: Unpack[SearchOptions]) -> SearchCursor:
+        """Get a `SearchCursor` for the `FeatureClass`
+        Supplied search options are resolved by updating the base FeatureClass Search options in this order:
+
+            `FeatureClass.search_options -> search_options -> **overrides['option_key']`
+        
+        With direct key word arguments shadowing all other supplied options. This allows a Feature Class to
+        be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
+        then a direct keyword override to be supplied while never mutating the base options of the feature class.
+        
+        Arguments:
+            field_names (str | Iterable[str]): The column names to include from the `FeatureClass`
+            search_options (Optional[SearchOptions]): A `SeachOptions` instance that will be used to shadow
+                `search_options` set on the `FeatureClass`
+            **overrides ( Unpack[SeachOptions] ): Additional keyword arguments for the cursor that shadow 
+                both the `seach_options` variable and the `FeatureClass` instance `SearchOptions`
+        
+        Returns:
+            ( SearchCursor ): A `SearchCursor` for the `FeatureClass` instance that has all supplied options
+                resolved and applied
+                
+        Example:
+            ```python
+                >>> cleese_search = SearchOptions(where_clause="NAME = 'John Cleese'")
+                >>> idle_search = SearchOptions(where_clause="NAME = 'Eric Idle'")
+                >>> monty = FeatureClass('<path>', search_options=cleese_search)
+                >>> print(list(monty.search_cursor('NAME')))
+                [('John Cleese',)]
+                >>> print(list(monty.search_cursor('NAME', search_options=idle_search)))
+                [('Eric Idle', )]
+                >>> print(list(monty.search_cursor('NAME', search_options=idle_search)), where_clause="NAME = Graham Chapman")
+                [('Graham Chapman', )]
+            ```
+        In this example, you can see that the keyword override is the most important. The fact that the other searches are
+        created outside initialization allows you to store common queries in one place and update them for all cursors using 
+        them at the same time, while still allowing specific instances of a cursor to override those shared/stored defaults.
+        """
+        return SearchCursor(self.path, field_names, **self._resolve_search_options(search_options, overrides))
+
+    def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      insert_options: Optional[InsertOptions], 
+                      **overrides: Unpack[InsertOptions]) -> InsertCursor:
+        return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
     
-    def get_records(self, field_names: Iterable[str], **options: SearchOptions):
+    def update_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      update_options: Optional[UpdateOptions], 
+                      **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
+        return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
+
+    def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
+        """Yield rows of distinct values
+        
+        Arguments:
+            distinct_fields (Iterable[FieldName] | FieldName): The field or fields to find distinct values for.
+                Choosing multiple fields will find all distinct instances of those field combinations
+        
+        Yields:
+            ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
+        """
+        clause = SQLClause(prefix=f'DISTINCT {self.format_query(distinct_fields)}', postfix=None)
+        yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
+
+    def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Parameters:
             field_names (str | Iterable[str]): The columns to iterate
-
+            search_options (SearchOptions): A Search Options object
+            **options (Unpack[SearchOptions]): Additional over
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
-    def get_tuples(self, field_names: Iterable[str], **options: SearchOptions) -> Generator[tuple[Any, ...]]:
+    def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
         Parameters:
@@ -176,22 +254,40 @@ class FeatureClass:
         """
         yield from self.search_cursor(field_names, **options)
 
+    def __getitem__(self, field: FieldName) -> Generator[Any]:
+        yield from ( val for val, in self.search_cursor(field) )
+
     @classmethod
-    def from_layer(cls, layer: Layer) -> FeatureClass:
+    def from_layer(cls, layer: Layer, 
+                   *,
+                   max_selection: int=500_000, # This needs testing
+                   raise_exception: bool=False) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
             layer (Layer): The layer to convert to a FeatureClass
-        
+            max_selection (int): Maximum number of records allowed in the selection
+                use this to prevent a SQL query with millions of OIDs from being generated
+            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
+                otherwise, it will print a warning to `stdout` and continue
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
+        
+        Raises:
+            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
-        selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
         fc = cls(layer.dataSource)
-        search_options = SearchOptions(where_clause=fc.format_query(selected_ids))
-        update_options = UpdateOptions(where_clause=fc.format_query(selected_ids))
-        fc.search_options = search_options
-        fc.update_options = update_options
+        selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
+
+        if len(selected_ids) > max_selection:
+            selected_ids = set()
+            if raise_exception:
+                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
+            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
+
+        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        fc.search_options = SearchOptions(where_clause=selected)
+        fc.update_options = UpdateOptions(where_clause=selected)
         return fc
     
 
