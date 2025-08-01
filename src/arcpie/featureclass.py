@@ -43,6 +43,7 @@ from .cursor import (
     EditToken,
     CursorToken,
     CursorTokens,
+    SQLClause,
 )
 
 from functools import lru_cache, wraps
@@ -53,7 +54,6 @@ def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], No
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
 
 class FeatureClass:
-    _cache_enabled: bool = False # Set to True to enable caching on all FeatureClass objects
 
     def __init__(
             self, path: str,
@@ -61,16 +61,16 @@ class FeatureClass:
             search_options: Optional[SearchOptions]=None, 
             update_options: Optional[UpdateOptions]=None, 
             insert_options: Optional[InsertOptions]=None,
-            enable_cache: bool=False,
+            clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
+        self._clause = clause or None
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
         self._layer: Optional[Layer] = None
 
     @property
-    @lru_cache(maxsize=_cache_enabled)
     def describe(self) -> dt.FeatureClass:
         return Describe(self.path)
 
@@ -101,6 +101,18 @@ class FeatureClass:
     @update_options.setter
     def update_options(self, update_options: UpdateOptions) -> None:
         self._update_options = update_options
+
+    @property
+    def clause(self) -> SQLClause | None:
+        return self._clause
+
+    @clause.setter
+    def clause(self, clause: SQLClause) -> None:
+        """Set a feature level SQL clause on all Insert and Search operations
+        
+        This clause is overridden by all Option level clauses
+        """
+        self._clause = clause
 
     @property
     def fields(self) -> tuple[str, ...]:
@@ -147,23 +159,18 @@ class FeatureClass:
         """Format a list of object IDs into a SQL query to be used with cursors or layer selections"""
         return f"{self.describe.OIDFieldName} IN ({','.join(map(str, ids))})"
     
+    # Option Resolvers (base options from kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
-        ser_opts = self.search_options
-        ser_opts.update(options or  {})
-        ser_opts.update(overrides)
-        return ser_opts
+        """Combine all provided SearchOptions into one dictionary"""
+        return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
 
     def _resolve_insert_options(self, options: Optional[InsertOptions], overrides: InsertOptions) -> InsertOptions:
-        ins_opts = self.insert_options
-        ins_opts.update(options or {})
-        ins_opts.update(overrides)
-        return ins_opts
+        """Combine all provided InsertOptions into one dictionary"""
+        return {**self.insert_options, **(options or {}), **overrides}
 
     def _resolve_update_options(self, options: Optional[UpdateOptions], overrides: UpdateOptions) -> UpdateOptions:
-        upd_opts = self.update_options
-        upd_opts.update(options or {})
-        upd_opts.update(overrides)
-        return upd_opts
+        """Combine all provided UpdateOptions into one dictionary"""
+        return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
 
     def search_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
