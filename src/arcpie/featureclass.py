@@ -31,6 +31,10 @@ from typing import (
     Callable,
 )
 
+from typing_extensions import (
+    Unpack,
+)
+
 from .cursor import (
     SearchOptions, 
     InsertOptions, 
@@ -42,6 +46,8 @@ from .cursor import (
 )
 
 from functools import lru_cache, wraps
+
+FieldName = CursorToken | str
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
@@ -140,23 +146,42 @@ class FeatureClass:
     def format_query(self, ids: set[int]) -> str:
         """Format a list of object IDs into a SQL query to be used with cursors or layer selections"""
         return f"{self.describe.OIDFieldName} IN ({','.join(map(str, ids))})"
-
-    def search_cursor(self, field_names: str | Iterable[str], **options) -> SearchCursor:
-        _options = self.search_options
-        _options.update(**options)
-        return SearchCursor(self.path, field_names, **_options)
-
-    def insert_cursor(self, field_names: str | Iterable[str], **options) -> InsertCursor:
-        _options = self.insert_options
-        _options.update(**options)
-        return InsertCursor(self.path, field_names, **_options)
     
-    def update_cursor(self, field_names: str | Iterable[str], **options) -> UpdateCursor:
-        _options = self.update_options
-        _options.update(**options)
-        return UpdateCursor(self.path, field_names, **_options)
+    def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
+        ser_opts = self.search_options
+        ser_opts.update(options or  {})
+        ser_opts.update(overrides)
+        return ser_opts
+
+    def _resolve_insert_options(self, options: Optional[InsertOptions], overrides: InsertOptions) -> InsertOptions:
+        ins_opts = self.insert_options
+        ins_opts.update(options or {})
+        ins_opts.update(overrides)
+        return ins_opts
+
+    def _resolve_update_options(self, options: Optional[UpdateOptions], overrides: UpdateOptions) -> UpdateOptions:
+        upd_opts = self.update_options
+        upd_opts.update(options or {})
+        upd_opts.update(overrides)
+        return upd_opts
+
+    def search_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      search_options: Optional[SearchOptions]=None, 
+                      **overrides: Unpack[SearchOptions]) -> SearchCursor:
+    def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      insert_options: Optional[InsertOptions], 
+                      **overrides: Unpack[InsertOptions]) -> InsertCursor:
+        return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
     
-    def get_records(self, field_names: Iterable[str], **options: SearchOptions):
+    def update_cursor(self, field_names: FieldName | Iterable[FieldName],
+                      *,
+                      update_options: Optional[UpdateOptions], 
+                      **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
+        return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
+    
+    def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Parameters:
@@ -167,7 +192,7 @@ class FeatureClass:
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
-    def get_tuples(self, field_names: Iterable[str], **options: SearchOptions) -> Generator[tuple[Any, ...]]:
+    def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
         Parameters:
