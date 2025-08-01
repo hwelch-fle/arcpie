@@ -247,6 +247,9 @@ class FeatureClass:
         """
         yield from self.search_cursor(field_names, **options)
 
+    def __getitem__(self, field: FieldName) -> Generator[Any]:
+        yield from ( val for val, in self.search_cursor(field) )
+
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
