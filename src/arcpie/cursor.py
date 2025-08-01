@@ -5,6 +5,7 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
+    Optional,
 )
 
 from arcpy import (
@@ -68,8 +69,8 @@ class SQLClause(NamedTuple):
             [('foo', 1001), ('bar', 999), ('baz', 567), ('buzz', 345), ('bang', 233)]
         ```
     """
-    prefix: str
-    postfix: str
+    prefix: Optional[str]
+    postfix: Optional[str]
 
 class SearchOptions(TypedDict, total=False):
     """Optional parameters for SearchCursors
