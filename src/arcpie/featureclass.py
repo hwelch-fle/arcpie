@@ -241,7 +241,10 @@ class FeatureClass:
         yield from self.search_cursor(field_names, **options)
 
     @classmethod
-    def from_layer(cls, layer: Layer) -> FeatureClass:
+    def from_layer(cls, layer: Layer, 
+                   *,
+                   max_selection: int=1_000_000, 
+                   raise_exception: bool=False) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
@@ -250,12 +253,17 @@ class FeatureClass:
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """
-        selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
         fc = cls(layer.dataSource)
-        search_options = SearchOptions(where_clause=fc.format_query(selected_ids))
-        update_options = UpdateOptions(where_clause=fc.format_query(selected_ids))
-        fc.search_options = search_options
-        fc.update_options = update_options
+        selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
+
+        if len(selected_ids) > max_selection:
+            selected_ids = set()
+            if raise_exception:
+                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
+            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
+
+        fc.search_options = SearchOptions(where_clause=fc.format_query(selected_ids))
+        fc.update_options = UpdateOptions(where_clause=fc.format_query(selected_ids))
         return fc
     
 
