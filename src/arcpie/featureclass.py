@@ -137,11 +137,6 @@ class FeatureClass:
         self._layer = layer
 
     @property
-    def geometry(self, geometry_type: ShapeToken='SHAPE@') -> Generator[Geometry, None, None]:
-        yield from ( shape for shape, in self.get_tuples(geometry_type) )
-
-    @property
-    @lru_cache(maxsize=_cache_enabled)
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
         return ListSubtypes(self.path)
@@ -151,9 +146,8 @@ class FeatureClass:
         return Editor(self.describe.workspace.catalogPath)
 
     @property
-    @lru_cache(maxsize=_cache_enabled)
-    def attribute_rules(self):
-        return self.describe.fields
+    def shapes(self) -> Generator[Geometry]:
+        yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
     def format_query(self, ids: set[int]) -> str:
         """Format a list of object IDs into a SQL query to be used with cursors or layer selections"""
