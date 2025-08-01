@@ -225,7 +225,20 @@ class FeatureClass:
                       update_options: Optional[UpdateOptions], 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
-    
+
+    def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
+        """Yield rows of distinct values
+        
+        Arguments:
+            distinct_fields (Iterable[FieldName] | FieldName): The field or fields to find distinct values for.
+                Choosing multiple fields will find all distinct instances of those field combinations
+        
+        Yields:
+            ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
+        """
+        clause = SQLClause(prefix=f'DISTINCT {self.format_query(distinct_fields)}', postfix=None)
+        yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
+
     def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
