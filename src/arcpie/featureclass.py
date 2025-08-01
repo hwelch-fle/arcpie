@@ -260,7 +260,7 @@ class FeatureClass:
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
-                   max_selection: int=1_000_000, 
+                   max_selection: int=500_000, # This needs testing
                    raise_exception: bool=False) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
