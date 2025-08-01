@@ -224,7 +224,8 @@ class FeatureClass:
 
         Parameters:
             field_names (str | Iterable[str]): The columns to iterate
-
+            search_options (SearchOptions): A Search Options object
+            **options (Unpack[SearchOptions]): Additional over
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
