@@ -53,7 +53,10 @@ FieldName = CursorToken | str
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
 
-class FeatureClass:
+def format_query(vals: Iterable[Any]) -> str:
+    """Format a list of values into a SQL list"""
+    return f"({','.join(map(str, vals))})"
+
 
     def __init__(
             self, path: str,
