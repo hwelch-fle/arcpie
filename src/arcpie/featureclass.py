@@ -226,6 +226,7 @@ class FeatureClass(Generic[_Geo_T]):
         """Combine all provided UpdateOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
 
+    # Cursor Handlers
     def search_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
                       search_options: Optional[SearchOptions]=None, 
@@ -233,9 +234,13 @@ class FeatureClass(Generic[_Geo_T]):
         """Get a `SearchCursor` for the `FeatureClass`
         Supplied search options are resolved by updating the base FeatureClass Search options in this order:
 
-            `FeatureClass.search_options -> search_options -> **overrides['option_key']`
+        `**overrides['kwarg'] -> search_options['kwarg'] -> self.search_options['kwarg']`
+
+        This is implemented using unpacking operations with the lowest importance option set being unpacked first
+
+        `{**self.search_options, **(search_options or {}), **overrides}`
         
-        With direct key word arguments shadowing all other supplied options. This allows a Feature Class to
+        With direct key word arguments (`**overrides`) shadowing all other supplied options. This allows a Feature Class to
         be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
         then a direct keyword override to be supplied while never mutating the base options of the feature class.
         
