@@ -84,7 +84,7 @@ class FeatureClass(Generic[_Geo_T]):
             clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
-        self._clause = clause or None
+        self._clause = clause or SQLClause(None, None)
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
