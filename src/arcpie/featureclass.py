@@ -57,6 +57,23 @@ def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
 
+_Geo_T = TypeVar('_Geo_T', Geometry, Polygon, Polyline, PointGeometry)
+class FeatureClass(Generic[_Geo_T]):
+    """A Wrapper for ArcGIS FeatureClass objects
+    
+    Example:
+        ```python
+        >>> point_features = FeatureClass[PointGeometry]('<feature_class_path>') # Initialize FeatureClass with Geometry Type
+        >>> buffers = (pt.buffer(10) for pt in point_features.shapes)            # Create a buffer Generator
+        >>> 
+        >>> sr = SpatialReference(4206)
+        >>> with point_features.reference_as(sr):                                # Set a new spatial reference
+        >>>     for buffer in buffers:                                           # Consume the Generator, but with the new reference
+        >>>         area = buffer.area
+        >>>         units = sr.linearUnitName
+        >>>         print(f"{area} Sq{units}")
+        >>>
+    """
 
     def __init__(
             self, path: str,
