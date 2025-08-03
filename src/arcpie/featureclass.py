@@ -91,10 +91,7 @@ class FeatureClass(Generic[_Geo_T]):
         self._layer: Optional[Layer] = None
         self._in_edit_session=False
 
-    @property
-    def name(self) -> str:
-        return self.describe.name
-
+    # rw Properties
     @property
     def search_options(self) -> SearchOptions:
         return self._search_options.copy()
@@ -120,7 +117,7 @@ class FeatureClass(Generic[_Geo_T]):
         self._update_options = update_options
 
     @property
-    def clause(self) -> SQLClause | None:
+    def clause(self) -> SQLClause:
         return self._clause
 
     @clause.setter
@@ -130,6 +127,31 @@ class FeatureClass(Generic[_Geo_T]):
         This clause is overridden by all Option level clauses
         """
         self._clause = clause
+
+    @property
+    def layer(self) -> Optional[Layer]:
+        return self._layer
+
+    @layer.setter
+    def layer(self, layer: Layer) -> None:
+        """Set a layer object for the FeatureClass, layer datasource must be this feature class!"""
+        if layer.dataSource != self.path:
+            raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
+        self._layer = layer
+
+    # ro Properties
+    @property
+    def describe(self) -> dt.FeatureClass:
+        return Describe(self.path)
+
+    @property
+    def workspace(self) -> str:
+        """Get the workspace of the `FeatureClass`"""
+        return self.describe.workspace.catalogPath
+
+    @property
+    def name(self) -> str:
+        return self.describe.name
 
     @property
     def fields(self) -> tuple[str, ...]:
@@ -143,34 +165,32 @@ class FeatureClass(Generic[_Geo_T]):
             return c._dtype
 
     @property
-    def layer(self) -> Optional[Layer]:
-        return self._layer
-
-    @layer.setter
-    def layer(self, layer: Layer) -> None:
-        """Set a layer object for the FeatureClass, layer datasource must be this feature class!"""
-        if layer.dataSource != self.path:
-            raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
-        self._layer = layer
-
-    @property
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
         return ListSubtypes(self.path)
 
     @property
-    def editor(self) -> Editor:
+    def feature_editor(self) -> Editor:
         return Editor(self.describe.workspace.catalogPath)
 
     @property
-    def shapes(self) -> Generator[Geometry]:
+    def shapes(self) -> Generator[_Geo_T, None, None]:
         yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
-    def format_query(self, vals: Iterable[Any]) -> str:
-        """Format a list of values into a SQL list"""
-        return f"({','.join(map(str, vals))})"
-    
-    # Option Resolvers (base options from kwargs -> Options Object -> FeatureClass Options)
+    @property
+    def spatial_reference(self):
+        return self.describe.spatialReference
+
+    @property
+    def unit_name(self):
+        return self.spatial_reference.linearUnitName
+
+    @property
+    def is_editing(self) -> bool:
+        """Returns true if the featureclass is currently within an edit session"""
+        return self._in_edit_session    
+
+    # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
         """Combine all provided SearchOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
