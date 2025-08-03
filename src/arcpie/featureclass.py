@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+# Arcpy imports
 from arcpy.da import (
     Editor,
     SearchCursor,
@@ -14,13 +15,23 @@ from arcpy.da import (
 
 from arcpy import (
     Geometry,
+    Polygon,
+    Polyline,
+    PointGeometry,
     Describe,
+    SpatialReference,
+    Exists,
+)
+
+from arcpy.management import (
+    CopyFeatures,    
 )
 
 from arcpy._mp import (
     Layer,
 )
 
+# Typing imports
 import arcpy.typing.describe as dt
 
 from typing import (
@@ -29,12 +40,27 @@ from typing import (
     Optional,
     Generator,
     Callable,
+    TypeVar,
+    Generic,
+    Literal,
 )
 
 from typing_extensions import (
     Unpack,
 )
 
+# Standardlib imports
+from contextlib import (
+    contextmanager,
+)
+
+import json
+
+from pathlib import (
+    Path,
+)
+
+# Library imports
 from .cursor import (
     SearchOptions, 
     InsertOptions, 
