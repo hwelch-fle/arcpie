@@ -10,7 +10,6 @@ from arcpy.da import (
     UpdateCursor,
     Subtype,
     ListSubtypes,
-    Describe as DescribeDict,
 )
 
 from arcpy import (
@@ -71,8 +70,6 @@ from .cursor import (
     CursorTokens,
     SQLClause,
 )
-
-from functools import lru_cache, wraps
 
 FieldName = CursorToken | str
 
