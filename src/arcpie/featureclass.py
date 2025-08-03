@@ -89,10 +89,7 @@ class FeatureClass(Generic[_Geo_T]):
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
         self._layer: Optional[Layer] = None
-
-    @property
-    def describe(self) -> dt.FeatureClass:
-        return Describe(self.path)
+        self._in_edit_session=False
 
     @property
     def name(self) -> str:
