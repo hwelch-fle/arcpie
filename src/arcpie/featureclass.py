@@ -434,6 +434,103 @@ class FeatureClass(Generic[_Geo_T]):
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
         return self.path
+
+    # Context Managers
+    @contextmanager
+    def editor(self, multiuser_mode: Optional[bool]=True):
+        """Create an editor context for the feature, required for features that participate in Topologies or exist
+        on remote servers
+        
+        Arguments:
+            multiuser_mode (bool): When edits will be performed on versioned data, set this to `True`; otherwise, set it to `False`. 
+                Only use with enterprise geodatabases. (default: `True`)
+        
+        Yields:
+            (self): Yields the featureclass back to you within an edit context and with the `is_editing` flag set
+        """
+        with Editor(self.path, multiuser_mode=multiuser_mode):
+            try:
+                self._in_edit_session = True
+                yield self
+            finally:
+                self._in_edit_session = False
+
+    @contextmanager
+    def reference_as(self, spatial_reference: SpatialReference):
+        """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
+        
+        Arguments:
+            spatial_reference (SpatialReference): The spatial reference to apply to the cursor objects
+        
+        Yields:
+            (self): Mutated self with search and update options set to use the provided spatial reference
+
+        Examples:
+            ```python
+            >>> sr = arcpy.SpatialReference(26971)
+            >>> fc = FeatureClass[Polygon]('<fc_path>')
+               
+            >>> orig_shapes = list(fc.shapes)
+               
+            >>> with fc.project_as(sr):
+            >>>     proj_shapes = list(fc.shapes)
+               
+            >>> print(orig_shapes[0].spatialReference)
+            SpatialReference(4326)
+            
+            >>> print(proj_shapes[0].spatialReference)
+            SpatialReference(26971)
+            ```
+        """
+        _old_src_ref = self.search_options.get('spatial_reference')
+        _old_upd_ref = self.update_options.get('spatial_reference')
+
+        try:
+            self._search_options['spatial_reference'] = spatial_reference
+            self._update_options['spatial_reference'] = spatial_reference
+            yield self
+
+        finally:
+            if _old_src_ref:
+                self._search_options['spatial_reference'] = _old_src_ref
+            if _old_upd_ref:
+                self._update_options['spatial_reference'] = _old_upd_ref
+
+    @contextmanager
+    def options(self,
+                *, 
+                strict: bool = False,
+                search_options: Optional[SearchOptions]=None, 
+                update_options: Optional[UpdateOptions]=None, 
+                insert_options: Optional[InsertOptions]=None, 
+                clause: Optional[SQLClause]=None):
+        """Enter a context block where the supplied options replace the stored options for the `FeatureClass`
+        
+        Arguments:
+            strict (bool): If this is set to `True` the `FeatureClass` will not fallback on existing options
+                when set to `False`, provided options override existing options (default: `False`)
+            search_options (SearchOptions): Contextual search overrides
+            update_options (UpdateOptions): Contextual update overrides
+            insert_options (InsertOptions): Contextual insert overrides
+            clause (SQLClause): Contextual `sql_clause` override
+        """
+        _src_ops = self.search_options
+        _upd_ops = self.update_options
+        _ins_ops = self.insert_options
+        _clause  = self.clause
+        try:
+            self._search_options = search_options or _src_ops if not strict else SearchOptions()
+            self._update_options = update_options or _upd_ops if not strict else UpdateOptions()
+            self._insert_options = insert_options or _ins_ops if not strict else InsertOptions()
+            self._clause = clause or _clause if not strict else SQLClause(None, None)
+            yield self
+
+        finally:
+            self._search_options = _src_ops
+            self._update_options = _upd_ops
+            self.insert_options = _ins_ops
+            self._clause = _clause
+
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
