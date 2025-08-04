@@ -420,8 +420,20 @@ class FeatureClass(Generic[_Geo_T]):
 
     # Magic Methods
     def __getitem__(self, field: FieldName) -> Generator[Any]:
+        """Create a generator that yields single values from the requested column"""
         yield from ( val for val, in self.search_cursor(field) )
 
+    def __len__(self) -> int:
+        """Iterate all rows and count them. Only count with `self.search_options` queries"""
+        return sum(1 for _ in self['OID@'])
+
+    def __repr__(self) -> str:
+        """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
+        return f'{self.__class__.__name__}[{_Geo_T.__name__}](\'{self.path}\')'
+
+    def __str__(self) -> str:
+        """Return the `FeatureClass` path for use with other arcpy methods"""
+        return self.path
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
