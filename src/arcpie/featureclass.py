@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+# Arcpy imports
 from arcpy.da import (
     Editor,
     SearchCursor,
@@ -9,18 +10,27 @@ from arcpy.da import (
     UpdateCursor,
     Subtype,
     ListSubtypes,
-    Describe as DescribeDict,
 )
 
 from arcpy import (
     Geometry,
+    Polygon,
+    Polyline,
+    PointGeometry,
     Describe,
+    SpatialReference,
+    Exists,
+)
+
+from arcpy.management import (
+    CopyFeatures,    
 )
 
 from arcpy._mp import (
     Layer,
 )
 
+# Typing imports
 import arcpy.typing.describe as dt
 
 from typing import (
@@ -29,12 +39,27 @@ from typing import (
     Optional,
     Generator,
     Callable,
+    TypeVar,
+    Generic,
+    Literal,
 )
 
 from typing_extensions import (
     Unpack,
 )
 
+# Standardlib imports
+from contextlib import (
+    contextmanager,
+)
+
+import json
+
+from pathlib import (
+    Path,
+)
+
+# Library imports
 from .cursor import (
     SearchOptions, 
     InsertOptions, 
@@ -46,14 +71,32 @@ from .cursor import (
     SQLClause,
 )
 
-from functools import lru_cache, wraps
-
 FieldName = CursorToken | str
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
 
-class FeatureClass:
+def format_query(vals: Iterable[Any]) -> str:
+    """Format a list of values into a SQL list"""
+    return f"({','.join(map(str, vals))})"
+
+_Geo_T = TypeVar('_Geo_T', Geometry, Polygon, Polyline, PointGeometry)
+class FeatureClass(Generic[_Geo_T]):
+    """A Wrapper for ArcGIS FeatureClass objects
+    
+    Example:
+        ```python
+        >>> point_features = FeatureClass[PointGeometry]('<feature_class_path>') # Initialize FeatureClass with Geometry Type
+        >>> buffers = (pt.buffer(10) for pt in point_features.shapes)            # Create a buffer Generator
+        >>> 
+        >>> sr = SpatialReference(4206)
+        >>> with point_features.reference_as(sr):                                # Set a new spatial reference
+        >>>     for buffer in buffers:                                           # Consume the Generator, but with the new reference
+        >>>         area = buffer.area
+        >>>         units = sr.linearUnitName
+        >>>         print(f"{area} Sq{units}")
+        >>>
+    """
 
     def __init__(
             self, path: str,
@@ -64,20 +107,14 @@ class FeatureClass:
             clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
-        self._clause = clause or None
+        self._clause = clause or SQLClause(None, None)
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
         self._layer: Optional[Layer] = None
+        self._in_edit_session=False
 
-    @property
-    def describe(self) -> dt.FeatureClass:
-        return Describe(self.path)
-
-    @property
-    def name(self) -> str:
-        return self.describe.name
-
+    # rw Properties
     @property
     def search_options(self) -> SearchOptions:
         return self._search_options.copy()
@@ -103,7 +140,7 @@ class FeatureClass:
         self._update_options = update_options
 
     @property
-    def clause(self) -> SQLClause | None:
+    def clause(self) -> SQLClause:
         return self._clause
 
     @clause.setter
@@ -113,6 +150,31 @@ class FeatureClass:
         This clause is overridden by all Option level clauses
         """
         self._clause = clause
+
+    @property
+    def layer(self) -> Optional[Layer]:
+        return self._layer
+
+    @layer.setter
+    def layer(self, layer: Layer) -> None:
+        """Set a layer object for the FeatureClass, layer datasource must be this feature class!"""
+        if layer.dataSource != self.path:
+            raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
+        self._layer = layer
+
+    # ro Properties
+    @property
+    def describe(self) -> dt.FeatureClass:
+        return Describe(self.path)
+
+    @property
+    def workspace(self) -> str:
+        """Get the workspace of the `FeatureClass`"""
+        return self.describe.workspace.catalogPath
+
+    @property
+    def name(self) -> str:
+        return self.describe.name
 
     @property
     def fields(self) -> tuple[str, ...]:
@@ -126,34 +188,32 @@ class FeatureClass:
             return c._dtype
 
     @property
-    def layer(self) -> Optional[Layer]:
-        return self._layer
-
-    @layer.setter
-    def layer(self, layer: Layer) -> None:
-        """Set a layer object for the FeatureClass, layer datasource must be this feature class!"""
-        if layer.dataSource != self.path:
-            raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
-        self._layer = layer
-
-    @property
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
         return ListSubtypes(self.path)
 
     @property
-    def editor(self) -> Editor:
+    def feature_editor(self) -> Editor:
         return Editor(self.describe.workspace.catalogPath)
 
     @property
-    def shapes(self) -> Generator[Geometry]:
+    def shapes(self) -> Generator[_Geo_T, None, None]:
         yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
-    def format_query(self, vals: Iterable[Any]) -> str:
-        """Format a list of values into a SQL list"""
-        return f"({','.join(map(str, vals))})"
-    
-    # Option Resolvers (base options from kwargs -> Options Object -> FeatureClass Options)
+    @property
+    def spatial_reference(self):
+        return self.describe.spatialReference
+
+    @property
+    def unit_name(self):
+        return self.spatial_reference.linearUnitName
+
+    @property
+    def is_editing(self) -> bool:
+        """Returns true if the featureclass is currently within an edit session"""
+        return self._in_edit_session    
+
+    # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
         """Combine all provided SearchOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
@@ -166,6 +226,7 @@ class FeatureClass:
         """Combine all provided UpdateOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
 
+    # Cursor Handlers
     def search_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
                       search_options: Optional[SearchOptions]=None, 
@@ -173,9 +234,13 @@ class FeatureClass:
         """Get a `SearchCursor` for the `FeatureClass`
         Supplied search options are resolved by updating the base FeatureClass Search options in this order:
 
-            `FeatureClass.search_options -> search_options -> **overrides['option_key']`
+        `**overrides['kwarg'] -> search_options['kwarg'] -> self.search_options['kwarg']`
+
+        This is implemented using unpacking operations with the lowest importance option set being unpacked first
+
+        `{**self.search_options, **(search_options or {}), **overrides}`
         
-        With direct key word arguments shadowing all other supplied options. This allows a Feature Class to
+        With direct key word arguments (`**overrides`) shadowing all other supplied options. This allows a Feature Class to
         be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
         then a direct keyword override to be supplied while never mutating the base options of the feature class.
         
@@ -210,14 +275,16 @@ class FeatureClass:
 
     def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
-                      insert_options: Optional[InsertOptions], 
+                      insert_options: Optional[InsertOptions]=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
+        """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
-    
+
     def update_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
-                      update_options: Optional[UpdateOptions], 
+                      update_options: Optional[UpdateOptions]=None, 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
+        """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
@@ -230,7 +297,7 @@ class FeatureClass:
         Yields:
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
-        clause = SQLClause(prefix=f'DISTINCT {self.format_query(distinct_fields)}', postfix=None)
+        clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
         yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
 
     def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
@@ -238,6 +305,8 @@ class FeatureClass:
 
         Parameters:
             field_names (str | Iterable[str]): The columns to iterate
+            search_options (SearchOptions): A Search Options object
+            **options (Unpack[SearchOptions]): Additional over
             search_options (SearchOptions): A Search Options object
             **options (Unpack[SearchOptions]): Additional over
         Yields 
@@ -254,9 +323,217 @@ class FeatureClass:
         """
         yield from self.search_cursor(field_names, **options)
 
+    # Data Operations
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass:
+        """Copy this `FeatureClass` to a new workspace
+        
+        Arguments:
+            workspace (str): The path to the workspace
+            options (bool): Copy the cursor options to the new `FeatureClass` (default: `True`)
+            
+        Returns:
+            (FeatureClass): A `FeatureClass` instance of the copied features
+        
+        Example:
+            ```python
+            >>> new_fc = fc.copy('workspace2')
+            >>> new_fc == fc
+            False
+        """
+        name = Path(self.path).relative_to(Path(self.workspace))
+        if Exists(copy_fc := Path(workspace) / name):
+            raise ValueError(f'{name} already exists in {workspace}!')
+        CopyFeatures(self.path, str(copy_fc))
+        fc = FeatureClass(str(copy_fc))
+        if options:
+            fc.search_options = self.search_options
+            fc.update_options = self.update_options
+            fc.insert_options = self.insert_options
+            fc.clause = self.clause
+        return fc
+
+    def clear(self, all: bool=False) -> int:
+        """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
+
+        Arguments:
+            all (bool): Set to `True` to clear all rows ignoring supplied `update_options`
+
+        Returns:
+            (int): The number of rows deleted
+            
+        Note:
+            With `all` not set to `True`, only rows that match the `update_options` settings will be deleted
+        
+        Warning:
+            No way to undo this!
+        """
+        with self.update_cursor('OID@') as cur:
+            return sum(cur.deleteRow() or 1 for _ in cur)
+
+    def esrijson(self, display_field: Optional[FieldName]=None) -> str:
+        """Dump the current state of the `FeatureClass` to an esrijson string"""
+        return json.dumps(
+            {
+                'displayFieldName': display_field,
+                'fieldAliases': {
+                    f.name : f.aliasName
+                    for f in self.describe.fields
+                    if f.aliasName
+                },
+                'geometryType': self.describe.shapeType,
+                'hasZ': self.describe.hasZ,
+                'hasM': self.describe.hasM,
+                'spatialReference' : self.spatial_reference.exportToString(),
+                'fields' : [
+                    {
+                        'name': f.name,
+                        'type': f.type,
+                        'alias': f.aliasName,
+                    }
+                    for f in self.describe.fields
+                ],
+                'features': [
+                    {
+                        'geometry': row.pop('SHAPE@'),
+                        'attributes': row
+                    }
+                    for row in self.get_records(['SHAPE@'] + list(self.fields))
+                ]
+            }
+        )
+    
+    def geojson(self) -> str:
+        return json.dumps(
+            {
+                'type': 'FeatureCollection',
+                'features': [
+                    {
+                        'type': 'Feature',
+                        'id': row['OID@'],
+                        'geometry': {
+                            row.pop('SHAPE@').JSON
+                        },
+                        'properties': row
+                    }
+                    for row in self.get_records(['SHAPE@', 'OID@'] + list(self.fields))
+                ]
+            }
+        )
+
+    # Magic Methods
     def __getitem__(self, field: FieldName) -> Generator[Any]:
+        """Create a generator that yields single values from the requested column"""
         yield from ( val for val, in self.search_cursor(field) )
 
+    def __len__(self) -> int:
+        """Iterate all rows and count them. Only count with `self.search_options` queries"""
+        return sum(1 for _ in self['OID@'])
+
+    def __repr__(self) -> str:
+        """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
+        return f'{self.__class__.__name__}[{_Geo_T.__name__}](\'{self.path}\')'
+
+    def __str__(self) -> str:
+        """Return the `FeatureClass` path for use with other arcpy methods"""
+        return self.path
+
+    # Context Managers
+    @contextmanager
+    def editor(self, multiuser_mode: Optional[bool]=True):
+        """Create an editor context for the feature, required for features that participate in Topologies or exist
+        on remote servers
+        
+        Arguments:
+            multiuser_mode (bool): When edits will be performed on versioned data, set this to `True`; otherwise, set it to `False`. 
+                Only use with enterprise geodatabases. (default: `True`)
+        
+        Yields:
+            (self): Yields the featureclass back to you within an edit context and with the `is_editing` flag set
+        """
+        with Editor(self.path, multiuser_mode=multiuser_mode):
+            try:
+                self._in_edit_session = True
+                yield self
+            finally:
+                self._in_edit_session = False
+
+    @contextmanager
+    def reference_as(self, spatial_reference: SpatialReference):
+        """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
+        
+        Arguments:
+            spatial_reference (SpatialReference): The spatial reference to apply to the cursor objects
+        
+        Yields:
+            (self): Mutated self with search and update options set to use the provided spatial reference
+
+        Examples:
+            ```python
+            >>> sr = arcpy.SpatialReference(26971)
+            >>> fc = FeatureClass[Polygon]('<fc_path>')
+               
+            >>> orig_shapes = list(fc.shapes)
+               
+            >>> with fc.project_as(sr):
+            >>>     proj_shapes = list(fc.shapes)
+               
+            >>> print(orig_shapes[0].spatialReference)
+            SpatialReference(4326)
+            
+            >>> print(proj_shapes[0].spatialReference)
+            SpatialReference(26971)
+            ```
+        """
+        _old_src_ref = self.search_options.get('spatial_reference')
+        _old_upd_ref = self.update_options.get('spatial_reference')
+
+        try:
+            self._search_options['spatial_reference'] = spatial_reference
+            self._update_options['spatial_reference'] = spatial_reference
+            yield self
+
+        finally:
+            if _old_src_ref:
+                self._search_options['spatial_reference'] = _old_src_ref
+            if _old_upd_ref:
+                self._update_options['spatial_reference'] = _old_upd_ref
+
+    @contextmanager
+    def options(self,
+                *, 
+                strict: bool = False,
+                search_options: Optional[SearchOptions]=None, 
+                update_options: Optional[UpdateOptions]=None, 
+                insert_options: Optional[InsertOptions]=None, 
+                clause: Optional[SQLClause]=None):
+        """Enter a context block where the supplied options replace the stored options for the `FeatureClass`
+        
+        Arguments:
+            strict (bool): If this is set to `True` the `FeatureClass` will not fallback on existing options
+                when set to `False`, provided options override existing options (default: `False`)
+            search_options (SearchOptions): Contextual search overrides
+            update_options (UpdateOptions): Contextual update overrides
+            insert_options (InsertOptions): Contextual insert overrides
+            clause (SQLClause): Contextual `sql_clause` override
+        """
+        _src_ops = self.search_options
+        _upd_ops = self.update_options
+        _ins_ops = self.insert_options
+        _clause  = self.clause
+        try:
+            self._search_options = search_options or _src_ops if not strict else SearchOptions()
+            self._update_options = update_options or _upd_ops if not strict else UpdateOptions()
+            self._insert_options = insert_options or _ins_ops if not strict else InsertOptions()
+            self._clause = clause or _clause if not strict else SQLClause(None, None)
+            yield self
+
+        finally:
+            self._search_options = _src_ops
+            self._update_options = _upd_ops
+            self.insert_options = _ins_ops
+            self._clause = _clause
+
+    # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
@@ -270,12 +547,20 @@ class FeatureClass:
                 use this to prevent a SQL query with millions of OIDs from being generated
             raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
                 otherwise, it will print a warning to `stdout` and continue
+            max_selection (int): Maximum number of records allowed in the selection
+                use this to prevent a SQL query with millions of OIDs from being generated
+            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
+                otherwise, it will print a warning to `stdout` and continue
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         
         Raises:
             ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
+        
+        Raises:
+            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
+        fc = cls(layer.dataSource)
         fc = cls(layer.dataSource)
         selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
 
@@ -285,11 +570,21 @@ class FeatureClass:
                 raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
-        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
+        fc.search_options = SearchOptions(where_clause=selected)
+        fc.update_options = UpdateOptions(where_clause=selected)
+
+        if len(selected_ids) > max_selection:
+            selected_ids = set()
+            if raise_exception:
+                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
+            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
+
+        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
         fc.search_options = SearchOptions(where_clause=selected)
         fc.update_options = UpdateOptions(where_clause=selected)
         return fc
     
 
 if __name__ == '__main__':
-    f = FeatureClass('path')
+    fc = FeatureClass[Polygon]('path')
