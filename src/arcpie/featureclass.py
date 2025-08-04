@@ -297,7 +297,7 @@ class FeatureClass(Generic[_Geo_T]):
         Yields:
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
-        clause = SQLClause(prefix=f'DISTINCT {self.format_query(distinct_fields)}', postfix=None)
+        clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
         yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
 
     def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
