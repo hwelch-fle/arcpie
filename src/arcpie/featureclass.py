@@ -531,6 +531,7 @@ class FeatureClass(Generic[_Geo_T]):
             self.insert_options = _ins_ops
             self._clause = _clause
 
+    # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
@@ -566,4 +567,4 @@ class FeatureClass(Generic[_Geo_T]):
     
 
 if __name__ == '__main__':
-    f = FeatureClass('path')
+    fc = FeatureClass[Polygon]('path')
