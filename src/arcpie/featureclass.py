@@ -69,10 +69,7 @@ from .cursor import (
     CursorToken,
     CursorTokens,
     SQLClause,
-    SQLClause,
 )
-
-FieldName = CursorToken | str
 
 FieldName = CursorToken | str
 
@@ -107,7 +104,6 @@ class FeatureClass(Generic[_Geo_T]):
             search_options: Optional[SearchOptions]=None, 
             update_options: Optional[UpdateOptions]=None, 
             insert_options: Optional[InsertOptions]=None,
-            clause: Optional[SQLClause]=None,
             clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
@@ -318,7 +314,6 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
-    def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
     def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
@@ -544,10 +539,6 @@ class FeatureClass(Generic[_Geo_T]):
                    *,
                    max_selection: int=500_000, # This needs testing
                    raise_exception: bool=False) -> FeatureClass:
-    def from_layer(cls, layer: Layer, 
-                   *,
-                   max_selection: int=500_000, # This needs testing
-                   raise_exception: bool=False) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
@@ -579,7 +570,7 @@ class FeatureClass(Generic[_Geo_T]):
                 raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
-        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
         fc.search_options = SearchOptions(where_clause=selected)
         fc.update_options = UpdateOptions(where_clause=selected)
 
@@ -589,7 +580,7 @@ class FeatureClass(Generic[_Geo_T]):
                 raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
-        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
         fc.search_options = SearchOptions(where_clause=selected)
         fc.update_options = UpdateOptions(where_clause=selected)
         return fc
