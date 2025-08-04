@@ -69,7 +69,10 @@ from .cursor import (
     CursorToken,
     CursorTokens,
     SQLClause,
+    SQLClause,
 )
+
+FieldName = CursorToken | str
 
 FieldName = CursorToken | str
 
@@ -104,6 +107,7 @@ class FeatureClass(Generic[_Geo_T]):
             search_options: Optional[SearchOptions]=None, 
             update_options: Optional[UpdateOptions]=None, 
             insert_options: Optional[InsertOptions]=None,
+            clause: Optional[SQLClause]=None,
             clause: Optional[SQLClause]=None,
         ) -> None:
         self.path = str(path)
@@ -307,11 +311,14 @@ class FeatureClass(Generic[_Geo_T]):
             field_names (str | Iterable[str]): The columns to iterate
             search_options (SearchOptions): A Search Options object
             **options (Unpack[SearchOptions]): Additional over
+            search_options (SearchOptions): A Search Options object
+            **options (Unpack[SearchOptions]): Additional over
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
+    def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
     def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
@@ -537,10 +544,18 @@ class FeatureClass(Generic[_Geo_T]):
                    *,
                    max_selection: int=500_000, # This needs testing
                    raise_exception: bool=False) -> FeatureClass:
+    def from_layer(cls, layer: Layer, 
+                   *,
+                   max_selection: int=500_000, # This needs testing
+                   raise_exception: bool=False) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
             layer (Layer): The layer to convert to a FeatureClass
+            max_selection (int): Maximum number of records allowed in the selection
+                use this to prevent a SQL query with millions of OIDs from being generated
+            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
+                otherwise, it will print a warning to `stdout` and continue
             max_selection (int): Maximum number of records allowed in the selection
                 use this to prevent a SQL query with millions of OIDs from being generated
             raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
@@ -550,9 +565,23 @@ class FeatureClass(Generic[_Geo_T]):
         
         Raises:
             ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
+        
+        Raises:
+            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
+        fc = cls(layer.dataSource)
         selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
+
+        if len(selected_ids) > max_selection:
+            selected_ids = set()
+            if raise_exception:
+                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
+            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
+
+        selected = f"{fc.describe.OIDFieldName} IN {fc.format_query(selected_ids)}"
+        fc.search_options = SearchOptions(where_clause=selected)
+        fc.update_options = UpdateOptions(where_clause=selected)
 
         if len(selected_ids) > max_selection:
             selected_ids = set()
