@@ -367,6 +367,58 @@ class FeatureClass(Generic[_Geo_T]):
         """
         with self.update_cursor('OID@') as cur:
             return sum(cur.deleteRow() or 1 for _ in cur)
+
+    def esrijson(self, display_field: Optional[FieldName]=None) -> str:
+        """Dump the current state of the `FeatureClass` to an esrijson string"""
+        return json.dumps(
+            {
+                'displayFieldName': display_field,
+                'fieldAliases': {
+                    f.name : f.aliasName
+                    for f in self.describe.fields
+                    if f.aliasName
+                },
+                'geometryType': self.describe.shapeType,
+                'hasZ': self.describe.hasZ,
+                'hasM': self.describe.hasM,
+                'spatialReference' : self.spatial_reference.exportToString(),
+                'fields' : [
+                    {
+                        'name': f.name,
+                        'type': f.type,
+                        'alias': f.aliasName,
+                    }
+                    for f in self.describe.fields
+                ],
+                'features': [
+                    {
+                        'geometry': row.pop('SHAPE@'),
+                        'attributes': row
+                    }
+                    for row in self.get_records(['SHAPE@'] + list(self.fields))
+                ]
+            }
+        )
+    
+    def geojson(self) -> str:
+        return json.dumps(
+            {
+                'type': 'FeatureCollection',
+                'features': [
+                    {
+                        'type': 'Feature',
+                        'id': row['OID@'],
+                        'geometry': {
+                            row.pop('SHAPE@').JSON
+                        },
+                        'properties': row
+                    }
+                    for row in self.get_records(['SHAPE@', 'OID@'] + list(self.fields))
+                ]
+            }
+        )
+
+    # Magic Methods
     def __getitem__(self, field: FieldName) -> Generator[Any]:
         yield from ( val for val, in self.search_cursor(field) )
 
