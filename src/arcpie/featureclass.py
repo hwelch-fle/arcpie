@@ -321,6 +321,52 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from self.search_cursor(field_names, **options)
 
+    # Data Operations
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass:
+        """Copy this `FeatureClass` to a new workspace
+        
+        Arguments:
+            workspace (str): The path to the workspace
+            options (bool): Copy the cursor options to the new `FeatureClass` (default: `True`)
+            
+        Returns:
+            (FeatureClass): A `FeatureClass` instance of the copied features
+        
+        Example:
+            ```python
+            >>> new_fc = fc.copy('workspace2')
+            >>> new_fc == fc
+            False
+        """
+        name = Path(self.path).relative_to(Path(self.workspace))
+        if Exists(copy_fc := Path(workspace) / name):
+            raise ValueError(f'{name} already exists in {workspace}!')
+        CopyFeatures(self.path, str(copy_fc))
+        fc = FeatureClass(str(copy_fc))
+        if options:
+            fc.search_options = self.search_options
+            fc.update_options = self.update_options
+            fc.insert_options = self.insert_options
+            fc.clause = self.clause
+        return fc
+
+    def clear(self, all: bool=False) -> int:
+        """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
+
+        Arguments:
+            all (bool): Set to `True` to clear all rows ignoring supplied `update_options`
+
+        Returns:
+            (int): The number of rows deleted
+            
+        Note:
+            With `all` not set to `True`, only rows that match the `update_options` settings will be deleted
+        
+        Warning:
+            No way to undo this!
+        """
+        with self.update_cursor('OID@') as cur:
+            return sum(cur.deleteRow() or 1 for _ in cur)
     def __getitem__(self, field: FieldName) -> Generator[Any]:
         yield from ( val for val, in self.search_cursor(field) )
 
