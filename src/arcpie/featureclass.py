@@ -275,14 +275,16 @@ class FeatureClass(Generic[_Geo_T]):
 
     def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
-                      insert_options: Optional[InsertOptions], 
+                      insert_options: Optional[InsertOptions]=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
+        """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
-    
+
     def update_cursor(self, field_names: FieldName | Iterable[FieldName],
                       *,
-                      update_options: Optional[UpdateOptions], 
+                      update_options: Optional[UpdateOptions]=None, 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
+        """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
