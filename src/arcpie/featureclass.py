@@ -426,6 +426,10 @@ class FeatureClass(Generic[_Geo_T]):
         """Create a generator that yields single values from the requested column"""
         yield from ( val for val, in self.search_cursor(field) )
 
+    def __iter__(self) -> Generator[dict[str, Any]]:
+        """Iterate all rows in the FeatureClass yielding mappings of field name to field value"""
+        yield from ( as_dict(self.search_cursor(self.fields)) )
+
     def __len__(self) -> int:
         """Iterate all rows and count them. Only count with `self.search_options` queries"""
         return sum(1 for _ in self['OID@'])
