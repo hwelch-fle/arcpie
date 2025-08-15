@@ -28,6 +28,7 @@ from arcpy.management import (
 
 from arcpy._mp import (
     Layer,
+    Map,
 )
 
 # Typing imports
@@ -532,6 +533,65 @@ class FeatureClass(Generic[_Geo_T]):
             self._update_options = _upd_ops
             self.insert_options = _ins_ops
             self._clause = _clause
+
+    # Mapping interfaces (These pass common `Layer` operations up to the FeatureClass)
+    def bind_to_layer(self, layer: Layer) -> None:
+        """Update the provided layer's datasource to this FeatureClass
+        
+        Args:
+            layer (Layer): The layer to update connection properties for
+        """
+        layer.updateConnectionProperties(layer.dataSource, self.path)
+
+    def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP']='AUTO_ARRANGE') -> None:
+        """Add the featureclass to a map
+
+        Note: 
+            If the FeatureClass has a layer, the bound layer will be added to the map. 
+            Otherwise a default layer will be added. And the new layer will be bound to the FeatureClass
+
+        Args:
+            mp (Map): The map to add the featureclass to
+        """
+        if not self.layer:
+            # Create a default layer, bind it, remove, and add back
+            # with addLayer to match behavior with existing bound layer
+            self.layer = map.addDataFromPath(self.path) #type:ignore (Always Layer)
+            map.removeLayer(self.layer)
+        map.addLayer(self.layer, pos)
+
+    def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> set[int]:
+        """If the FeatureClass is bound to a layer, update the layer selection with the active SearchOptions
+        
+        Args:
+            method: The method to use to apply the selection\n
+                `DIFFERENCE`: Selects the features that are not in the current selection but are in the FeatureClass.\n
+                `INTERSECT`: Selects the features that are in the current selection and the FeatureClass.\n
+                `NEW`: Creates a new feature selection from the FeatureClass.\n
+                `SYMDIFFERENCE`: Selects the features that are in the current selection or the FeatureClass but not both.\n
+                `UNION`: Selects all the features in both the current selection and those in FeatureClass.\n
+        
+        Returns:
+            set[int] The selected OIDs
+        """
+        if not self.layer:
+            return set()
+        
+        self.layer.setSelectionSet(list(self['OID@']), method=method) 
+        return self.layer.getSelectionSet() #type:ignore (Always set[int])
+        
+    def unselect(self) -> set[int]:
+        """Remove all layer selections
+        
+        Returns:
+            set[int] The selection that is being removed
+        """
+        if not self.layer:
+            return set()
+        try:
+            return self.layer.getSelectionSet() #type:ignore (Always set[int])
+        finally:
+            self.layer.setSelectionSet(method='NEW')
 
     # Factory Constructors
     @classmethod
