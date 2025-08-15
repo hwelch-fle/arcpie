@@ -438,6 +438,54 @@ class FeatureClass(Generic[_Geo_T]):
         """Return the `FeatureClass` path for use with other arcpy methods"""
         return self.path
 
+    def __eq__(self, other) -> bool:
+        """Determine if the datasource of two featureclass objects is the same"""
+        return isinstance(other, self.__class__) and self.path == other.path
+
+    def __format__(self, format_spec: str) -> str:
+        """Implement format specs for string formatting a featureclass
+        
+        Arguments:
+            path|pth  : FeatureClass path
+            len|length: FeatureClass length (with applied SearchQuery)
+            layer|lyr : Linked FeatureClass layer if applicable (else `'None'`)
+            shape|shp : FeatureClass shape type
+            units|unt : FeatureClass linear unit name
+            wkid      : FeatureClass WKID
+            name|nm   : FeatureClass name
+            fields|fld: FeatureClass fields (comma seperated)
+        Usage:
+            ```python
+            >>> f'{fc:wkid}'
+            '2236'
+            >>> f'{fc:path}'
+            'C:\\<FeaturePath>'
+            >>> f'{fc:len}'
+            '101'
+            >>> f'{fc:shape}'
+            'Polygon'
+            ```
+        """
+        match format_spec:
+            case 'path' | 'pth':
+                return self.path
+            case 'len' | 'length':
+                return str(len(self))
+            case 'layer' | 'lyr':
+                return self.layer.longName if self.layer else 'None'
+            case 'shape' | 'shp':
+                return self.describe.shapeType
+            case 'units' | 'unt':
+                return self.unit_name
+            case 'wkid':
+                return self.spatial_reference.factoryCode
+            case 'name' | 'nm':
+                return self.name
+            case 'fields' | 'flds':
+                return ','.join(self.fields)
+            case _:
+                return str(self)
+
     # Context Managers
     @contextmanager
     def editor(self, multiuser_mode: Optional[bool]=True):
