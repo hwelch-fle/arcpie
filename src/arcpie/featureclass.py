@@ -431,7 +431,25 @@ class FeatureClass(Generic[_Geo_T]):
         yield from ( as_dict(self.search_cursor(self.fields)) )
 
     def __len__(self) -> int:
-        """Iterate all rows and count them. Only count with `self.search_options` queries"""
+        """Iterate all rows and count them. Only count with `self.search_options` queries.
+
+        Note:
+            The `__format__('len')` spec calls this function. So `len(fc)` and `f'{fc:len}'` are the same, 
+            with the caveat that the format spec option returns a string
+
+        Warning:
+            This operation will traverse the whole dataset when called! You should not use it in loops:
+            ```python
+            # Bad
+            for i, _ in enumerate(fc):
+                print(f'{i}/{len(fc)}')
+
+            # Good
+            count = len(fc)
+            for i, _ in enumerate(fc):
+                print(f'{i}/{count}')
+            ```
+        """
         return sum(1 for _ in self['OID@'])
 
     def __repr__(self) -> str:
@@ -447,8 +465,13 @@ class FeatureClass(Generic[_Geo_T]):
         return isinstance(other, self.__class__) and self.path == other.path
 
     def __format__(self, format_spec: str) -> str:
-        """Implement format specs for string formatting a featureclass
-        
+        """Implement format specs for string formatting a featureclass.
+
+        Warning:
+            The `{fc:len}` spec should only be used when needed. This spec will call `__len__` when 
+            used and will traverse the entire FeatureClass with applied SearchOptions each time it is 
+            called. See: `__len__` doc for info on better ways to track counts in loops.
+
         Arguments:
             path|pth  : FeatureClass path
             len|length: FeatureClass length (with applied SearchQuery)
