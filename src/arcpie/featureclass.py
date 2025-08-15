@@ -432,7 +432,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
-        return f'{self.__class__.__name__}[{_Geo_T.__name__}](\'{self.path}\')'
+        return f"{self.__class__.__name__}[{_Geo_T.__name__}]('{self.path}')"
 
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
