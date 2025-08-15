@@ -669,23 +669,13 @@ class FeatureClass(Generic[_Geo_T]):
             ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
-        fc = cls(layer.dataSource)
         selected_ids: set[int] = layer.getSelectionSet() # type: ignore (this function always returns set[int])
 
         if len(selected_ids) > max_selection:
             selected_ids = set()
             if raise_exception:
-                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
-            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
-
-        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
-        fc.search_options = SearchOptions(where_clause=selected)
-        fc.update_options = UpdateOptions(where_clause=selected)
-
-        if len(selected_ids) > max_selection:
-            selected_ids = set()
-            if raise_exception:
-                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, which is greater that the max limit of {max_selection}')
+                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, '
+                                 f'which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
         selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
