@@ -17,6 +17,7 @@ from arcpy import (
     Polygon,
     Polyline,
     PointGeometry,
+    Multipoint,
     Describe,
     SpatialReference,
     Exists,
@@ -81,7 +82,7 @@ def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
 
-_Geo_T = TypeVar('_Geo_T', Geometry, Polygon, Polyline, PointGeometry)
+_Geo_T = TypeVar('_Geo_T', Geometry, Polygon, Polyline, PointGeometry, Multipoint)
 class FeatureClass(Generic[_Geo_T]):
     """A Wrapper for ArcGIS FeatureClass objects
     
