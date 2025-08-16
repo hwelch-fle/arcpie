@@ -324,6 +324,40 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from self.search_cursor(field_names, **options)
 
+    def filter(self, func: Callable[[dict[str, Any]], bool], invert: bool=False) -> Generator[dict[str, Any]]:
+        """Apply a function filter to rows in the FeatureClass
+
+        Args:
+            func (Callable[[dict[str, Any]], bool]): A callable that takes a 
+                row dictionary and returns True or False
+            invert (bool): Invert the function. Only yield rows that return `False`
+        
+        Yields:
+            ( dict[str, Any] ): Rows in the FeatureClass that match the filter (or inverted filter)
+
+        Usage:
+            ```python
+            >>> def area_filter(row: dict) -> bool:
+            >>>     return row['Area'] >= 10
+
+            >>> for row in fc:
+            >>>     print(row['Area'])
+            ... 1
+            ... 2
+            ... 10
+            ... ...
+            
+            >>> for row in fc.filter(area_filter):
+            >>>     print(row['Area'])
+            ... 10
+            ... 11
+            ... 90
+            ... ...
+            ```
+
+        """
+        yield from ( row for row in self if func(row) == (not invert) )
+
     # Data Operations
     def copy(self, workspace: str, options: bool=True) -> FeatureClass:
         """Copy this `FeatureClass` to a new workspace
