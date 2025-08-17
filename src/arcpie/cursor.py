@@ -63,6 +63,12 @@ CursorTokens: tuple[CursorToken, ...] = CursorToken.__args__
 
 GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 
+class WhereClause:
+    def __init__(self, where_clause: str) -> None:
+        self.where_clause =  where_clause
+    def __repr__(self) -> str:
+        return self.where_clause
+
 class SQLClause(NamedTuple):
     """Wrapper for Cursor sql_clause attribute,
     

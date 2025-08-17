@@ -82,6 +82,7 @@ from cursor import (
     CursorTokens,
     SQLClause,
     GeometryType,
+    WhereClause,
 )
 
 FieldName = CursorToken | str
@@ -92,6 +93,9 @@ def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[RowRecord, None, N
 def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
+
+def where(where_clause: str) -> WhereClause:
+    return WhereClause(where_clause)
 
 RowRecord = dict[FieldName, Any]
 _Geo_T = TypeVar('_Geo_T', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
@@ -555,46 +559,58 @@ class FeatureClass(Generic[_Geo_T]):
     # Magic Methods
     if TYPE_CHECKING:
         
-        _OVERLOAD_TYPES = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | Callable[[RowRecord], bool]
+        _OVERLOAD_TYPES = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | Callable[[RowRecord], bool] | WhereClause
 
         @overload
-        def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...]]:
+        def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...], None, None]:
             """Yield tuples of the requested field values"""
             pass
         
         @overload
-        def __getitem__(self, field: list[FieldName]) -> Generator[list[Any]]:
+        def __getitem__(self, field: list[FieldName]) -> Generator[list[Any], None, None]:
             """Yield lists of the requested field values"""
             pass
         
         @overload
-        def __getitem__(self, field: set[FieldName]) -> Generator[RowRecord]:
+        def __getitem__(self, field: set[FieldName]) -> Generator[RowRecord, None, None]:
             """Yield dictionaries of the requested field values"""
             pass
   
         @overload
-        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Generator[RowRecord]:
+        def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
+          """Yield values from the requested field"""
+          pass
+        
+        @overload
+        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Generator[RowRecord, None, None]:
           """Yield dictionaries of the rows that match the filter function"""
           pass
 
         @overload
-        def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
-          """Yield values from the requested field"""
-          pass
+        def __getitem__(self, field: WhereClause) -> Generator[RowRecord, None, None]:
+            """Yield values that match the provided WhereClause SQL statement"""
 
     def __getitem__(self, field: _OVERLOAD_TYPES) -> Generator[Any]:
         """Handle all defined overloads using pattern matching syntax"""
         match field:
             case str():
                 yield from ( val for val, in self.search_cursor(field) ) #type:ignore
+
             case tuple():
                 yield from ( row for row in self.search_cursor(field) ) #type:ignore
+
             case list():
                 yield from ( list(row) for row in self.search_cursor(field) ) #type:ignore
+
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(field)) )
-            case Callable():
-                yield from ( row for row in self.filter(field) )
+
+            case where_clause if isinstance(where_clause, WhereClause):
+                yield from ( row for row in self.where(where_clause.where_clause) ) #type:ignore
+
+            case func if callable(func):
+                yield from ( row for row in self.filter(func) )
+
             case _:
                 raise KeyError(
                     f"Invalid option: {field}\n"
@@ -983,5 +999,8 @@ if __name__ == '__main__':
             print(row)
 
         for row in fc[{'name', 'age'}]:
+            print(row['name'])
+
+        for row in fc[where("name = 'John'")]:
             print(row['name'])
 
