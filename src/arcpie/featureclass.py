@@ -653,6 +653,12 @@ class FeatureClass(Generic[_Geo_T]):
             case _:
                 return str(self)
 
+    def __fspath__(self) -> str:
+        return Path(self.path).resolve().__str__()
+
+    def __hash__(self) -> int:
+        return hash(self.__fspath__())
+
     # Context Managers
     @contextmanager
     def editor(self, multiuser_mode: Optional[bool]=True):
