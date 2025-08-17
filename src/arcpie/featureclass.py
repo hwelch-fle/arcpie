@@ -548,9 +548,46 @@ class FeatureClass(Generic[_Geo_T]):
         def __getitem__(self, field: WhereClause) -> Generator[RowRecord, None, None]:
             """Yield values that match the provided WhereClause SQL statement"""
             pass
-
+    
     def __getitem__(self, field: _OVERLOAD_TYPES) -> Generator[Any]:
-        """Handle all defined overloads using pattern matching syntax"""
+        """Handle all defined overloads using pattern matching syntax
+        
+        Args:
+            field (str): Yield values in the specified column (values only)
+            field (list[str]): Yield lists of values for requested columns (requested fields)
+            field (tuple[str]): Yield tuples of values for requested columns (requested fields)
+            field (set[str]): Yield dictionaries of values for requested columns (requested fields)
+            field (Callable[[Row], bool]): Yield rows that match function (all fields)
+            field (WhereClause): Yield rows that match clause (all fields)
+
+        Example:
+            ```python
+            >>> # Single Field
+            >>> print(list(fc['field']))
+            ... [val1, val2, val3, ...]
+            ...
+            >>> # Field Tuple
+            >>> print(list(fc[('field1', 'field2')]))
+            ... [(val1, val2), (val1, val2), ...]
+            ... 
+            >>> # Field List
+            >>> print(list(fc[['field1', 'field2']]))
+            ... [[val1, val2], [val1, val2], ...]
+            ...
+            >>> # Field Set (Row mapping limited to only requested fields)
+            >>> print(list(fc[{'field1', 'field2'}]))
+            ... [{'field1': val1, 'field2': val2}, {'field1': val1, 'field2': val2}, ...]
+            ...
+            >>> # Last two options always return all fields in a mapping
+            >>> # Filter Function (passed to FeatureClass.filter())
+            >>> print(list(fc[lambda r: r['field1'] == target]))
+            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            ... 
+            >>> Where Clause (Use where() helper function or a WhereClause object)
+            >>> print(list(fc[where('field1 = target')]))
+            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            ```
+        """
         match field:
             case str():
                 yield from ( val for val, in self.search_cursor(field) ) #type:ignore
@@ -669,6 +706,7 @@ class FeatureClass(Generic[_Geo_T]):
     def __hash__(self) -> int:
         return hash(self.__fspath__())
 
+    # Handle Fields
     def __delitem__(self, fieldname: str) -> None:
         """Delete a field from a FeatureClass
         
