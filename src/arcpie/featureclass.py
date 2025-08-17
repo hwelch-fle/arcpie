@@ -2,15 +2,41 @@
 
 from __future__ import annotations
 
+# Typing imports
+import arcpy.typing.describe as dt
+
+from typing import (
+    Iterable,
+    Any,
+    Optional,
+    Generator,
+    Callable,
+    TypeVar,
+    TypeAlias,
+    Generic,
+    Literal,
+    TYPE_CHECKING,
+)
+
 # Arcpy imports
 from arcpy.da import (
     Editor,
     SearchCursor,
     InsertCursor,
     UpdateCursor,
-    Subtype,
     ListSubtypes,
 )
+
+if TYPE_CHECKING:
+    from arcpy.da import (
+        SpatialRelationship,
+        SearchOrder,
+        Subtype,
+    )
+else:
+    SpatialRelationship = None
+    SearchOrder = None
+    Subtype = None
 
 from arcpy import (
     Geometry,
@@ -32,20 +58,6 @@ from arcpy._mp import (
     Map,
 )
 
-# Typing imports
-import arcpy.typing.describe as dt
-
-from typing import (
-    Iterable,
-    Any,
-    Optional,
-    Generator,
-    Callable,
-    TypeVar,
-    Generic,
-    Literal,
-)
-
 from typing_extensions import (
     Unpack,
 )
@@ -62,7 +74,7 @@ from pathlib import (
 )
 
 # Library imports
-from .cursor import (
+from cursor import (
     SearchOptions, 
     InsertOptions, 
     UpdateOptions,
