@@ -731,6 +731,67 @@ class FeatureClass(Generic[_Geo_T]):
             self.insert_options = _ins_ops
             self._clause = _clause
 
+    @contextmanager
+    def where(self, where_clause: str):
+        """Apply a where clause to a FeatureClass in a context
+
+        Args:
+            where_clause (str): The where clause to apply to the FeatureClass
+        
+        Usage:
+            ```python
+            >>> with fc.where("first = 'John'") as f:
+            >>>     for f in fc:
+            >>>         print(f)
+            ... {'first': 'John', 'last': 'Cleese', 'year': 1939}
+
+            >>> with fc.where('year > 1939'):
+            >>>     print(len(fc))
+            ... 5
+            >>> print(len(fc))
+            ... 6
+            ```
+
+        Note:
+            This method of filtering a FeatureClass will always be more performant than using the 
+            `.filter` method. If you can achieve the filtering you want with a where clause, do it.
+        """
+        with self.options(search_options=SearchOptions(where_clause=where_clause)):
+            yield self
+
+    @contextmanager
+    def spatial_filter(self, spatial_filter: _Geometry, spatial_relationship: SpatialRelationship='INTERSECTS'):
+        """Apply a spatial filter to the FeatureClass in a context
+        
+        Args:
+            spatial_filter (Geometry): The geometry to use as a spatial filter
+            spatial_relationship (SpatialRelationship): The relationship to check for (default: `INTERSECTS`)
+        
+        Usage:
+            ```python
+            >>> with fc.spatial_filter(boundary) as f:
+            >>>     print(len(fc))
+            100
+            >>> print(len(fc))
+            50000
+            ```
+        
+        Note:
+            Same as with `where`, this method will be much faster than any manual `filter` you can apply using python. 
+            If you need to filter a FeatureClass by a spatial relationship, use this method, then do your expensive 
+            `filter` operation on the reduced dataset
+
+            ```python
+            >>> def expensive_filter(rec):
+            >>>     ...
+            >>> with fc.spatial_filter(boundary) as local:
+            >>>     for row in fc.filter(expensive_filter):
+            >>>         ...
+                
+        """
+        with self.options(search_options=SearchOptions(spatial_filter=spatial_filter, spatial_relationship=spatial_relationship)):
+            yield self
+
     # Mapping interfaces (These pass common `Layer` operations up to the FeatureClass)
     def bind_to_layer(self, layer: Layer) -> None:
         """Update the provided layer's datasource to this FeatureClass
