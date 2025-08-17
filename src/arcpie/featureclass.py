@@ -1066,3 +1066,14 @@ if __name__ == '__main__':
         for row in fc[where("name = 'John'")]:
             print(row['name'])
 
+        from functools import reduce
+        def merge(s1: Polygon, s2: Polygon) -> Polygon:
+            return s1 + s2 #type:ignore
+        
+        def max_area(acres: int) -> Callable[[Polygon], bool]:
+            def _inner(polygon: Polygon) -> bool:
+                return polygon.area < acres
+            return _inner
+
+        footprint: Polygon = reduce(merge, filter(max_area(100), fc.shapes))
+
