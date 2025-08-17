@@ -122,12 +122,15 @@ class FeatureClass(Generic[_Geo_T]):
             update_options: Optional[UpdateOptions]=None, 
             insert_options: Optional[InsertOptions]=None,
             clause: Optional[SQLClause]=None,
+            shape_token: ShapeToken='SHAPE@'
         ) -> None:
         self.path = str(path)
         self._clause = clause or SQLClause(None, None)
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
+
+        self._shape_token: ShapeToken = shape_token
         self._layer: Optional[Layer] = None
         self._in_edit_session=False
 
@@ -179,6 +182,14 @@ class FeatureClass(Generic[_Geo_T]):
             raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
         self._layer = layer
 
+    @property
+    def shape_token(self) -> ShapeToken:
+        return self._shape_token
+
+    @shape_token.setter
+    def shape_token(self, shape_token: ShapeToken) -> None:
+        self._shape_token = shape_token
+
     # ro Properties
     @property
     def describe(self) -> dt.FeatureClass:
@@ -194,10 +205,20 @@ class FeatureClass(Generic[_Geo_T]):
         return self.describe.name
 
     @property
-    def fields(self) -> tuple[str, ...]:
+    def shape_field_name(self) -> str:
+        return self.describe.shapeFieldName
+
+    @property
+    def oid_field_name(self) -> str:
+        return self.describe.OIDFieldName
+
+    @property
+    def fields(self) -> tuple[FieldName, ...]:
         """Tuple of all fieldnames in the FeatureClass"""
+        exclude = (self.oid_field_name, self.shape_field_name)
+        replace = ('OID@', self.shape_token)
         with self.search_cursor('*') as c:
-            return c.fields
+            return replace + tuple((f for f in c.fields if f not in exclude))
 
     @property
     def np_dtypes(self):
