@@ -166,7 +166,18 @@ FieldType = Literal[
 ]
 
 class Field(TypedDict, total=False):
-    """Field Representation"""
+    """Field Representation
+    
+    Args:
+        field_table (FieldType): The type of the field (required)
+        field_precision (int): The precision (digits) of numeric fields (default: database determined)
+        field_scale (int): The number of decimal places for floating point fields (default: database determined)
+        field_length (int): The maximum character count for `TEXT` fields (default: 255)
+        field_alias (str): Human readable alias for fields with confusing internal names (optional)
+        field_is_nullable (bool): Allow null values (default: `True`)
+        field_is_required (bool): Field requires a value to be set (default: False)
+        field_domain (str): Existing Domain name to bind to field (optional)
+    """
     field_type: FieldType
     field_precision: int
     field_scale: int
