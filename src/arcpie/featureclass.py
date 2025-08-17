@@ -559,27 +559,32 @@ class FeatureClass(Generic[_Geo_T]):
         
         @overload
         def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...]]:
+            """Yield tuples of the requested field values"""
             pass
         
         @overload
         def __getitem__(self, field: list[FieldName]) -> Generator[list[Any]]:
+            """Yield lists of the requested field values"""
             pass
         
         @overload
         def __getitem__(self, field: set[FieldName]) -> Generator[dict[FieldName, Any]]:
+            """Yield dictionaries of the requested field values"""
             pass
   
         @overload
         def __getitem__(self, field: Callable[[dict[FieldName, Any]], bool]) -> Generator[dict[FieldName, Any]]:
+          """Yield dictionaries of the rows that match the filter function"""
           pass
 
         @overload
         def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
+          """Yield values from the requested field"""
           pass
 
 
     def __getitem__(self, field) -> Generator[Any]:
-        """Create a generator that yields single values from the requested column"""
+        """Handle all defined overloads using pattern matching syntax"""
         match field:
             case str():
                 yield from ( val for val, in self.search_cursor(field) )
