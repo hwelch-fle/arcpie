@@ -123,7 +123,7 @@ class FeatureClass(Generic[_Geo_T]):
     
     @search_options.setter
     def search_options(self, search_options: SearchOptions) -> None:
-        self._search_options = search_options
+        self._search_options = search_options or SearchOptions()
 
     @property
     def insert_options(self) -> InsertOptions:
@@ -131,7 +131,7 @@ class FeatureClass(Generic[_Geo_T]):
     
     @insert_options.setter
     def insert_options(self, insert_options: InsertOptions) -> None:
-        self._insert_options = insert_options
+        self._insert_options = insert_options or InsertOptions()
 
     @property
     def update_options(self) -> UpdateOptions:
@@ -139,7 +139,7 @@ class FeatureClass(Generic[_Geo_T]):
     
     @update_options.setter
     def update_options(self, update_options: UpdateOptions) -> None:
-        self._update_options = update_options
+        self._update_options = update_options or UpdateOptions()
 
     @property
     def clause(self) -> SQLClause:
