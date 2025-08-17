@@ -397,7 +397,7 @@ class FeatureClass(Generic[_Geo_T]):
                 new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields]))
             return tuple(new_ids)
 
-    def filter(self, func: Callable[[dict[str, Any]], bool], invert: bool=False) -> Generator[dict[str, Any]]:
+    def filter(self, func: Callable[[dict[FieldName, Any]], bool], invert: bool=False) -> Generator[dict[FieldName, Any]]:
         """Apply a function filter to rows in the FeatureClass
 
         Args:
