@@ -45,6 +45,7 @@ from arcpy import (
     Polyline,
     PointGeometry,
     Multipoint,
+    Extent,
     Describe,
     SpatialReference,
     Exists,
@@ -84,6 +85,7 @@ from cursor import (
     CursorToken,
     CursorTokens,
     SQLClause,
+    _Geometry,
 )
 
 FieldName = CursorToken | str
@@ -95,9 +97,7 @@ def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
 
-_Geometry = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 _Geo_T = TypeVar('_Geo_T', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
-
 class FeatureClass(Generic[_Geo_T]):
     """A Wrapper for ArcGIS FeatureClass objects
     
@@ -225,6 +225,11 @@ class FeatureClass(Generic[_Geo_T]):
     def is_editing(self) -> bool:
         """Returns true if the featureclass is currently within an edit session"""
         return self._in_edit_session    
+
+    @property
+    def extent(self) -> Extent:
+        """Get the stored extent of the feature class"""
+        return self.describe.extent
 
     # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
@@ -799,11 +804,11 @@ class FeatureClass(Generic[_Geo_T]):
             yield self
 
     @contextmanager
-    def spatial_filter(self, spatial_filter: _Geometry, spatial_relationship: SpatialRelationship='INTERSECTS'):
+    def spatial_filter(self, spatial_filter: _Geometry | Extent, spatial_relationship: SpatialRelationship='INTERSECTS'):
         """Apply a spatial filter to the FeatureClass in a context
         
         Args:
-            spatial_filter (Geometry): The geometry to use as a spatial filter
+            spatial_filter (Geometry | Extent): The geometry to use as a spatial filter
             spatial_relationship (SpatialRelationship): The relationship to check for (default: `INTERSECTS`)
         
         Usage:

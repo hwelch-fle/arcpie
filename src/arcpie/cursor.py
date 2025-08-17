@@ -12,6 +12,11 @@ from typing import (
 from arcpy import (
     SpatialReference,
     Geometry,
+    Polygon,
+    PointGeometry,
+    Polyline,
+    Multipoint,
+    Extent,
 )
 
 if TYPE_CHECKING:
@@ -55,6 +60,8 @@ EditToken = Literal[
 
 CursorToken = Literal[GeneralToken | ShapeToken | EditToken]
 CursorTokens: tuple[CursorToken, ...] = CursorToken.__args__
+
+_Geometry = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 
 class SQLClause(NamedTuple):
     """Wrapper for Cursor sql_clause attribute,
@@ -112,7 +119,7 @@ class SearchOptions(TypedDict, total=False):
     explode_to_points: bool
     sql_clause: SQLClause
     datum_transformation: str
-    spatial_filter: Geometry
+    spatial_filter: _Geometry | Extent
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
 
@@ -131,6 +138,6 @@ class UpdateOptions(TypedDict, total=False):
     null_value: dict[str, Any]
     datum_transformation: str
     explicit: bool
-    spatial_filter: Geometry
+    spatial_filter: _Geometry | Extent
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
