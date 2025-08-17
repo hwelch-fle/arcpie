@@ -334,12 +334,17 @@ class FeatureClass(Generic[_Geo_T]):
             ( KeyError ): If the records have varying keys or the keys are not in the FeatureClass
             
         Usage:
+            ```python
             >>> new_rows = [
             ...    {'first': 'John', 'last': 'Cleese', 'year': 1939}, 
             ...    {'first': 'Michael', 'last': 'Palin', 'year': 1943}
             ...]
             >>> print(fc.insert_rows(new_rows))
             (2,3)
+
+            
+
+            ```
         """
         # Grab the first record
         # Doing it this way allows generators to be passed
@@ -353,18 +358,27 @@ class FeatureClass(Generic[_Geo_T]):
             return tuple()
 
         # Confirm that the first record has valid field names
-        rec_fields = _first_rec.keys()
-        if rec_fields.isdisjoint(self.fields + CursorTokens):
+        rec_fields = sorted(_first_rec.keys())
+        if set(rec_fields).isdisjoint(self.fields + CursorTokens):
             raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
 
-        with self.editor(), self.insert_cursor(sorted(rec_fields)) as cur:
+        # Create a key filter to remove any invalid records or raise a KeyError
+        def rec_filter(rec: dict) -> bool:
+            _valid = rec.keys() == set(rec_fields)
+            if _valid:
+                return True
+            if ignore_errors:
+                return False
+            raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
+
+        with self.editor(), self.insert_cursor(rec_fields) as cur:
             new_ids = []
-            for rec in records:
-                if rec.keys().isdisjoint(rec_fields) or len(rec.keys()) != len(rec_fields):
-                    if ignore_errors:
-                        continue
-                    raise KeyError(f"Found invalid record {rec}, not formatted the same as other records\n({rec_fields})")
-                new_ids.append(cur.insertRow([rec.get(k) for k in sorted(rec)]))
+            # Handle case where records is a generator and the field validation 
+            # consumed the first record
+            if isinstance(records, Generator):
+                new_ids.append(cur.insertRow([_first_rec.get(k) for k in rec_fields]))
+            for rec in filter(rec_filter, records):
+                new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields]))
             return tuple(new_ids)
 
     def filter(self, func: Callable[[dict[str, Any]], bool], invert: bool=False) -> Generator[dict[str, Any]]:
