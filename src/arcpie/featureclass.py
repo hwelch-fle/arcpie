@@ -338,12 +338,13 @@ class FeatureClass(Generic[_Geo_T]):
             >>> new_rows = [
             ...    {'first': 'John', 'last': 'Cleese', 'year': 1939}, 
             ...    {'first': 'Michael', 'last': 'Palin', 'year': 1943}
-            ...]
+            ... ]
             >>> print(fc.insert_rows(new_rows))
-            (2,3)
-
-            
-
+            ... (2,3)
+            ...
+            >>> # Insert all shapes from fc into fc2
+            >>> fc2.insert_rows(fc.get_records(['first', 'last', 'year']))
+            ... (1,2)
             ```
         """
         # Grab the first record
