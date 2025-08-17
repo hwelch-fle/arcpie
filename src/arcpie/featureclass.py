@@ -602,6 +602,22 @@ class FeatureClass(Generic[_Geo_T]):
         
         Yields:
             (self): Yields the featureclass back to you within an edit context and with the `is_editing` flag set
+
+        Usage:
+            ```python
+            new_rows = [('John', 'Cleese', 1939), ('Michael', 'Palin', 1943)]
+            
+            new_ids = []
+            with fc.editor:
+                with fc.insert_cursor(['first', 'last', 'year']) as cur:
+                    for r in new_rows:
+                        new_ids.append(cur.insertRow(r))
+
+            # --OR-- (This is a much cleaner way)
+
+            with fc.editor, fc.insert_cursor(['first', 'last', 'year']) as cur:
+                new_ids = [cur.insertRow(r) for r in new_rows]
+            ```
         """
         with Editor(self.path, multiuser_mode=multiuser_mode):
             try:
