@@ -147,3 +147,31 @@ class UpdateOptions(TypedDict, total=False):
     spatial_filter: GeometryType | Extent
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
+
+FieldType = Literal[
+    'SHORT',
+    'LONG',
+    'BIGINTEGER',
+    'FLOAT',
+    'DOUBLE',
+    'TEXT',
+    'DATE',
+    'DATEHIGHPRECISION',
+    'DATEONLY',
+    'TIMEONLY',
+    'TIMESTAMPOFFSET',
+    'BLOB',
+    'GUID',
+    'RASTER',
+]
+
+class Field(TypedDict, total=False):
+    """Field Representation"""
+    field_type: FieldType
+    field_precision: int
+    field_scale: int
+    field_length: int
+    field_alias: str
+    field_is_nullable: bool
+    field_is_required: bool
+    field_domain: bool

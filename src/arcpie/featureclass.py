@@ -5,6 +5,8 @@ from __future__ import annotations
 # Typing imports
 import arcpy.typing.describe as dt
 
+from string import ascii_letters, digits
+
 from typing import (
     Iterable,
     Any,
@@ -49,7 +51,9 @@ from arcpy import (
 )
 
 from arcpy.management import ( #type:ignore
-    CopyFeatures,  #type:ignore 
+    CopyFeatures,  #type:ignore
+    DeleteField, #type:ignore
+    AddField, #type:ignore
 )
 
 from arcpy._mp import ( #type:ignore
@@ -81,6 +85,7 @@ from cursor import (
     SQLClause,
     GeometryType,
     WhereClause,
+    Field,
 )
 
 FieldName = CursorToken | str
@@ -663,6 +668,25 @@ class FeatureClass(Generic[_Geo_T]):
 
     def __hash__(self) -> int:
         return hash(self.__fspath__())
+
+    def __delitem__(self, fieldname: str) -> None:
+        if fieldname in CursorTokens:
+            raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
+        if fieldname not in self.fields[2:]: # Skip [OID and ShapeToken]
+            raise ValueError(f"{fieldname} does not exist in {self.name}")
+        DeleteField(self.path, fieldname)
+
+    def __setitem__(self, fieldname: str, properties: Field) -> None:
+        if fieldname in self.fields:
+            raise ValueError(f"{fieldname} already exists in {self.name}!")
+        
+        # Cannot start with a number, can only have alphanumeric or underscore
+        if len(fieldname) == 0 or fieldname[0] in digits or any(c not in ascii_letters + digits + '_' for c in fieldname):
+            raise ValueError(
+                f"{fieldname} is invalid, fieldnames must not start with a number "
+                "and must only contain alphanumeric characters and underscores"
+            )
+        AddField(self.path, fieldname, **properties)
 
     # Context Managers
     @contextmanager
