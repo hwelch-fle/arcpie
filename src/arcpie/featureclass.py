@@ -611,7 +611,7 @@ class FeatureClass(Generic[_Geo_T]):
             case 'units' | 'unt':
                 return self.unit_name
             case 'wkid':
-                return self.spatial_reference.factoryCode
+                return str(self.spatial_reference.factoryCode)
             case 'name' | 'nm':
                 return self.name
             case 'fields' | 'flds':
