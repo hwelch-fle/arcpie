@@ -12,7 +12,6 @@ from typing import (
     Generator,
     Callable,
     TypeVar,
-    TypeAlias,
     Generic,
     Literal,
     TYPE_CHECKING,
@@ -25,18 +24,16 @@ from arcpy.da import (
     SearchCursor,
     InsertCursor,
     UpdateCursor,
-    ListSubtypes,
+    ListSubtypes, #type:ignore
 )
 
 if TYPE_CHECKING:
     from arcpy.da import (
         SpatialRelationship,
-        SearchOrder,
         Subtype,
     )
 else:
     SpatialRelationship = None
-    SearchOrder = None
     Subtype = None
 
 from arcpy import (
@@ -46,16 +43,16 @@ from arcpy import (
     PointGeometry,
     Multipoint,
     Extent,
-    Describe,
+    Describe, #type:ignore
     SpatialReference,
-    Exists,
+    Exists, #type:ignore
 )
 
-from arcpy.management import (
-    CopyFeatures,    
+from arcpy.management import ( #type:ignore
+    CopyFeatures,  #type:ignore 
 )
 
-from arcpy._mp import (
+from arcpy._mp import ( #type:ignore
     Layer,
     Map,
 )
@@ -81,22 +78,22 @@ from cursor import (
     InsertOptions, 
     UpdateOptions,
     ShapeToken,
-    EditToken,
     CursorToken,
     CursorTokens,
     SQLClause,
-    _Geometry,
+    GeometryType,
 )
 
 FieldName = CursorToken | str
 
-def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[dict[str, Any], None, None]:
-    yield from ( dict(zip(cursor.fields, row)) for row in cursor ) 
+def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[RowRecord, None, None]:
+    yield from ( dict(zip(cursor.fields, row)) for row in cursor ) #type:ignore
 
 def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
 
+RowRecord = dict[FieldName, Any]
 _Geo_T = TypeVar('_Geo_T', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
 class FeatureClass(Generic[_Geo_T]):
     """A Wrapper for ArcGIS FeatureClass objects
@@ -193,7 +190,7 @@ class FeatureClass(Generic[_Geo_T]):
     # ro Properties
     @property
     def describe(self) -> dt.FeatureClass:
-        return Describe(self.path)
+        return Describe(self.path) #type:ignore (Will be dt.FeatureClass)
 
     @property
     def workspace(self) -> str:
@@ -232,7 +229,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     @property
     def shapes(self) -> Generator[_Geo_T, None, None]:
-        yield from (shape for shape, in self.search_cursor('SHAPE@'))
+        yield from ( shape for shape, in self.search_cursor('SHAPE@') ) #type:ignore (Will be _Geo_T)
 
     @property
     def spatial_reference(self):
@@ -337,9 +334,9 @@ class FeatureClass(Generic[_Geo_T]):
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
         clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
-        yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
+        yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) ) #type:ignore
 
-    def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]):
+    def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[RowRecord, None, None]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Parameters:
@@ -362,10 +359,10 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from self.search_cursor(field_names, **options)
 
-    def insert_records(self, records: Iterable[dict[str, Any]], ignore_errors: bool=False) -> tuple[int]:
+    def insert_records(self, records: Iterable[RowRecord] | Generator[RowRecord, None, None], ignore_errors: bool=False) -> tuple[int, ...]:
         """Provide a list of records to insert
         Args:
-            records (Iterable[dict[str, Any]]): The sequence of records to insert
+            records (Iterable[RowRecord]): The sequence of records to insert
             ignore_errors (bool): Ignore per-row errors and continue. Otherwise raise KeyError (default: True)
         
         Returns:
@@ -397,7 +394,7 @@ class FeatureClass(Generic[_Geo_T]):
 
         # Nothing to insert
         if not _first_rec:
-            return tuple()
+            return tuple[int, ...]()
 
         # Confirm that the first record has valid field names
         rec_fields = sorted(_first_rec.keys())
@@ -405,7 +402,7 @@ class FeatureClass(Generic[_Geo_T]):
             raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
 
         # Create a key filter to remove any invalid records or raise a KeyError
-        def rec_filter(rec: dict) -> bool:
+        def rec_filter(rec: RowRecord) -> bool:
             _valid = rec.keys() == set(rec_fields)
             if _valid:
                 return True
@@ -414,16 +411,17 @@ class FeatureClass(Generic[_Geo_T]):
             raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
 
         with self.editor(), self.insert_cursor(rec_fields) as cur:
-            new_ids = []
+            new_ids: list[int] = []
             # Handle case where records is a generator and the field validation 
             # consumed the first record
             if isinstance(records, Generator):
-                new_ids.append(cur.insertRow([_first_rec.get(k) for k in rec_fields]))
-            for rec in filter(rec_filter, records):
-                new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields]))
+                new_ids.append(cur.insertRow([_first_rec.get(k) for k in rec_fields])) #type:ignore
+
+            for rec in filter(rec_filter, records): #type:ignore (Iterable and Generator can both be consumed in for loop)
+                new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields])) #type:ignore
             return tuple(new_ids)
 
-    def filter(self, func: Callable[[dict[FieldName, Any]], bool], invert: bool=False) -> Generator[dict[FieldName, Any]]:
+    def filter(self, func: Callable[[RowRecord], bool], invert: bool=False) -> Generator[RowRecord]:
         """Apply a function filter to rows in the FeatureClass
 
         Args:
@@ -458,7 +456,7 @@ class FeatureClass(Generic[_Geo_T]):
         yield from ( row for row in self if func(row) == (not invert) )
 
     # Data Operations
-    def copy(self, workspace: str, options: bool=True) -> FeatureClass:
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass[_Geo_T]:
         """Copy this `FeatureClass` to a new workspace
         
         Arguments:
@@ -478,7 +476,7 @@ class FeatureClass(Generic[_Geo_T]):
         if Exists(copy_fc := Path(workspace) / name):
             raise ValueError(f'{name} already exists in {workspace}!')
         CopyFeatures(self.path, str(copy_fc))
-        fc = FeatureClass(str(copy_fc))
+        fc = FeatureClass[_Geo_T](str(copy_fc))
         if options:
             fc.search_options = self.search_options
             fc.update_options = self.update_options
@@ -502,7 +500,7 @@ class FeatureClass(Generic[_Geo_T]):
             No way to undo this!
         """
         with self.update_cursor('OID@') as cur:
-            return sum(cur.deleteRow() or 1 for _ in cur)
+            return sum(cur.deleteRow() or 1 for _ in cur) #type:ignore
 
     def esrijson(self, display_field: Optional[FieldName]=None) -> str:
         """Dump the current state of the `FeatureClass` to an esrijson string"""
@@ -517,7 +515,7 @@ class FeatureClass(Generic[_Geo_T]):
                 'geometryType': self.describe.shapeType,
                 'hasZ': self.describe.hasZ,
                 'hasM': self.describe.hasM,
-                'spatialReference' : self.spatial_reference.exportToString(),
+                'spatialReference' : self.spatial_reference.exportToString(), #type:ignore (Incorrect Signature)
                 'fields' : [
                     {
                         'name': f.name,
@@ -557,6 +555,8 @@ class FeatureClass(Generic[_Geo_T]):
     # Magic Methods
     if TYPE_CHECKING:
         
+        _OVERLOAD_TYPES = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | Callable[[RowRecord], bool]
+
         @overload
         def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...]]:
             """Yield tuples of the requested field values"""
@@ -568,12 +568,12 @@ class FeatureClass(Generic[_Geo_T]):
             pass
         
         @overload
-        def __getitem__(self, field: set[FieldName]) -> Generator[dict[FieldName, Any]]:
+        def __getitem__(self, field: set[FieldName]) -> Generator[RowRecord]:
             """Yield dictionaries of the requested field values"""
             pass
   
         @overload
-        def __getitem__(self, field: Callable[[dict[FieldName, Any]], bool]) -> Generator[dict[FieldName, Any]]:
+        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Generator[RowRecord]:
           """Yield dictionaries of the rows that match the filter function"""
           pass
 
@@ -582,16 +582,15 @@ class FeatureClass(Generic[_Geo_T]):
           """Yield values from the requested field"""
           pass
 
-
-    def __getitem__(self, field) -> Generator[Any]:
+    def __getitem__(self, field: _OVERLOAD_TYPES) -> Generator[Any]:
         """Handle all defined overloads using pattern matching syntax"""
         match field:
             case str():
-                yield from ( val for val, in self.search_cursor(field) )
+                yield from ( val for val, in self.search_cursor(field) ) #type:ignore
             case tuple():
-                yield from ( row for row in self.search_cursor(field) )
+                yield from ( row for row in self.search_cursor(field) ) #type:ignore
             case list():
-                yield from ( list(row) for row in self.search_cursor(field) )
+                yield from ( list(row) for row in self.search_cursor(field) ) #type:ignore
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(field)) )
             case Callable():
@@ -636,7 +635,7 @@ class FeatureClass(Generic[_Geo_T]):
         """Return the `FeatureClass` path for use with other arcpy methods"""
         return self.path
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """Determine if the datasource of two featureclass objects is the same"""
         return isinstance(other, self.__class__) and self.path == other.path
 
@@ -830,7 +829,7 @@ class FeatureClass(Generic[_Geo_T]):
             yield self
 
     @contextmanager
-    def spatial_filter(self, spatial_filter: _Geometry | Extent, spatial_relationship: SpatialRelationship='INTERSECTS'):
+    def spatial_filter(self, spatial_filter: GeometryType | Extent, spatial_relationship: SpatialRelationship='INTERSECTS'):
         """Apply a spatial filter to the FeatureClass in a context
         
         Args:
@@ -869,7 +868,7 @@ class FeatureClass(Generic[_Geo_T]):
         Args:
             layer (Layer): The layer to update connection properties for
         """
-        layer.updateConnectionProperties(layer.dataSource, self.path)
+        layer.updateConnectionProperties(layer.dataSource, self.path) #type:ignore (Incorrect Signature)
 
     def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP']='AUTO_ARRANGE') -> None:
         """Add the featureclass to a map
@@ -885,8 +884,8 @@ class FeatureClass(Generic[_Geo_T]):
             # Create a default layer, bind it, remove, and add back
             # with addLayer to match behavior with existing bound layer
             self.layer = map.addDataFromPath(self.path) #type:ignore (Always Layer)
-            map.removeLayer(self.layer)
-        map.addLayer(self.layer, pos)
+            map.removeLayer(self.layer) #type:ignore (Incorrect Signature)
+        map.addLayer(self.layer, pos) #type:ignore (Incorrect Signature)
 
     def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> set[int]:
         """If the FeatureClass is bound to a layer, update the layer selection with the active SearchOptions
@@ -905,7 +904,7 @@ class FeatureClass(Generic[_Geo_T]):
         if not self.layer:
             return set()
         
-        self.layer.setSelectionSet(list(self['OID@']), method=method) 
+        self.layer.setSelectionSet(list(self['OID@']), method=method) #type:ignore (Incorrect Signature)
         return self.layer.getSelectionSet() #type:ignore (Always set[int])
         
     def unselect(self) -> set[int]:
@@ -919,14 +918,14 @@ class FeatureClass(Generic[_Geo_T]):
         try:
             return self.layer.getSelectionSet() #type:ignore (Always set[int])
         finally:
-            self.layer.setSelectionSet(method='NEW')
+            self.layer.setSelectionSet(method='NEW') #type:ignore (Incorrect signature)
 
     # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
                    max_selection: int=500_000, # This needs testing
-                   raise_exception: bool=False) -> FeatureClass:
+                   raise_exception: bool=False) -> FeatureClass[_Geo_T]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
@@ -966,3 +965,23 @@ class FeatureClass(Generic[_Geo_T]):
 
 if __name__ == '__main__':
     fc = FeatureClass[Polygon]('path')
+
+    def filter_func(rec: dict[str, Any]) -> bool:
+        return rec['name'] == 'John'
+    
+    with fc.spatial_filter(fc.extent):
+        for row in fc[filter_func]:
+            print(row['name'])
+
+        for row in fc[('name', 'age')]:
+            print(row[0])
+
+        for row in fc[['name', 'age']]:
+            print(row.pop(0))
+
+        for row in fc['name']:
+            print(row)
+
+        for row in fc[{'name', 'age'}]:
+            print(row['name'])
+
