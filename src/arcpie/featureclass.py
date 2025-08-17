@@ -321,6 +321,52 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from self.search_cursor(field_names, **options)
 
+    def insert_records(self, records: Iterable[dict[str, Any]], ignore_errors: bool=False) -> tuple[int]:
+        """Provide a list of records to insert
+        Args:
+            records (Iterable[dict[str, Any]]): The sequence of records to insert
+            ignore_errors (bool): Ignore per-row errors and continue. Otherwise raise KeyError (default: True)
+        
+        Returns:
+            ( tuple[int] ): Returns the OIDs of the newly inserted rows
+
+        Raises:
+            ( KeyError ): If the records have varying keys or the keys are not in the FeatureClass
+            
+        Usage:
+            >>> new_rows = [
+            ...    {'first': 'John', 'last': 'Cleese', 'year': 1939}, 
+            ...    {'first': 'Michael', 'last': 'Palin', 'year': 1943}
+            ...]
+            >>> print(fc.insert_rows(new_rows))
+            (2,3)
+        """
+        # Grab the first record
+        # Doing it this way allows generators to be passed
+        _first_rec = None
+        for record in records:
+            _first_rec = record
+            break
+
+        # Nothing to insert
+        if not _first_rec:
+            return tuple()
+
+        # Confirm that the first record has valid field names
+        rec_fields = _first_rec.keys()
+        if rec_fields.isdisjoint(self.fields + CursorTokens):
+            raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
+
+        with self.editor(), self.insert_cursor(sorted(rec_fields)) as cur:
+            new_ids = []
+            for rec in records:
+                if rec.keys().isdisjoint(rec_fields) or len(rec.keys()) != len(rec_fields):
+                    if ignore_errors:
+                        continue
+                    raise KeyError(f"Found invalid record {rec}, not formatted the same as other records\n({rec_fields})")
+                new_ids.append(cur.insertRow([rec.get(k) for k in sorted(rec)]))
+            return tuple(new_ids)
+
     def filter(self, func: Callable[[dict[str, Any]], bool], invert: bool=False) -> Generator[dict[str, Any]]:
         """Apply a function filter to rows in the FeatureClass
 
