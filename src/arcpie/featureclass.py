@@ -16,6 +16,7 @@ from typing import (
     Generic,
     Literal,
     TYPE_CHECKING,
+    overload,
 )
 
 # Arcpy imports
@@ -528,9 +529,47 @@ class FeatureClass(Generic[_Geo_T]):
         )
 
     # Magic Methods
-    def __getitem__(self, field: FieldName) -> Generator[Any]:
+    if TYPE_CHECKING:
+        
+        @overload
+        def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...]]:
+            pass
+        
+        @overload
+        def __getitem__(self, field: list[FieldName]) -> Generator[list[Any]]:
+            pass
+        
+        @overload
+        def __getitem__(self, field: set[FieldName]) -> Generator[dict[FieldName, Any]]:
+            pass
+  
+        @overload
+        def __getitem__(self, field: Callable[[dict[FieldName, Any]], bool]) -> Generator[dict[FieldName, Any]]:
+          pass
+
+        @overload
+        def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
+          pass
+
+
+    def __getitem__(self, field) -> Generator[Any]:
         """Create a generator that yields single values from the requested column"""
-        yield from ( val for val, in self.search_cursor(field) )
+        match field:
+            case str():
+                yield from ( val for val, in self.search_cursor(field) )
+            case tuple():
+                yield from ( row for row in self.search_cursor(field) )
+            case list():
+                yield from ( list(row) for row in self.search_cursor(field) )
+            case set():
+                yield from ( row for row in as_dict(self.search_cursor(field)) )
+            case Callable():
+                yield from ( row for row in self.filter(field) )
+            case _:
+                raise KeyError(
+                    f"Invalid option: {field}\n"
+                    "Must be a filter functon, set of keys, list of keys, or tuple of keys"
+                )
 
     def __iter__(self) -> Generator[dict[str, Any]]:
         """Iterate all rows in the FeatureClass yielding mappings of field name to field value"""
