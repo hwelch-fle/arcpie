@@ -578,17 +578,18 @@ class FeatureClass(Generic[_Geo_T]):
   
         @overload
         def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
-          """Yield values from the requested field"""
-          pass
+            """Yield values from the requested field"""
+            pass
         
         @overload
         def __getitem__(self, field: Callable[[RowRecord], bool]) -> Generator[RowRecord, None, None]:
-          """Yield dictionaries of the rows that match the filter function"""
-          pass
+            """Yield dictionaries of the rows that match the filter function"""
+            pass
 
         @overload
         def __getitem__(self, field: WhereClause) -> Generator[RowRecord, None, None]:
             """Yield values that match the provided WhereClause SQL statement"""
+            pass
 
     def __getitem__(self, field: _OVERLOAD_TYPES) -> Generator[Any]:
         """Handle all defined overloads using pattern matching syntax"""
