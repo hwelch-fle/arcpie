@@ -6,6 +6,7 @@ from typing import (
     Literal,
     NamedTuple,
     Optional,
+    TYPE_CHECKING,
 )
 
 from arcpy import (
@@ -13,10 +14,14 @@ from arcpy import (
     Geometry,
 )
 
-from arcpy.da import (
-    SpatialRelationship,
-    SearchOrder,
-)
+if TYPE_CHECKING:
+    from arcpy.da import (
+        SpatialRelationship,
+        SearchOrder,
+    )
+else:
+    SpatialRelationship = None
+    SearchOrder = None
 
 GeneralToken = Literal[
     'ANNO@',
