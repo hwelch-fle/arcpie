@@ -123,7 +123,7 @@ class FeatureClass(Generic[_Geo_T]):
             clause: Optional[SQLClause]=None,
             shape_token: ShapeToken='SHAPE@'
         ) -> None:
-        self.path = str(path)
+        self._path = str(path)
         self._clause = clause or SQLClause(None, None)
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
@@ -190,6 +190,11 @@ class FeatureClass(Generic[_Geo_T]):
         self._shape_token = shape_token
 
     # ro Properties
+
+    @property
+    def path(self) -> str:
+        return self._path
+
     @property
     def describe(self) -> dt.FeatureClass:
         return Describe(self.path) #type:ignore (Will be dt.FeatureClass)
