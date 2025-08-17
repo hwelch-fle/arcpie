@@ -605,8 +605,8 @@ class FeatureClass(Generic[_Geo_T]):
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(field)) )
 
-            case where_clause if isinstance(where_clause, WhereClause):
-                yield from ( row for row in self.where(where_clause.where_clause) ) #type:ignore
+            case wc if isinstance(wc, WhereClause):
+                yield from ( row for row in as_dict(self.search_cursor(where_clause=wc.where_clause)) ) #type:ignore
 
             case func if callable(func):
                 yield from ( row for row in self.filter(func) )
@@ -982,11 +982,11 @@ class FeatureClass(Generic[_Geo_T]):
 if __name__ == '__main__':
     fc = FeatureClass[Polygon]('path')
 
-    def filter_func(rec: dict[str, Any]) -> bool:
+    def get_john(rec: dict[str, Any]) -> bool:
         return rec['name'] == 'John'
     
     with fc.spatial_filter(fc.extent):
-        for row in fc[filter_func]:
+        for row in fc[get_john]:
             print(row['name'])
 
         for row in fc[('name', 'age')]:
