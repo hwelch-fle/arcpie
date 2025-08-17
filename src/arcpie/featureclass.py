@@ -66,8 +66,6 @@ from contextlib import (
     contextmanager,
 )
 
-import json
-
 from pathlib import (
     Path,
 )
