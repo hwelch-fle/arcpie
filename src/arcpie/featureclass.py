@@ -231,7 +231,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     @property
     def np_dtypes(self):
-        with self.search_cursor('*') as c:
+        with self.search_cursor(self.fields) as c:
             return c._dtype
 
     @property
@@ -670,6 +670,21 @@ class FeatureClass(Generic[_Geo_T]):
         return hash(self.__fspath__())
 
     def __delitem__(self, fieldname: str) -> None:
+        """Delete a field from a FeatureClass
+        
+        Args:
+            fieldname (str): The name of the field to delete/drop
+        
+        Example:
+            ```python
+            >>> print(fc.fields)
+            ... ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            ...
+            >>> del fc['month']
+            >>> print(fc.fields)
+            ... ['OID@', 'SHAPE@', 'name', 'year']
+            ```
+        """
         if fieldname in CursorTokens:
             raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
         if fieldname not in self.fields[2:]: # Skip [OID and ShapeToken]
@@ -677,6 +692,31 @@ class FeatureClass(Generic[_Geo_T]):
         DeleteField(self.path, fieldname)
 
     def __setitem__(self, fieldname: str, properties: Field) -> None:
+        """Add a new field to a FeatureClass
+        
+        Args:
+            fieldname (str): The name of the new field (must not start with a number and be alphanum or underscored)
+            properties (Field): A Field object that contains the desired field properties
+
+        Example:
+            ```python
+            >>> new_field = Field(
+            >>>     field_alias='Abbreviated Month',
+            >>>     field_type='TEXT',
+            >>>     field_length='3',
+            >>>     field_domain='Months_ABBR',
+            >>> )
+            ...
+            >>> print(fc.fields)
+            ... ['OID@', 'SHAPE@', 'name', 'year']
+            ...
+            >>> fc['month'] = new_field
+            >>> fc2['month'] = new_field # Can re-use a field definition
+            ... 
+            >>> print(fc.fields)
+            ... ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            ```
+        """
         if fieldname in self.fields:
             raise ValueError(f"{fieldname} already exists in {self.name}!")
         
