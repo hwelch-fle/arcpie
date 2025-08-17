@@ -607,7 +607,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     def __eq__(self, other: Any) -> bool:
         """Determine if the datasource of two featureclass objects is the same"""
-        return isinstance(other, self.__class__) and self.path == other.path
+        return isinstance(other, self.__class__) and self.__fspath__() == other.__fspath__()
 
     def __format__(self, format_spec: str) -> str:
         """Implement format specs for string formatting a featureclass.
