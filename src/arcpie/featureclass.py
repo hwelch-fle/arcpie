@@ -359,7 +359,7 @@ class FeatureClass(Generic[_Geo_T]):
 
         # Confirm that the first record has valid field names
         rec_fields = sorted(_first_rec.keys())
-        if set(rec_fields).isdisjoint(self.fields + CursorTokens):
+        if set(rec_fields) != set(*self.fields, *CursorTokens):
             raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
 
         # Create a key filter to remove any invalid records or raise a KeyError
