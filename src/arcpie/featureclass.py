@@ -195,10 +195,6 @@ class FeatureClass(Generic[_Geo_T]):
         return ListSubtypes(self.path)
 
     @property
-    def feature_editor(self) -> Editor:
-        return Editor(self.describe.workspace.catalogPath)
-
-    @property
     def shapes(self) -> Generator[_Geo_T, None, None]:
         yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
