@@ -7,12 +7,15 @@ import arcpy.typing.describe as dt
 
 from string import ascii_letters, digits
 
-from typing import (
+from collections.abc import (
     Iterable,
-    Any,
-    Optional,
     Generator,
     Callable,
+    Sequence,
+)
+
+from typing import (
+    Any,
     TypeVar,
     Generic,
     Literal,
@@ -88,7 +91,7 @@ from cursor import (
     Field,
 )
 
-FieldName = CursorToken | str
+FieldName = str | CursorToken
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[RowRecord, None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) #type:ignore
@@ -143,10 +146,10 @@ class FeatureClass(Generic[_Geo_T]):
     def __init__(
             self, path: str,
             *,
-            search_options: Optional[SearchOptions]=None, 
-            update_options: Optional[UpdateOptions]=None, 
-            insert_options: Optional[InsertOptions]=None,
-            clause: Optional[SQLClause]=None,
+            search_options: SearchOptions|None=None, 
+            update_options: UpdateOptions|None=None, 
+            insert_options: InsertOptions|None=None,
+            clause: SQLClause|None=None,
             shape_token: ShapeToken='SHAPE@'
         ) -> None:
         self._path = str(path)
@@ -156,7 +159,7 @@ class FeatureClass(Generic[_Geo_T]):
         self._update_options = update_options or UpdateOptions()
 
         self._shape_token: ShapeToken = shape_token
-        self._layer: Optional[Layer] = None
+        self._layer: Layer|None=None
         self._in_edit_session=False
 
     # rw Properties
@@ -197,7 +200,7 @@ class FeatureClass(Generic[_Geo_T]):
         self._clause = clause
 
     @property
-    def layer(self) -> Optional[Layer]:
+    def layer(self) -> Layer|None:
         return self._layer
 
     @layer.setter
@@ -248,7 +251,8 @@ class FeatureClass(Generic[_Geo_T]):
         exclude = (self.oid_field_name, self.shape_field_name)
         replace = ('OID@', self.shape_token)
         with self.search_cursor('*') as c:
-            return replace + tuple((f for f in c.fields if f not in exclude))
+            _fields = c.fields
+        return replace + tuple((f for f in _fields if f not in exclude))
 
     @property
     def np_dtypes(self):
@@ -283,22 +287,22 @@ class FeatureClass(Generic[_Geo_T]):
         return self.describe.extent
 
     # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
-    def _resolve_search_options(self, options: Optional[SearchOptions], overrides: SearchOptions) -> SearchOptions:
+    def _resolve_search_options(self, options: SearchOptions|None, overrides: SearchOptions) -> SearchOptions:
         """Combine all provided SearchOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
 
-    def _resolve_insert_options(self, options: Optional[InsertOptions], overrides: InsertOptions) -> InsertOptions:
+    def _resolve_insert_options(self, options: InsertOptions|None, overrides: InsertOptions) -> InsertOptions:
         """Combine all provided InsertOptions into one dictionary"""
         return {**self.insert_options, **(options or {}), **overrides}
 
-    def _resolve_update_options(self, options: Optional[UpdateOptions], overrides: UpdateOptions) -> UpdateOptions:
+    def _resolve_update_options(self, options: UpdateOptions|None, overrides: UpdateOptions) -> UpdateOptions:
         """Combine all provided UpdateOptions into one dictionary"""
         return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
 
     # Cursor Handlers
-    def search_cursor(self, field_names: FieldName | Iterable[FieldName],
+    def search_cursor(self, field_names: FieldName | Sequence[FieldName],
                       *,
-                      search_options: Optional[SearchOptions]=None, 
+                      search_options: SearchOptions|None=None, 
                       **overrides: Unpack[SearchOptions]) -> SearchCursor:
         """Get a `SearchCursor` for the `FeatureClass`
         Supplied search options are resolved by updating the base FeatureClass Search options in this order:
@@ -315,7 +319,7 @@ class FeatureClass(Generic[_Geo_T]):
         
         Arguments:
             field_names (str | Iterable[str]): The column names to include from the `FeatureClass`
-            search_options (Optional[SearchOptions]): A `SeachOptions` instance that will be used to shadow
+            search_options (SearchOptions|None): A `SeachOptions` instance that will be used to shadow
                 `search_options` set on the `FeatureClass`
             **overrides ( Unpack[SeachOptions] ): Additional keyword arguments for the cursor that shadow 
                 both the `seach_options` variable and the `FeatureClass` instance `SearchOptions`
@@ -342,25 +346,25 @@ class FeatureClass(Generic[_Geo_T]):
         """
         return SearchCursor(self.path, field_names, **self._resolve_search_options(search_options, overrides))
 
-    def insert_cursor(self, field_names: FieldName | Iterable[FieldName],
+    def insert_cursor(self, field_names: FieldName | Sequence[FieldName],
                       *,
-                      insert_options: Optional[InsertOptions]=None, 
+                      insert_options: InsertOptions|None=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
-    def update_cursor(self, field_names: FieldName | Iterable[FieldName],
+    def update_cursor(self, field_names: FieldName | Sequence[FieldName],
                       *,
-                      update_options: Optional[UpdateOptions]=None, 
+                      update_options: UpdateOptions|None=None, 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
-    def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
+    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
         Arguments:
-            distinct_fields (Iterable[FieldName] | FieldName): The field or fields to find distinct values for.
+            distinct_fields (Sequence[FieldName] | FieldName): The field or fields to find distinct values for.
                 Choosing multiple fields will find all distinct instances of those field combinations
         
         Yields:
@@ -369,7 +373,7 @@ class FeatureClass(Generic[_Geo_T]):
         clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
         yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) ) #type:ignore
 
-    def get_records(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[RowRecord, None, None]:
+    def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Generator[RowRecord, None, None]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Parameters:
@@ -383,7 +387,7 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
-    def get_tuples(self, field_names: Iterable[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
+    def get_tuples(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
         Parameters:
@@ -452,7 +456,7 @@ class FeatureClass(Generic[_Geo_T]):
 
             for rec in filter(rec_filter, records): #type:ignore (Iterable and Generator can both be consumed in for loop)
                 new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields])) #type:ignore
-            return tuple(new_ids)
+        return tuple(new_ids)
 
     def filter(self, func: Callable[[RowRecord], bool], invert: bool=False) -> Generator[RowRecord]:
         """Apply a function filter to rows in the FeatureClass
@@ -533,7 +537,8 @@ class FeatureClass(Generic[_Geo_T]):
             No way to undo this!
         """
         with self.update_cursor('OID@') as cur:
-            return sum(cur.deleteRow() or 1 for _ in cur) #type:ignore
+            total = sum(cur.deleteRow() or 1 for _ in cur) #type:ignore
+        return total
 
     # Magic Methods
     if TYPE_CHECKING:
@@ -620,7 +625,7 @@ class FeatureClass(Generic[_Geo_T]):
                 yield from ( list(row) for row in self.search_cursor(field) ) #type:ignore
 
             case set():
-                yield from ( row for row in as_dict(self.search_cursor(field)) )
+                yield from ( row for row in as_dict(self.search_cursor(list(field))) )
 
             case wc if isinstance(wc, WhereClause):
                 yield from ( row for row in as_dict(self.search_cursor(where_clause=wc.where_clause)) ) #type:ignore
@@ -797,7 +802,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     # Context Managers
     @contextmanager
-    def editor(self, multiuser_mode: Optional[bool]=True):
+    def editor(self, multiuser_mode: bool|None=True):
         """Create an editor context for the feature, required for features that participate in Topologies or exist
         on remote servers
         
@@ -876,10 +881,10 @@ class FeatureClass(Generic[_Geo_T]):
     def options(self,
                 *, 
                 strict: bool = False,
-                search_options: Optional[SearchOptions]=None, 
-                update_options: Optional[UpdateOptions]=None, 
-                insert_options: Optional[InsertOptions]=None, 
-                clause: Optional[SQLClause]=None):
+                search_options: SearchOptions|None=None, 
+                update_options: UpdateOptions|None=None, 
+                insert_options: InsertOptions|None=None, 
+                clause: SQLClause|None=None):
         """Enter a context block where the supplied options replace the stored options for the `FeatureClass`
         
         Arguments:

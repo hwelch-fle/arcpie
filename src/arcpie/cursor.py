@@ -6,7 +6,6 @@ from typing import (
     Any,
     Literal,
     NamedTuple,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -88,8 +87,8 @@ class SQLClause(NamedTuple):
             [('foo', 1001), ('bar', 999), ('baz', 567), ('buzz', 345), ('bang', 233)]
         ```
     """
-    prefix: Optional[str]
-    postfix: Optional[str]
+    prefix: str|None
+    postfix: str|None
 
 class SearchOptions(TypedDict, total=False):
     """Optional parameters for SearchCursors
@@ -141,8 +140,8 @@ class UpdateOptions(TypedDict, total=False):
     spatial_reference: str | int | SpatialReference
     explode_to_points: bool
     sql_clause: SQLClause
-    skip_nulls: bool
-    null_value: dict[str, Any]
+    #skip_nulls: bool
+    #null_value: dict[str, Any]
     datum_transformation: str
     explicit: bool
     spatial_filter: GeometryType | Extent
@@ -184,6 +183,6 @@ class Field(TypedDict, total=False):
     field_scale: int
     field_length: int
     field_alias: str
-    field_is_nullable: bool
-    field_is_required: bool
+    field_is_nullable: Literal['NULLABLE', 'NON_NULLABLE']
+    field_is_required: Literal['REQUIRED']
     field_domain: bool
