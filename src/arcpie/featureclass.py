@@ -680,7 +680,7 @@ class FeatureClass(Generic[_Geo_T]):
             layer|lyr : Linked FeatureClass layer if applicable (else `'None'`)
             shape|shp : FeatureClass shape type
             units|unt : FeatureClass linear unit name
-            wkid      : FeatureClass WKID
+            wkid|code : FeatureClass WKID
             name|nm   : FeatureClass name
             fields|fld: FeatureClass fields (comma seperated)
         Usage:
@@ -706,7 +706,7 @@ class FeatureClass(Generic[_Geo_T]):
                 return self.describe.shapeType
             case 'units' | 'unt':
                 return self.unit_name
-            case 'wkid':
+            case 'wkid' | 'code':
                 return str(self.spatial_reference.factoryCode)
             case 'name' | 'nm':
                 return self.name
