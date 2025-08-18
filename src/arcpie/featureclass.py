@@ -658,7 +658,7 @@ class FeatureClass(Generic[_Geo_T]):
                 yield from ( row for row in as_dict(self.search_cursor(list(field))) )
 
             case wc if isinstance(wc, WhereClause):
-                yield from ( row for row in as_dict(self.search_cursor(where_clause=wc.where_clause)) ) #type:ignore
+                yield from ( row for row in as_dict(self.search_cursor(self.fields, where_clause=wc.where_clause)) ) #type:ignore
 
             case func if callable(func):
                 yield from ( row for row in self.filter(func) )
