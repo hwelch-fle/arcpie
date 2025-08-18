@@ -773,10 +773,10 @@ class FeatureClass(Generic[_Geo_T]):
         _required = Field.__required_keys__
         _optional = Field.__optional_keys__
         _provided = set(properties.keys())
-        if not _required.issubset(_provided):
+        if not _required <= _provided:
             raise ValueError(f"Field properties missing required arguments: {_required - _provided}")
 
-        if not _provided.issubset(_required | _optional):
+        if not _provided <= _required | _optional:
             raise ValueError(f"Unknown Field properties provided: {_provided - (_required | _optional)}")
 
         if fieldname in self.fields:
