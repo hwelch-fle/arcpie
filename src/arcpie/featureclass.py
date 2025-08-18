@@ -360,6 +360,36 @@ class FeatureClass(Generic[_Geo_T]):
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
+    # TODO: Make it possible to request only specific fields
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName) -> Generator[tuple[tuple[Any, ...], tuple[RowRecord, ...]], None, None]:
+        """Group features by matching field values and yield full records in groups
+        
+        Args:
+            group_fields (Sequence[FieldName] | FieldName): The fields to group the data by
+        
+        Yields:
+            ( tuple[tuple[Any, ...], tuple[RowRecord, ...]] ): A Moderately complex return type that maps the input field groups 
+                to the grouped row records
+        
+        Example:
+            >>> for group, grouped_rows in fc.group_by(['City', 'State']):
+            >>>     print(f"{group}: {len(grouped_rows)}")
+            ... (New York, NY): 12000
+            ... (Boston, MA): 1489
+            ... ...
+            
+        Note:
+            This will generate groups, but each group is fully formed as it is requested. This means a grouping
+            with a lot of possible groups may be slow, but the calculations are done per group, so it will be a moderate
+            performance hit to gather each group. You are also getting the entire row back as a record which you may not need
+        """
+        groups = sorted(list(set(self.get_tuples(group_fields)))) #type:ignore (This case is handled, str or tuple of strings)
+        if isinstance(group_fields, str):
+            group_fields = (group_fields,)
+        for group in groups:
+            where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
+            yield (group, tuple(self[where(where_clause)]))
+
     def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
