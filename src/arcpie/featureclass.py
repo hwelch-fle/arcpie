@@ -758,8 +758,13 @@ class FeatureClass(Generic[_Geo_T]):
         if fieldname in self.fields:
             raise ValueError(f"{fieldname} already exists in {self.name}!")
         
-        # Cannot start with a number, can only have alphanumeric or underscore
-        if len(fieldname) == 0 or fieldname[0] in digits or any(c not in ascii_letters + digits + '_' for c in fieldname):
+        # Cannot start with a number, can only have alphanumeric or underscore, or use reserved prefix
+        if (
+            len(fieldname) == 0 
+            or fieldname[0] in digits 
+            or any(c not in ascii_letters + digits + '_' for c in fieldname)
+            or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
+        ):
             raise ValueError(
                 f"{fieldname} is invalid, fieldnames must not start with a number "
                 "and must only contain alphanumeric characters and underscores"
@@ -1074,6 +1079,6 @@ if __name__ == '__main__':
             def _inner(polygon: Polygon) -> bool:
                 return polygon.area < acres
             return _inner
-
+        
         footprint: Polygon = reduce(merge, filter(max_area(100), fc.shapes))
 
