@@ -100,6 +100,21 @@ def format_query(vals: Iterable[Any]) -> str:
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
 
+def valid_field(fieldname: str) -> bool:
+    """Validate a fieldname"""
+    return not (
+            # Has characters
+            len(fieldname) == 0
+            # Doesn't start with a number
+            or fieldname[0] in digits 
+            # Only has alphanum and underscore
+            or any(c not in ascii_letters + digits + '_' for c in fieldname)
+            # Doesn't have reserved prefix
+            or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
+            # Is under 160 characters
+            or len(fieldname) > 160
+        )
+
 RowRecord = dict[FieldName, Any]
 _Geo_T = TypeVar('_Geo_T', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
 class FeatureClass(Generic[_Geo_T]):
@@ -759,13 +774,7 @@ class FeatureClass(Generic[_Geo_T]):
             raise ValueError(f"{fieldname} already exists in {self.name}!")
         
         # Cannot start with a number, can only have alphanumeric or underscore, or use reserved prefix
-        if (
-            len(fieldname) == 0 
-            or fieldname[0] in digits 
-            or any(c not in ascii_letters + digits + '_' for c in fieldname)
-            or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
-            or len(fieldname) > 160
-        ):
+        if not valid_field(fieldname):
             raise ValueError(
                 f"{fieldname} is invalid, fieldnames must not start with a number "
                 "and must only contain alphanumeric characters and underscores"
