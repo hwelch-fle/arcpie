@@ -2,6 +2,7 @@
 
 from typing import (
     TypedDict,
+    Required,
     Any,
     Literal,
     NamedTuple,
@@ -178,7 +179,7 @@ class Field(TypedDict, total=False):
         field_is_required (bool): Field requires a value to be set (default: False)
         field_domain (str): Existing Domain name to bind to field (optional)
     """
-    field_type: FieldType
+    field_type: Required[FieldType]
     field_precision: int
     field_scale: int
     field_length: int
