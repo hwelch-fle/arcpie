@@ -93,6 +93,7 @@ FieldName = CursorToken | str
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[RowRecord, None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) #type:ignore
 
+# TODO: This mangles single string args for `.distinct`
 def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     return f"({','.join(map(str, vals))})"
