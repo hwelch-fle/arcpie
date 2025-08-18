@@ -764,6 +764,7 @@ class FeatureClass(Generic[_Geo_T]):
             or fieldname[0] in digits 
             or any(c not in ascii_letters + digits + '_' for c in fieldname)
             or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
+            or len(fieldname) > 160
         ):
             raise ValueError(
                 f"{fieldname} is invalid, fieldnames must not start with a number "
