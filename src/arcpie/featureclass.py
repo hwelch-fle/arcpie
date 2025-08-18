@@ -93,10 +93,11 @@ FieldName = CursorToken | str
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Generator[RowRecord, None, None]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor ) #type:ignore
 
-# TODO: This mangles single string args for `.distinct`
 def format_query(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
-    return f"({','.join(map(str, vals))})"
+    if isinstance(vals, (str , int)):
+        return f"{vals}"
+    return ','.join([f"{val}" for val in vals])
 
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
@@ -1063,7 +1064,7 @@ class FeatureClass(Generic[_Geo_T]):
                                  f'which is greater that the max limit of {max_selection}')
             print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
 
-        selected = f"{fc.describe.OIDFieldName} IN {format_query(selected_ids)}"
+        selected = f"{fc.describe.OIDFieldName} IN ({format_query(selected_ids)})"
         fc.search_options = SearchOptions(where_clause=selected)
         fc.update_options = UpdateOptions(where_clause=selected)
         return fc
