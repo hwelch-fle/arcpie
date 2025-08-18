@@ -773,7 +773,6 @@ class FeatureClass(Generic[_Geo_T]):
         if fieldname in self.fields:
             raise ValueError(f"{fieldname} already exists in {self.name}!")
         
-        # Cannot start with a number, can only have alphanumeric or underscore, or use reserved prefix
         if not valid_field(fieldname):
             raise ValueError(
                 f"{fieldname} is invalid, fieldnames must not start with a number "
