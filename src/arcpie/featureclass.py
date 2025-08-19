@@ -361,35 +361,49 @@ class FeatureClass(Generic[_Geo_T]):
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
-    # TODO: Make it possible to request only specific fields
-    def group_by(self, group_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[tuple[Any, ...], tuple[RowRecord, ...]]]:
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName, fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
             group_fields (Sequence[FieldName] | FieldName): The fields to group the data by
-        
+            fields (Sequence[FieldName] | FieldName): The fields to include in the output record (`'*'` means all and is default)
         Yields:
-            ( tuple[tuple[Any, ...], tuple[RowRecord, ...]] ): A Moderately complex return type that maps the input field groups 
-                to the grouped row records
+            ( Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]] ): A nested iterator of groups and then rows
         
         Example:
-            >>> for group, grouped_rows in fc.group_by(['City', 'State']):
-            >>>     print(f"{group}: {len(grouped_rows)}")
-            ... (New York, NY): 12000
-            ... (Boston, MA): 1489
+            >>> # With a field group, you will be able to unpack the tuple
+            >>> for group, rows in fc.group_by(['GroupField1', 'GroupField2'], ['ValueField1', 'ValueField2', ...]):
+            >>>     print(group)
+            >>>     for v1, v2 in rows:
+            >>>         if v1 > 10:
+            >>>             print(v2)
+            ... (GroupValue1A, GroupValue1B)
+            ... valueA
+            ... valueB
+            ...
+            >>> # With a single field, you will have direct access to the field values   
+            >>> for group, district_populations in fc.group_by(['City', 'State'], 'Population'):
+            >>>         print(f"{group}: {sum(district_populations)}")
+            ... (New York, NY): 8260000
+            ... (Boston, MA): 4941632
             ... ...
-            
-        Note:
-            This will generate groups, but each group is fully formed as it is requested. This means a grouping
-            with a lot of possible groups may be slow, but the calculations are done per group, so it will be a moderate
-            performance hit to gather each group. You are also getting the entire row back as a record which you may not need
         """
         groups = sorted(list(set(self.get_tuples(group_fields))))
         if isinstance(group_fields, str):
             group_fields = (group_fields,)
+            
+        if fields == '*':
+            fields = self.fields
+            
         for group in groups:
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
-            yield (group, tuple(self[where(where_clause)]))
+            yield ( 
+                   group, 
+                   (
+                       row if len(fields) > 1 else row[0] 
+                       for row in self.search_cursor(fields, where_clause=where_clause)
+                    ) 
+                )
 
     def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
@@ -1155,4 +1169,5 @@ if __name__ == '__main__':
             print(row['name'])
             
         for row in fc[footprint]:
-            print(row['name'])                
+            print(row['name'])   
+        
