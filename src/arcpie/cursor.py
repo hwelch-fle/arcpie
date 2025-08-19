@@ -3,7 +3,6 @@
 from typing import (
     TypedDict,
     Required,
-    Any,
     Literal,
     NamedTuple,
     TYPE_CHECKING,
