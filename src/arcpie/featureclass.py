@@ -573,8 +573,11 @@ class FeatureClass(Generic[_Geo_T]):
     # Magic Methods
     if TYPE_CHECKING:
         
-        _OVERLOAD_TYPES = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | Callable[[RowRecord], bool] | WhereClause
-
+        _OVERLOAD_TYPES = (
+            FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
+            Callable[[RowRecord], bool] | WhereClause | Extent | GeometryType
+        )
+        
         @overload
         def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...], None, None]:
             """Yield tuples of the requested field values"""
@@ -604,8 +607,12 @@ class FeatureClass(Generic[_Geo_T]):
         def __getitem__(self, field: WhereClause) -> Generator[RowRecord, None, None]:
             """Yield values that match the provided WhereClause SQL statement"""
             pass
+        
+        @overload
+        def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]:
+            """Yield rows that intersect the provided geometry"""
+            pass
     
-    def __getitem__(self, field: _OVERLOAD_TYPES) -> Generator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -639,8 +646,12 @@ class FeatureClass(Generic[_Geo_T]):
             >>> print(list(fc[lambda r: r['field1'] == target]))
             ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
             ... 
-            >>> Where Clause (Use where() helper function or a WhereClause object)
+            >>> # Where Clause (Use where() helper function or a WhereClause object)
             >>> print(list(fc[where('field1 = target')]))
+            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            ... 
+            >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
+            >>> print(list(fc[shape]))
             ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
             ```
         """
@@ -657,6 +668,9 @@ class FeatureClass(Generic[_Geo_T]):
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(list(field))) )
 
+            # Conditional Requests
+            case shape if isinstance(shape, GeometryType | Extent):
+                yield from ( row for row in self.search_cursor(self.fields, spatial_filter=shape) )
             case wc if isinstance(wc, WhereClause):
                 yield from ( row for row in as_dict(self.search_cursor(self.fields, where_clause=wc.where_clause)) ) #type:ignore
 
@@ -1111,6 +1125,17 @@ if __name__ == '__main__':
     def get_john(rec: dict[str, Any]) -> bool:
         return rec['name'] == 'John'
     
+    from functools import reduce
+    def merge(s1: _Geo_T, s2: _Geo_T) -> _Geo_T:
+        return s1.union(s2)
+    
+    def max_area(acres: int) -> Callable[[Polygon], bool]:
+            def _inner(polygon: Polygon) -> bool:
+                return polygon.area < acres
+            return _inner
+        
+    footprint: Polygon = reduce(merge, filter(max_area(100), fc.shapes))
+    
     with fc.spatial_filter(fc.extent):
         for row in fc[get_john]:
             print(row['name'])
@@ -1129,15 +1154,6 @@ if __name__ == '__main__':
 
         for row in fc[where("name = 'John'")]:
             print(row['name'])
-
-        from functools import reduce
-        def merge(s1: Polygon, s2: Polygon) -> Polygon:
-            return s1 + s2 #type:ignore
-        
-        def max_area(acres: int) -> Callable[[Polygon], bool]:
-            def _inner(polygon: Polygon) -> bool:
-                return polygon.area < acres
-            return _inner
-        
-        footprint: Polygon = reduce(merge, filter(max_area(100), fc.shapes))
-
+            
+        for row in fc[footprint]:
+            print(row['name'])                
