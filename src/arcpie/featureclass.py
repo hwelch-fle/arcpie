@@ -750,7 +750,7 @@ class FeatureClass(Generic[_Geo_T]):
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(list(field))) )
             case None:
-                yield iter([]) # This allows a side effect None to be used to get nothing
+                yield from () # This allows a side effect None to be used to get nothing
 
             # Conditional Requests
             case shape if isinstance(shape, GeometryType | Extent):
