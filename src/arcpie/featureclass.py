@@ -361,12 +361,12 @@ class FeatureClass(Generic[_Geo_T]):
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
-    def group_by(self, group_fields: Sequence[FieldName] | FieldName, fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]]:
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName, return_fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[tuple[FieldName, ...] | FieldName, Iterator[tuple[Any, ...] | Any]]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
             group_fields (Sequence[FieldName] | FieldName): The fields to group the data by
-            fields (Sequence[FieldName] | FieldName): The fields to include in the output record (`'*'` means all and is default)
+            return_fields (Sequence[FieldName] | FieldName): The fields to include in the output record (`'*'` means all and is default)
         Yields:
             ( Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]] ): A nested iterator of groups and then rows
         
@@ -392,15 +392,21 @@ class FeatureClass(Generic[_Geo_T]):
         if isinstance(group_fields, str):
             group_fields = (group_fields,)
             
-        if fields == '*':
-            fields = self.fields
-            
+        if return_fields == '*':
+            return_fields = self.fields
+        
+        if isinstance(return_fields, str):
+            return_fields = (return_fields,)
+        
+        if len(groups) < 1 or len(return_fields) < 1:
+            raise ValueError("Group Fields and Return Fields must be populated")
+          
         for group in groups:
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
             yield ( 
-                   group, (
-                       row if len(fields) > 1 else row[0] 
-                       for row in self.search_cursor(fields, where_clause=where_clause)
+                   group if len(group) > 1 else group[0], (
+                       row if len(return_fields) > 1 else row[0] 
+                       for row in self.search_cursor(return_fields, where_clause=where_clause)
                     ) 
                 )
 
@@ -1132,41 +1138,5 @@ class FeatureClass(Generic[_Geo_T]):
     
 
 if __name__ == '__main__':
-    fc = FeatureClass[Polygon]('path')
-
-    def get_john(rec: dict[str, Any]) -> bool:
-        return rec['name'] == 'John'
-    
-    from functools import reduce
-    def merge(s1: _Geo_T, s2: _Geo_T) -> _Geo_T:
-        return s1.union(s2)
-    
-    def max_area(acres: int) -> Callable[[Polygon], bool]:
-            def _inner(polygon: Polygon) -> bool:
-                return polygon.area < acres
-            return _inner
-        
-    footprint: Polygon = reduce(merge, filter(max_area(100), fc.shapes))
-    
-    with fc.spatial_filter(fc.extent):
-        for row in fc[get_john]:
-            print(row['name'])
-
-        for row in fc[('name', 'age')]:
-            print(row[0])
-
-        for row in fc[['name', 'age']]:
-            print(row.pop(0))
-
-        for row in fc['name']:
-            print(row)
-
-        for row in fc[{'name', 'age'}]:
-            print(row['name'])
-
-        for row in fc[where("name = 'John'")]:
-            print(row['name'])
-            
-        for row in fc[footprint]:
-            print(row['name'])   
+    pass
         
