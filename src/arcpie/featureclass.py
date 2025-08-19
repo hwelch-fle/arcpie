@@ -7,6 +7,8 @@ import arcpy.typing.describe as dt
 
 from string import ascii_letters, digits
 
+from functools import reduce
+
 from collections.abc import (
     Iterable,
     Iterator,
@@ -618,12 +620,39 @@ class FeatureClass(Generic[_Geo_T]):
             total = sum(cur.deleteRow() or 1 for _ in cur)
         return total
 
+    def footprint(self, buffer: float|None=None) -> _Geo_T | None:
+        """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
+        as a spatial filter on other FeatureClasses
+        
+        Args:
+            buffer (float | None): Optional buffer (in feature units, respects projection context) to buffer by (default: None)
+
+        Returns:
+            (GeometryType | None): A merged Multi-Geometry of all feature geometries or `None` if no features in FeatureClass
+        """
+        if len(self) == 0:
+            return None
+
+        def merge(acc: _Geo_T, nxt: _Geo_T) -> _Geo_T:
+            if buffer:
+                nxt = nxt.buffer(buffer)
+            return acc.union(nxt)
+        
+        # Consume the shape generator popping off the first shape and applying the buffer, 
+        # Then buffering each additional shape and merging it into the accumulator (starting with _first)
+        _shapes = self.shapes
+        _first = next(_shapes)
+        if buffer:
+            _first = _first.buffer(buffer)
+        
+        return reduce(merge, _shapes, _first)
+
     # Magic Methods
     if TYPE_CHECKING:
         
         _OVERLOAD_TYPES = (
             FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
-            Callable[[RowRecord], bool] | WhereClause | Extent | GeometryType
+            Callable[[RowRecord], bool] | WhereClause | Extent | GeometryType | None
         )
         
         @overload
@@ -660,7 +689,13 @@ class FeatureClass(Generic[_Geo_T]):
         def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]:
             """Yield rows that intersect the provided geometry"""
             pass
-    
+        
+        @overload
+        def __getitem__(self, field: None) -> Iterator[None]:
+            """Yield nothing (used as fallback if an indexing argument is None)"""
+            pass
+
+
     def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
@@ -714,7 +749,9 @@ class FeatureClass(Generic[_Geo_T]):
                 yield from ( list(row) for row in self.search_cursor(field) )
             case set():
                 yield from ( row for row in as_dict(self.search_cursor(list(field))) )
-            
+            case None:
+                yield iter([]) # This allows a side effect None to be used to get nothing
+
             # Conditional Requests
             case shape if isinstance(shape, GeometryType | Extent):
                 yield from ( row for row in self.search_cursor(self.fields, spatial_filter=shape) )
@@ -1163,7 +1200,18 @@ class FeatureClass(Generic[_Geo_T]):
         fc.update_options = UpdateOptions(where_clause=selected)
         return fc
     
+    # Helpers
+    @classmethod
+    def count(cls, features: Iterator[Any]) -> int:
+        return sum(1 for _ in features)
 
 if __name__ == '__main__':
-    pass
+    line = FeatureClass[Polyline]('Polyline')
+    point = FeatureClass[PointGeometry]('Point')
+    poly = FeatureClass[Polygon]('Polygon')
+
+    # Get the count of all polygons that intersect a point of Subtype 8
+    # The where(1=0) will prevent an empty/None footprint from being passed to the
+    with point.where('SUBTYPE@ = 8'):
+        FeatureClass.count(poly[point.footprint()])
         
