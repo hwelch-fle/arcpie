@@ -9,7 +9,7 @@ from string import ascii_letters, digits
 
 from collections.abc import (
     Iterable,
-    Generator,
+    Iterator,
     Callable,
     Sequence,
 )
@@ -265,8 +265,8 @@ class FeatureClass(Generic[_Geo_T]):
         return ListSubtypes(self.path)
 
     @property
-    def shapes(self) -> Generator[_Geo_T, None, None]:
-        yield from ( shape for shape, in self.search_cursor('SHAPE@') ) #type:ignore (Will be _Geo_T)
+    def shapes(self) -> Iterator[_Geo_T]:
+        yield from ( shape for shape, in self.search_cursor('SHAPE@') )
 
     @property
     def spatial_reference(self):
@@ -361,7 +361,7 @@ class FeatureClass(Generic[_Geo_T]):
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     # TODO: Make it possible to request only specific fields
-    def group_by(self, group_fields: Sequence[FieldName] | FieldName) -> Generator[tuple[tuple[Any, ...], tuple[RowRecord, ...]], None, None]:
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[tuple[Any, ...], tuple[RowRecord, ...]]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
@@ -390,7 +390,7 @@ class FeatureClass(Generic[_Geo_T]):
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
             yield (group, tuple(self[where(where_clause)]))
 
-    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Generator[tuple[Any, ...]]:
+    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
         Arguments:
@@ -403,7 +403,7 @@ class FeatureClass(Generic[_Geo_T]):
         clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
         yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) ) #type:ignore
 
-    def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Generator[RowRecord, None, None]:
+    def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[RowRecord]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Parameters:
@@ -417,7 +417,7 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from as_dict(self.search_cursor(field_names, **options))
 
-    def get_tuples(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Generator[tuple[Any, ...]]:
+    def get_tuples(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
         Parameters:
@@ -426,7 +426,7 @@ class FeatureClass(Generic[_Geo_T]):
         """
         yield from self.search_cursor(field_names, **options)
 
-    def insert_records(self, records: Iterable[RowRecord] | Generator[RowRecord, None, None], ignore_errors: bool=False) -> tuple[int, ...]:
+    def insert_records(self, records: Iterable[RowRecord] | Iterator[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
         """Provide a list of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -579,32 +579,32 @@ class FeatureClass(Generic[_Geo_T]):
         )
         
         @overload
-        def __getitem__(self, field: tuple[FieldName, ...]) -> Generator[tuple[Any, ...], None, None]:
+        def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]:
             """Yield tuples of the requested field values"""
             pass
         
         @overload
-        def __getitem__(self, field: list[FieldName]) -> Generator[list[Any], None, None]:
+        def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]:
             """Yield lists of the requested field values"""
             pass
         
         @overload
-        def __getitem__(self, field: set[FieldName]) -> Generator[RowRecord, None, None]:
+        def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]:
             """Yield dictionaries of the requested field values"""
             pass
   
         @overload
-        def __getitem__(self, field: FieldName) -> Generator[Any, None, None]:
+        def __getitem__(self, field: FieldName) -> Iterator[Any]:
             """Yield values from the requested field"""
             pass
         
         @overload
-        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Generator[RowRecord, None, None]:
+        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Iterator[RowRecord]:
             """Yield dictionaries of the rows that match the filter function"""
             pass
 
         @overload
-        def __getitem__(self, field: WhereClause) -> Generator[RowRecord, None, None]:
+        def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]:
             """Yield values that match the provided WhereClause SQL statement"""
             pass
         
@@ -613,6 +613,7 @@ class FeatureClass(Generic[_Geo_T]):
             """Yield rows that intersect the provided geometry"""
             pass
     
+    def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -683,7 +684,7 @@ class FeatureClass(Generic[_Geo_T]):
                     "Must be a filter functon, set of keys, list of keys, or tuple of keys"
                 )
 
-    def __iter__(self) -> Generator[dict[str, Any]]:
+    def __iter__(self) -> Iterator[dict[str, Any]]:
         """Iterate all rows in the FeatureClass yielding mappings of field name to field value"""
         yield from ( as_dict(self.search_cursor(self.fields)) )
 
