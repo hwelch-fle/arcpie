@@ -94,6 +94,26 @@ from cursor import (
 FieldName = str | CursorToken
 FieldOpts = Sequence[FieldName] | FieldName
 
+def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
+    """Helper function to allow passing single values to arguments that expect a tuple
+    
+    Args:
+        vals (Sequence[Any] | Any): The values to normalize based on item count
+    
+    Returns:
+        ( Sequence[Any] | Any  ): The normalized sequence
+    """
+    # String sequences are returned directly
+    if isinstance(vals, str):
+        return vals
+    
+    # Singleton sequences are flattened to the first value
+    if len(vals) == 1:
+        return vals[0]
+    
+    # Default to returning the arg
+    return vals
+
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor )
 
@@ -364,7 +384,8 @@ class FeatureClass(Generic[_Geo_T]):
 
     if TYPE_CHECKING:
         GroupIter = Iterator[tuple[Any, ...] | Any]
-    def group_by(self, group_fields: FieldOpts, return_fields: FieldOpts ='*') -> Iterator[tuple[tuple[Any, ...], GroupIter]]:
+        GroupIdent = tuple[Any, ...] | Any
+    def group_by(self, group_fields: FieldOpts, return_fields: FieldOpts ='*') -> Iterator[tuple[GroupIdent, GroupIter]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
@@ -391,26 +412,29 @@ class FeatureClass(Generic[_Geo_T]):
             ... (Boston, MA): 4941632
             ... ...
         """
-        groups = sorted(list(set(self.get_tuples(group_fields))))
+
         if isinstance(group_fields, str):
             group_fields = (group_fields,)
-            
+        
         if return_fields == '*':
             return_fields = self.fields
         
         if isinstance(return_fields, str):
             return_fields = (return_fields,)
         
-        if len(groups) < 1 or len(return_fields) < 1:
+        if len(group_fields) < 1 or len(return_fields) < 1:
             raise ValueError("Group Fields and Return Fields must be populated")
-          
+        
+        # This is the most immediately expensive operation
+        groups = sorted(list(set(self.get_tuples(group_fields))))
+
         for group in groups:
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
-            yield ( 
-                   group if len(group) > 1 else group[0], (
-                       row if len(return_fields) > 1 else row[0] 
+            yield (
+                   extract_singleton(group), (
+                       extract_singleton(row) 
                        for row in self.search_cursor(return_fields, where_clause=where_clause)
-                    ) 
+                    )
                 )
 
     def distinct(self, distinct_fields: FieldOpts) -> Iterator[tuple[Any, ...]]:
