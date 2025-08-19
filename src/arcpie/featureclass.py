@@ -398,8 +398,7 @@ class FeatureClass(Generic[_Geo_T]):
         for group in groups:
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
             yield ( 
-                   group, 
-                   (
+                   group, (
                        row if len(fields) > 1 else row[0] 
                        for row in self.search_cursor(fields, where_clause=where_clause)
                     ) 
