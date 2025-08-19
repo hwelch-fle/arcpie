@@ -92,6 +92,7 @@ from cursor import (
 )
 
 FieldName = str | CursorToken
+FieldOpts = Sequence[FieldName] | FieldName
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor )
@@ -361,12 +362,14 @@ class FeatureClass(Generic[_Geo_T]):
         """See `FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
-    def group_by(self, group_fields: Sequence[FieldName] | FieldName, return_fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[tuple[FieldName, ...] | FieldName, Iterator[tuple[Any, ...] | Any]]]:
+    if TYPE_CHECKING:
+        GroupIter = Iterator[tuple[Any, ...] | Any]
+    def group_by(self, group_fields: FieldOpts, return_fields: FieldOpts ='*') -> Iterator[tuple[tuple[Any, ...], GroupIter]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
-            group_fields (Sequence[FieldName] | FieldName): The fields to group the data by
-            return_fields (Sequence[FieldName] | FieldName): The fields to include in the output record (`'*'` means all and is default)
+            group_fields (FieldOpt): The fields to group the data by
+            return_fields (FieldOpt): The fields to include in the output record (`'*'` means all and is default)
         Yields:
             ( Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]] ): A nested iterator of groups and then rows
         
@@ -410,11 +413,11 @@ class FeatureClass(Generic[_Geo_T]):
                     ) 
                 )
 
-    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
+    def distinct(self, distinct_fields: FieldOpts) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
         Arguments:
-            distinct_fields (Sequence[FieldName] | FieldName): The field or fields to find distinct values for.
+            distinct_fields (FieldOpt): The field or fields to find distinct values for.
                 Choosing multiple fields will find all distinct instances of those field combinations
         
         Yields:
