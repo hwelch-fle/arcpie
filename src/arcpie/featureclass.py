@@ -795,7 +795,13 @@ class FeatureClass(Generic[_GeometryType]):
                 )
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
-        """Iterate all rows in the FeatureClass yielding mappings of field name to field value"""
+        """Iterate all rows in the FeatureClass yielding mappings of field name to field value
+        
+        Note:
+            It was decided to yield mappings because without specifying fields, it is up to the user
+            to deal with the data as they see fit. Yielding tuples in an order that's not defined by
+            the user would be confusing, so a mapping makes it clear exactly what they're accessing
+        """
         yield from ( as_dict(self.search_cursor(self.fields)) )
 
     def __len__(self) -> int:
