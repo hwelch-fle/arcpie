@@ -35,6 +35,12 @@ from arcpy.da import (
 )
 
 if TYPE_CHECKING:
+    # Shadow cursors during type check with proper typing
+    from _types import (
+        SearchCursor,
+        InsertCursor,
+        UpdateCursor,
+    )
     from arcpy.da import (
         SpatialRelationship,
         Subtype,
@@ -144,8 +150,9 @@ def valid_field(fieldname: str) -> bool:
         )
 
 RowRecord = dict[FieldName, Any]
-_Geo_T = TypeVar('_Geo_T', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
-class FeatureClass(Generic[_Geo_T]):
+GeometryType = TypeVar('GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
+
+class FeatureClass(Generic[GeometryType]):
     """A Wrapper for ArcGIS FeatureClass objects
     
     Example:
@@ -289,7 +296,7 @@ class FeatureClass(Generic[_Geo_T]):
         return ListSubtypes(self.path)
 
     @property
-    def shapes(self) -> Iterator[_Geo_T]:
+    def shapes(self) -> Iterator[GeometryType]:
         yield from ( shape for shape, in self.search_cursor('SHAPE@') )
 
     @property
@@ -572,7 +579,7 @@ class FeatureClass(Generic[_Geo_T]):
         yield from ( row for row in self if func(row) == (not invert) )
 
     # Data Operations
-    def copy(self, workspace: str, options: bool=True) -> FeatureClass[_Geo_T]:
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass[GeometryType]:
         """Copy this `FeatureClass` to a new workspace
         
         Arguments:
@@ -592,7 +599,7 @@ class FeatureClass(Generic[_Geo_T]):
         if Exists(copy_fc := Path(workspace) / name):
             raise ValueError(f'{name} already exists in {workspace}!')
         CopyFeatures(self.path, str(copy_fc))
-        fc = FeatureClass[_Geo_T](str(copy_fc))
+        fc = FeatureClass[GeometryType](str(copy_fc))
         if options:
             fc.search_options = self.search_options
             fc.update_options = self.update_options
@@ -620,7 +627,7 @@ class FeatureClass(Generic[_Geo_T]):
             total = sum(cur.deleteRow() or 1 for _ in cur)
         return total
 
-    def footprint(self, buffer: float|None=None) -> _Geo_T | None:
+    def footprint(self, buffer: float|None=None) -> GeometryType | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
         as a spatial filter on other FeatureClasses
         
@@ -633,7 +640,7 @@ class FeatureClass(Generic[_Geo_T]):
         if len(self) == 0:
             return None
 
-        def merge(acc: _Geo_T, nxt: _Geo_T) -> _Geo_T:
+        def merge(acc: GeometryType, nxt: GeometryType) -> GeometryType:
             if buffer:
                 nxt = nxt.buffer(buffer)
             return acc.union(nxt)
@@ -793,7 +800,7 @@ class FeatureClass(Generic[_Geo_T]):
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
-        return f"{self.__class__.__name__}[{_Geo_T.__name__}]('{self.path}')"
+        return f"{self.__class__.__name__}[{GeometryType.__name__}]('{self.path}')"
 
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
@@ -1163,7 +1170,7 @@ class FeatureClass(Generic[_Geo_T]):
     def from_layer(cls, layer: Layer, 
                    *,
                    max_selection: int=500_000, # This needs testing
-                   raise_exception: bool=False) -> FeatureClass[_Geo_T]:
+                   raise_exception: bool=False) -> FeatureClass[GeometryType]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Parameters:
