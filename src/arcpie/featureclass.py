@@ -119,6 +119,11 @@ def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
         >>> count(fc[boundary])
         325
     """
+    # The __len__() method of FeatureClass only iterates
+    # object ID values so this is a small optimisation we can do
+    if isinstance(featureclass, FeatureClass):
+        return len(featureclass)
+    
     return sum(1 for _ in featureclass)
 
 def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
