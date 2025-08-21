@@ -863,7 +863,7 @@ class FeatureClass(Generic[_GeometryType]):
                 return str(self)
 
     def __fspath__(self) -> str:
-        return Path(self.path).resolve().__str__()
+        return str(Path(self.path).resolve())
 
     def __hash__(self) -> int:
         return hash(self.__fspath__())
