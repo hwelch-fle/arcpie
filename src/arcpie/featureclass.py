@@ -826,7 +826,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
-        return self.path
+        return self.__fspath__()
 
     def __eq__(self, other: Any) -> bool:
         """Determine if the datasource of two featureclass objects is the same"""
