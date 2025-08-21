@@ -150,9 +150,9 @@ def valid_field(fieldname: str) -> bool:
         )
 
 RowRecord = dict[FieldName, Any]
-GeometryType = TypeVar('GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint)
+_GeometryType = TypeVar('_GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint, GeometryType)
 
-class FeatureClass(Generic[GeometryType]):
+class FeatureClass(Generic[_GeometryType]):
     """A Wrapper for ArcGIS FeatureClass objects
     
     Example:
@@ -288,7 +288,7 @@ class FeatureClass(Generic[GeometryType]):
     @property
     def np_dtypes(self):
         with self.search_cursor(self.fields) as c:
-            return c._dtype
+            return c._dtype #type:ignore (This is the only way to access the dtype)
 
     @property
     def subtypes(self) -> dict[int, Subtype]:
@@ -296,8 +296,8 @@ class FeatureClass(Generic[GeometryType]):
         return ListSubtypes(self.path)
 
     @property
-    def shapes(self) -> Iterator[GeometryType]:
-        yield from ( shape for shape, in self.search_cursor('SHAPE@') )
+    def shapes(self) -> Iterator[_GeometryType]:
+        yield from ( shape for shape, in self.search_cursor('SHAPE@'))
 
     @property
     def spatial_reference(self):
@@ -348,7 +348,7 @@ class FeatureClass(Generic[GeometryType]):
         be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
         then a direct keyword override to be supplied while never mutating the base options of the feature class.
         
-        Arguments:
+        Args:
             field_names (str | Iterable[str]): The column names to include from the `FeatureClass`
             search_options (SearchOptions|None): A `SeachOptions` instance that will be used to shadow
                 `search_options` set on the `FeatureClass`
@@ -449,7 +449,7 @@ class FeatureClass(Generic[GeometryType]):
     def distinct(self, distinct_fields: FieldOpts) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
-        Arguments:
+        Args:
             distinct_fields (FieldOpt): The field or fields to find distinct values for.
                 Choosing multiple fields will find all distinct instances of those field combinations
         
@@ -462,7 +462,7 @@ class FeatureClass(Generic[GeometryType]):
     def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[RowRecord]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
-        Parameters:
+        Args:
             field_names (str | Iterable[str]): The columns to iterate
             search_options (SearchOptions): A Search Options object
             **options (Unpack[SearchOptions]): Additional over
@@ -476,7 +476,7 @@ class FeatureClass(Generic[GeometryType]):
     def get_tuples(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
-        Parameters:
+        Args:
             field_names (str | Iterable[str]): The columns to iterate
             **options (SearchOptions): Additional parameters to pass to the SearchCursor
         """
@@ -494,7 +494,7 @@ class FeatureClass(Generic[GeometryType]):
         Raises:
             ( KeyError ): If the records have varying keys or the keys are not in the FeatureClass
             
-        Usage:
+        Example:
             ```python
             >>> new_rows = [
             ...    {'first': 'John', 'last': 'Cleese', 'year': 1939}, 
@@ -538,10 +538,10 @@ class FeatureClass(Generic[GeometryType]):
             # Handle case where records is a Iterator and the field validation 
             # consumed the first record
             if isinstance(records, Iterator):
-                new_ids.append(cur.insertRow([_first_rec.get(k) for k in rec_fields]))
+                new_ids.append(cur.insertRow(tuple(_first_rec.get(k) for k in rec_fields)))
 
             for rec in filter(rec_filter, records):
-                new_ids.append(cur.insertRow([rec.get(k) for k in rec_fields]))
+                new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
 
     def filter(self, func: Callable[[RowRecord], bool], invert: bool=False) -> Iterator[RowRecord]:
@@ -555,7 +555,7 @@ class FeatureClass(Generic[GeometryType]):
         Yields:
             ( dict[str, Any] ): Rows in the FeatureClass that match the filter (or inverted filter)
 
-        Usage:
+        Example:
             ```python
             >>> def area_filter(row: dict) -> bool:
             >>>     return row['Area'] >= 10
@@ -579,10 +579,10 @@ class FeatureClass(Generic[GeometryType]):
         yield from ( row for row in self if func(row) == (not invert) )
 
     # Data Operations
-    def copy(self, workspace: str, options: bool=True) -> FeatureClass[GeometryType]:
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass[_GeometryType]:
         """Copy this `FeatureClass` to a new workspace
         
-        Arguments:
+        Args:
             workspace (str): The path to the workspace
             options (bool): Copy the cursor options to the new `FeatureClass` (default: `True`)
             
@@ -599,7 +599,7 @@ class FeatureClass(Generic[GeometryType]):
         if Exists(copy_fc := Path(workspace) / name):
             raise ValueError(f'{name} already exists in {workspace}!')
         CopyFeatures(self.path, str(copy_fc))
-        fc = FeatureClass[GeometryType](str(copy_fc))
+        fc = FeatureClass[_GeometryType](str(copy_fc))
         if options:
             fc.search_options = self.search_options
             fc.update_options = self.update_options
@@ -610,7 +610,7 @@ class FeatureClass(Generic[GeometryType]):
     def clear(self, all: bool=False) -> int:
         """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
 
-        Arguments:
+        Args:
             all (bool): Set to `True` to clear all rows ignoring supplied `update_options`
 
         Returns:
@@ -627,7 +627,7 @@ class FeatureClass(Generic[GeometryType]):
             total = sum(cur.deleteRow() or 1 for _ in cur)
         return total
 
-    def footprint(self, buffer: float|None=None) -> GeometryType | None:
+    def footprint(self, buffer: float|None=None) -> _GeometryType | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
         as a spatial filter on other FeatureClasses
         
@@ -640,7 +640,7 @@ class FeatureClass(Generic[GeometryType]):
         if len(self) == 0:
             return None
 
-        def merge(acc: GeometryType, nxt: GeometryType) -> GeometryType:
+        def merge(acc: _GeometryType, nxt: _GeometryType) -> _GeometryType:
             if buffer:
                 nxt = nxt.buffer(buffer)
             return acc.union(nxt)
@@ -744,6 +744,11 @@ class FeatureClass(Generic[GeometryType]):
             >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
             >>> print(list(fc[shape]))
             ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            ...
+            >>> # None (Empty Iterator)
+            >>> print(list(fc[None]))
+            ... 
+
             ```
         """
         match field:
@@ -800,7 +805,7 @@ class FeatureClass(Generic[GeometryType]):
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
-        return f"{self.__class__.__name__}[{GeometryType.__name__}]('{self.path}')"
+        return f"{self.__class__.__name__}[{_GeometryType.__name__}]('{self.path}')"
 
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
@@ -818,7 +823,7 @@ class FeatureClass(Generic[GeometryType]):
             used and will traverse the entire FeatureClass with applied SearchOptions each time it is 
             called. See: `__len__` doc for info on better ways to track counts in loops.
 
-        Arguments:
+        Args:
             path|pth  : FeatureClass path
             len|length: FeatureClass length (with applied SearchQuery)
             layer|lyr : Linked FeatureClass layer if applicable (else `'None'`)
@@ -827,7 +832,7 @@ class FeatureClass(Generic[GeometryType]):
             wkid|code : FeatureClass WKID
             name|nm   : FeatureClass name
             fields|fld: FeatureClass fields (comma seperated)
-        Usage:
+        Example:
             ```python
             >>> f'{fc:wkid}'
             '2236'
@@ -939,14 +944,14 @@ class FeatureClass(Generic[GeometryType]):
         """Create an editor context for the feature, required for features that participate in Topologies or exist
         on remote servers
         
-        Arguments:
+        Args:
             multiuser_mode (bool): When edits will be performed on versioned data, set this to `True`; otherwise, set it to `False`. 
                 Only use with enterprise geodatabases. (default: `True`)
         
         Yields:
             (self): Yields the featureclass back to you within an edit context and with the `is_editing` flag set
 
-        Usage:
+        Example:
             ```python
             new_rows = [('John', 'Cleese', 1939), ('Michael', 'Palin', 1943)]
             
@@ -973,13 +978,13 @@ class FeatureClass(Generic[GeometryType]):
     def reference_as(self, spatial_reference: SpatialReference):
         """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
         
-        Arguments:
+        Args:
             spatial_reference (SpatialReference): The spatial reference to apply to the cursor objects
         
         Yields:
             (self): Mutated self with search and update options set to use the provided spatial reference
 
-        Examples:
+        Example:
             ```python
             >>> sr = arcpy.SpatialReference(26971)
             >>> fc = FeatureClass[Polygon]('<fc_path>')
@@ -1020,7 +1025,7 @@ class FeatureClass(Generic[GeometryType]):
                 clause: SQLClause|None=None):
         """Enter a context block where the supplied options replace the stored options for the `FeatureClass`
         
-        Arguments:
+        Args:
             strict (bool): If this is set to `True` the `FeatureClass` will not fallback on existing options
                 when set to `False`, provided options override existing options (default: `False`)
             search_options (SearchOptions): Contextual search overrides
@@ -1052,7 +1057,7 @@ class FeatureClass(Generic[GeometryType]):
         Args:
             where_clause (str): The where clause to apply to the FeatureClass
         
-        Usage:
+        Example:
             ```python
             >>> with fc.where("first = 'John'") as f:
             >>>     for f in fc:
@@ -1081,7 +1086,7 @@ class FeatureClass(Generic[GeometryType]):
             spatial_filter (Geometry | Extent): The geometry to use as a spatial filter
             spatial_relationship (SpatialRelationship): The relationship to check for (default: `INTERSECTS`)
         
-        Usage:
+        Example:
             ```python
             >>> with fc.spatial_filter(boundary) as f:
             >>>     print(len(fc))
@@ -1113,7 +1118,7 @@ class FeatureClass(Generic[GeometryType]):
         Args:
             layer (Layer): The layer to update connection properties for
         """
-        layer.updateConnectionProperties(layer.dataSource, self.path)
+        layer.updateConnectionProperties(layer.dataSource, self.path) #type:ignore
 
     def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP']='AUTO_ARRANGE') -> None:
         """Add the featureclass to a map
@@ -1130,7 +1135,7 @@ class FeatureClass(Generic[GeometryType]):
             # with addLayer to match behavior with existing bound layer
             self.layer = map.addDataFromPath(self.path) #type:ignore (Always Layer)
             map.removeLayer(self.layer) #type:ignore (Incorrect Signature)
-        map.addLayer(self.layer, pos)
+        map.addLayer(self.layer, pos) #type:ignore
 
     def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> set[int]:
         """If the FeatureClass is bound to a layer, update the layer selection with the active SearchOptions
@@ -1149,8 +1154,8 @@ class FeatureClass(Generic[GeometryType]):
         if not self.layer:
             return set()
         
-        self.layer.setSelectionSet(list(self['OID@']), method=method)
-        return self.layer.getSelectionSet()
+        self.layer.setSelectionSet(list(self['OID@']), method=method) #type:ignore
+        return self.layer.getSelectionSet() #type:ignore
         
     def unselect(self) -> set[int]:
         """Remove all layer selections
@@ -1161,19 +1166,19 @@ class FeatureClass(Generic[GeometryType]):
         if not self.layer:
             return set()
         try:
-            return self.layer.getSelectionSet()
+            return self.layer.getSelectionSet() #type:ignore
         finally:
-            self.layer.setSelectionSet(method='NEW')
+            self.layer.setSelectionSet(method='NEW')#type:ignore
 
     # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer, 
                    *,
                    max_selection: int=500_000, # This needs testing
-                   raise_exception: bool=False) -> FeatureClass[GeometryType]:
+                   raise_exception: bool=False) -> FeatureClass[_GeometryType]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
-        Parameters:
+        Args:
             layer (Layer): The layer to convert to a FeatureClass
             max_selection (int): Maximum number of records allowed in the selection
                 use this to prevent a SQL query with millions of OIDs from being generated
@@ -1193,7 +1198,7 @@ class FeatureClass(Generic[GeometryType]):
             ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
-        selected_ids: set[int] = layer.getSelectionSet()
+        selected_ids: set[int] = layer.getSelectionSet() #type:ignore
 
         if len(selected_ids) > max_selection:
             selected_ids = set()
