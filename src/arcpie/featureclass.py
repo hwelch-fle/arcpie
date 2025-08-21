@@ -1233,6 +1233,15 @@ if __name__ == '__main__':
     point = FeatureClass[PointGeometry]('Point')
     poly = FeatureClass[Polygon]('Polygon')
 
+    # You can use a FeatureClass as an argument to pathlib.Path()
+    print(Path(poly))
+    # C:\...\database.gdb\Polygon
+    # Since the __fspath__ method will resolve the full path using Path.resolve(), 
+    # You can specify a relative Feature (e.g. 'database.gdb\Polygon') and it will
+    # Return the full path. This is also how the FeatureClass objects are conpared and
+    # The full filesystem path is used as their hash so they can be added as keys to
+    # dictionaries
+
     # Get the count of all polygons that intersect a point of Subtype 8
     # The where(1=0) will prevent an empty/None footprint from being passed to the
     with point.where('SUBTYPE@ = 8'):
