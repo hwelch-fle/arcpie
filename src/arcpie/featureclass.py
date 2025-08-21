@@ -161,16 +161,15 @@ class FeatureClass(Generic[_GeometryType]):
         >>> point_features = FeatureClass[PointGeometry]('<feature_class_path>')
         >>> # Create a buffer Iterator
         >>> buffers = (pt.buffer(10) for pt in point_features.shapes)
-        >>> 
+        ... 
         >>> sr = SpatialReference(4206)
         >>> # Set a new spatial reference
         >>> with point_features.reference_as(sr):
-        >>>     # Consume the Iterator, but with the new reference
-        >>>     for buffer in buffers:
-        >>>         area = buffer.area
-        >>>         units = sr.linearUnitName
-        >>>         print(f"{area} Sq{units}")
-        >>>
+        ...     # Consume the Iterator, but with the new reference
+        ...     for buffer in buffers:
+        ...        area = buffer.area
+        ...        units = sr.linearUnitName
+        ...        print(f"{area} Sq{units}")
     """
 
     def __init__(
@@ -406,20 +405,20 @@ class FeatureClass(Generic[_GeometryType]):
         Example:
             >>> # With a field group, you will be able to unpack the tuple
             >>> for group, rows in fc.group_by(['GroupField1', 'GroupField2'], ['ValueField1', 'ValueField2', ...]):
-            >>>     print(group)
-            >>>     for v1, v2 in rows:
-            >>>         if v1 > 10:
-            >>>             print(v2)
-            ... (GroupValue1A, GroupValue1B)
-            ... valueA
-            ... valueB
-            ...
+            ...     print(group)
+            ...     for v1, v2 in rows:
+            ...        if v1 > 10:
+            ...            print(v2)
+            (GroupValue1A, GroupValue1B)
+            valueA
+            valueB
+            <etc>
             >>> # With a single field, you will have direct access to the field values   
             >>> for group, district_populations in fc.group_by(['City', 'State'], 'Population'):
             >>>         print(f"{group}: {sum(district_populations)}")
-            ... (New York, NY): 8260000
-            ... (Boston, MA): 4941632
-            ... ...
+            (New York, NY): 8260000
+            (Boston, MA): 4941632
+            <etc>
         """
 
         if isinstance(group_fields, str):
@@ -501,11 +500,11 @@ class FeatureClass(Generic[_GeometryType]):
             ...    {'first': 'Michael', 'last': 'Palin', 'year': 1943}
             ... ]
             >>> print(fc.insert_rows(new_rows))
-            ... (2,3)
-            ...
+            (2,3)
+            
             >>> # Insert all shapes from fc into fc2
             >>> fc2.insert_rows(fc.get_records(['first', 'last', 'year']))
-            ... (1,2)
+            (1,2)
             ```
         """
         # Grab the first record
@@ -562,17 +561,17 @@ class FeatureClass(Generic[_GeometryType]):
 
             >>> for row in fc:
             >>>     print(row['Area'])
-            ... 1
-            ... 2
-            ... 10
-            ... ...
+            1
+            2
+            10
+            <etc>
             
             >>> for row in fc.filter(area_filter):
             >>>     print(row['Area'])
-            ... 10
-            ... 11
-            ... 90
-            ... ...
+            10
+            11
+            90
+            <etc>
             ```
 
         """
@@ -718,36 +717,35 @@ class FeatureClass(Generic[_GeometryType]):
             ```python
             >>> # Single Field
             >>> print(list(fc['field']))
-            ... [val1, val2, val3, ...]
-            ...
+            [val1, val2, val3, ...]
+            
             >>> # Field Tuple
             >>> print(list(fc[('field1', 'field2')]))
-            ... [(val1, val2), (val1, val2), ...]
-            ... 
+            [(val1, val2), (val1, val2), ...]
+             
             >>> # Field List
             >>> print(list(fc[['field1', 'field2']]))
-            ... [[val1, val2], [val1, val2], ...]
-            ...
+            [[val1, val2], [val1, val2], ...]
+            
             >>> # Field Set (Row mapping limited to only requested fields)
             >>> print(list(fc[{'field1', 'field2'}]))
-            ... [{'field1': val1, 'field2': val2}, {'field1': val1, 'field2': val2}, ...]
-            ...
+            [{'field1': val1, 'field2': val2}, {'field1': val1, 'field2': val2}, ...]
+            
             >>> # Last two options always return all fields in a mapping
             >>> # Filter Function (passed to FeatureClass.filter())
             >>> print(list(fc[lambda r: r['field1'] == target]))
-            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
-            ... 
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+             
             >>> # Where Clause (Use where() helper function or a WhereClause object)
             >>> print(list(fc[where('field1 = target')]))
-            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
-            ... 
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+             
             >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
             >>> print(list(fc[shape]))
-            ... [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
-            ...
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            
             >>> # None (Empty Iterator)
             >>> print(list(fc[None]))
-            ... 
 
             ```
         """
@@ -880,11 +878,11 @@ class FeatureClass(Generic[_GeometryType]):
         Example:
             ```python
             >>> print(fc.fields)
-            ... ['OID@', 'SHAPE@', 'name', 'year', 'month']
-            ...
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            
             >>> del fc['month']
             >>> print(fc.fields)
-            ... ['OID@', 'SHAPE@', 'name', 'year']
+            ['OID@', 'SHAPE@', 'name', 'year']
             ```
         """
         if fieldname in CursorTokens:
@@ -903,20 +901,19 @@ class FeatureClass(Generic[_GeometryType]):
         Example:
             ```python
             >>> new_field = Field(
-            >>>     field_alias='Abbreviated Month',
-            >>>     field_type='TEXT',
-            >>>     field_length='3',
-            >>>     field_domain='Months_ABBR',
-            >>> )
-            ...
+            ...     field_alias='Abbreviated Month',
+            ...     field_type='TEXT',
+            ...     field_length='3',
+            ...     field_domain='Months_ABBR',
+            ... )
+            
             >>> print(fc.fields)
-            ... ['OID@', 'SHAPE@', 'name', 'year']
-            ...
+            ['OID@', 'SHAPE@', 'name', 'year']
+            
             >>> fc['month'] = new_field
-            >>> fc2['month'] = new_field # Can re-use a field definition
-            ... 
+            >>> fc2['month'] = new_field # Can re-use a field definition 
             >>> print(fc.fields)
-            ... ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
             ```
         """
         _required = Field.__required_keys__
@@ -953,18 +950,17 @@ class FeatureClass(Generic[_GeometryType]):
 
         Example:
             ```python
-            new_rows = [('John', 'Cleese', 1939), ('Michael', 'Palin', 1943)]
+            >>> new_rows = [('John', 'Cleese', 1939), ('Michael', 'Palin', 1943)]
             
-            new_ids = []
-            with fc.editor:
-                with fc.insert_cursor(['first', 'last', 'year']) as cur:
-                    for r in new_rows:
-                        new_ids.append(cur.insertRow(r))
+            >>> new_ids = []
+            >>> with fc.editor:
+            ...     with fc.insert_cursor(['first', 'last', 'year']) as cur:
+            ...        for r in new_rows:
+            ...            new_ids.append(cur.insertRow(r))
 
-            # --OR-- (This is a much cleaner way)
-
-            with fc.editor, fc.insert_cursor(['first', 'last', 'year']) as cur:
-                new_ids = [cur.insertRow(r) for r in new_rows]
+            >>> # --OR-- (This is a much cleaner way)
+            >>> with fc.editor, fc.insert_cursor(['first', 'last', 'year']) as cur:
+            ...     new_ids = [cur.insertRow(r) for r in new_rows]
             ```
         """
         with Editor(self.path, multiuser_mode=multiuser_mode):
@@ -992,7 +988,7 @@ class FeatureClass(Generic[_GeometryType]):
             >>> orig_shapes = list(fc.shapes)
                
             >>> with fc.project_as(sr):
-            >>>     proj_shapes = list(fc.shapes)
+            ...     proj_shapes = list(fc.shapes)
                
             >>> print(orig_shapes[0].spatialReference)
             SpatialReference(4326)
@@ -1060,15 +1056,15 @@ class FeatureClass(Generic[_GeometryType]):
         Example:
             ```python
             >>> with fc.where("first = 'John'") as f:
-            >>>     for f in fc:
-            >>>         print(f)
-            ... {'first': 'John', 'last': 'Cleese', 'year': 1939}
+            ...     for f in fc:
+            ...         print(f)
+            {'first': 'John', 'last': 'Cleese', 'year': 1939}
 
             >>> with fc.where('year > 1939'):
-            >>>     print(len(fc))
-            ... 5
-            >>> print(len(fc))
-            ... 6
+            ...     print(len(fc))
+            5
+            ... print(len(fc))
+            6
             ```
 
         Note:
@@ -1089,7 +1085,7 @@ class FeatureClass(Generic[_GeometryType]):
         Example:
             ```python
             >>> with fc.spatial_filter(boundary) as f:
-            >>>     print(len(fc))
+            ...     print(len(fc))
             100
             >>> print(len(fc))
             50000
