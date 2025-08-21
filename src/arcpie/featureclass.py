@@ -102,6 +102,25 @@ from cursor import (
 FieldName = str | CursorToken
 FieldOpts = Sequence[FieldName] | FieldName
 
+def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
+    """Get the record count of a FeatureClass
+    
+    Args:
+        featureclass (FeatureClass | Iterator): The FeatureClass or Iterator/view to count
+    
+    Example:
+        ```python
+        >>> fc = FeatureClass[PointGeometry]('MyFC')
+        >>> count(fc)
+        1000
+        >>> count(fc[where('1=0')])
+        0
+        >>> boundary = next(FeatureClass[Polygon]('Boundaries').shapes)
+        >>> count(fc[boundary])
+        325
+    """
+    return sum(1 for _ in featureclass)
+
 def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
     """Helper function to allow passing single values to arguments that expect a tuple
     
@@ -1208,10 +1227,6 @@ class FeatureClass(Generic[_GeometryType]):
         fc.update_options = UpdateOptions(where_clause=selected)
         return fc
     
-    # Helpers
-    @classmethod
-    def count(cls, features: Iterator[Any]) -> int:
-        return sum(1 for _ in features)
 
 if __name__ == '__main__':
     line = FeatureClass[Polyline]('Polyline')
@@ -1221,5 +1236,5 @@ if __name__ == '__main__':
     # Get the count of all polygons that intersect a point of Subtype 8
     # The where(1=0) will prevent an empty/None footprint from being passed to the
     with point.where('SUBTYPE@ = 8'):
-        FeatureClass.count(poly[point.footprint()])
+        count(poly[point.footprint()])
         
