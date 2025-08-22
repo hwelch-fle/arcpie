@@ -64,6 +64,10 @@ GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 
 class WhereClause:
     def __init__(self, where_clause: str) -> None:
+        if '@' in where_clause:
+            raise AttributeError(
+                '`@` Parameters/Tokens not supported in WhereClauses, Please use full fieldname'
+            )
         self.where_clause =  where_clause
     def __repr__(self) -> str:
         return self.where_clause
