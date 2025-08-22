@@ -725,7 +725,6 @@ class FeatureClass(Generic[_GeometryType]):
             """Yield nothing (used as fallback if an indexing argument is None)"""
             pass
 
-
     def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
@@ -790,6 +789,8 @@ class FeatureClass(Generic[_GeometryType]):
             case shape if isinstance(shape, GeometryType | Extent):
                 yield from ( row for row in self.search_cursor(self.fields, spatial_filter=shape) )
             case wc if isinstance(wc, WhereClause):
+                if not wc.validate(self.fields):
+                    raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
                 yield from ( row for row in as_dict(self.search_cursor(self.fields, where_clause=wc.where_clause)) )
             case func if callable(func):
                 yield from ( row for row in self.filter(func) )

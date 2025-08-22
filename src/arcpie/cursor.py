@@ -1,5 +1,9 @@
 """Cursor Helper module"""
 
+from collections.abc import (
+    Sequence,
+)
+
 from typing import (
     TypedDict,
     Required,
@@ -63,14 +67,54 @@ CursorTokens: tuple[CursorToken, ...] = CursorToken.__args__
 GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 
 class WhereClause:
-    def __init__(self, where_clause: str) -> None:
+    def __init__(self, where_clause: str, skip_validation: bool=False) -> None:
+        """Object for storing and validating where clauses
+        
+        Args:
+            where_clause (str): The where clause that you want to pass to a FeatureClass
+            skip_validation (bool): Skip the validation step (default: False)
+        """
         if '@' in where_clause:
             raise AttributeError(
                 '`@` Parameters/Tokens not supported in WhereClauses, Please use full fieldname'
             )
-        self.where_clause =  where_clause
+        self.where_clause = where_clause
+        self.fields = self.get_fields(where_clause)
+        self.skip_validation = skip_validation
+
     def __repr__(self) -> str:
         return self.where_clause
+    
+    def get_fields(self, clause: str) -> Sequence[str]:
+        """Sanitize a where clause by removing whitespace"""
+
+        #    -0-     1    2      3      -4-      5    6
+        # '<FIELD> <OP> <VAL> <AND/OR> <FIELD> <OP> <VAL> ...'
+        # A properly structured WhereClause should have a field
+        # as every 4th token split on spaces
+
+        # CAVEAT: Parens and whitespace
+        # This comprehension drops individual parens, replaces ', ' with ','
+        # and finds all field components
+
+        # TODO: This needs thorough testing
+        return [
+            fld.strip().replace('(', '').replace(')', '')
+            for fld in [
+                tok for tok in
+                clause.replace(', ', ',').split()
+                if tok not in '()'
+            ][::4]
+        ]
+
+    def validate(self, fields: Sequence[str]) -> bool:
+        """Check to see if the clause fields are in the fields list
+        
+        Args:
+            fields (Sequence[str]): The fields to check against
+        """
+        return self.skip_validation or set(self.fields) <= set(fields)
+        
 
 class SQLClause(NamedTuple):
     """Wrapper for Cursor sql_clause attribute,
