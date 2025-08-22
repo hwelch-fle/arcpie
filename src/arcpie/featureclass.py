@@ -629,6 +629,54 @@ class FeatureClass(Generic[_GeometryType]):
             fc.clause = self.clause
         return fc
 
+    def add_field(self, fieldname: str, field: Field|None=None, **options: Unpack[Field]) -> None:
+        """Add a new field to a FeatureClass, if no type is provided, deafault of `VARCHAR(255)` is used
+        
+        Args:
+            fieldname (str): The name of the new field (must not start with a number and be alphanum or underscored)
+            field (Field): A Field object that contains the desired field properties
+            **options (**Field): Allow passing keyword arguments for field directly (Overrides field arg)
+
+        Example:
+            ```python
+            >>> new_field = Field(
+            ...     field_alias='Abbreviated Month',
+            ...     field_type='TEXT',
+            ...     field_length='3',
+            ...     field_domain='Months_ABBR',
+            ... )
+            
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year']
+            
+            >>> fc['month'] = new_field
+            >>> fc2['month'] = new_field # Can re-use a field definition 
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            ```
+        """
+        # Use provided field or default to 'TEXT' and override with kwargs
+        field = {**(field or Field(field_type='TEXT')), **options}
+        
+        # Handle malformed Field arg
+        field['field_type'] = field.get('field_type', 'TEXT')
+        
+        _optional = Field.__optional_keys__
+        _provided = set(field.keys())
+        
+        if not _provided <= _optional:
+            raise ValueError(f"Unknown Field properties provided: {_provided - _optional}")
+        
+        if fieldname in self.fields:
+            raise ValueError(f"{fieldname} already exists in {self.name}!")
+        
+        if not valid_field(fieldname):
+            raise ValueError(
+                f"{fieldname} is invalid, fieldnames must not start with a number "
+                "and must only contain alphanumeric characters and underscores"
+            )
+        AddField(self.path, fieldname, **field)
+
     def clear(self, all: bool=False) -> int:
         """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
 
@@ -921,49 +969,8 @@ class FeatureClass(Generic[_GeometryType]):
             raise ValueError(f"{fieldname} does not exist in {self.name}")
         DeleteField(self.path, fieldname)
 
-    def __setitem__(self, fieldname: str, properties: Field) -> None:
-        """Add a new field to a FeatureClass
-        
-        Args:
-            fieldname (str): The name of the new field (must not start with a number and be alphanum or underscored)
-            properties (Field): A Field object that contains the desired field properties
-
-        Example:
-            ```python
-            >>> new_field = Field(
-            ...     field_alias='Abbreviated Month',
-            ...     field_type='TEXT',
-            ...     field_length='3',
-            ...     field_domain='Months_ABBR',
-            ... )
-            
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year']
-            
-            >>> fc['month'] = new_field
-            >>> fc2['month'] = new_field # Can re-use a field definition 
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year', 'month']
-            ```
-        """
-        _required = Field.__required_keys__
-        _optional = Field.__optional_keys__
-        _provided = set(properties.keys())
-        if not _required <= _provided:
-            raise ValueError(f"Field properties missing required arguments: {_required - _provided}")
-
-        if not _provided <= _required | _optional:
-            raise ValueError(f"Unknown Field properties provided: {_provided - (_required | _optional)}")
-
-        if fieldname in self.fields:
-            raise ValueError(f"{fieldname} already exists in {self.name}!")
-        
-        if not valid_field(fieldname):
-            raise ValueError(
-                f"{fieldname} is invalid, fieldnames must not start with a number "
-                "and must only contain alphanumeric characters and underscores"
-            )
-        AddField(self.path, fieldname, **properties)
+    def __setitem__(self, fieldname: str, field: Field) -> None:
+        self.add_field(fieldname, **field)
 
     # Context Managers
     @contextmanager
@@ -1257,4 +1264,6 @@ if __name__ == '__main__':
     # The where(1=0) will prevent an empty/None footprint from being passed to the
     with point.where('SUBTYPE@ = 8'):
         count(poly[point.footprint()])
+    
+    point.add_field('Name', Field(field_alias='Name1'))
         
