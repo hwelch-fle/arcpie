@@ -216,7 +216,7 @@ class Field(TypedDict, total=False):
     """Field Representation
     
     Args:
-        field_table (FieldType): The type of the field (required)
+        field_type (FieldType): The type of the field (required)
         field_precision (int): The precision (digits) of numeric fields (default: database determined)
         field_scale (int): The number of decimal places for floating point fields (default: database determined)
         field_length (int): The maximum character count for `TEXT` fields (default: 255)
