@@ -100,7 +100,6 @@ from cursor import (
 )
 
 FieldName = str | CursorToken
-FieldOpts = Sequence[FieldName] | FieldName
 
 def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
@@ -417,7 +416,7 @@ class FeatureClass(Generic[_GeometryType]):
     if TYPE_CHECKING:
         GroupIter = Iterator[tuple[Any, ...] | Any]
         GroupIdent = tuple[Any, ...] | Any
-    def group_by(self, group_fields: FieldOpts, return_fields: FieldOpts ='*') -> Iterator[tuple[GroupIdent, GroupIter]]:
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName, return_fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[GroupIdent, GroupIter]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
@@ -469,7 +468,7 @@ class FeatureClass(Generic[_GeometryType]):
                     )
                 )
 
-    def distinct(self, distinct_fields: FieldOpts) -> Iterator[tuple[Any, ...]]:
+    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
         Args:
