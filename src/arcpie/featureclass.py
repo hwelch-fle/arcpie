@@ -212,6 +212,7 @@ class FeatureClass(Generic[_GeometryType]):
         self._shape_token: ShapeToken = shape_token
         self._layer: Layer|None=None
         self._in_edit_session=False
+        self._fields: tuple[FieldName, ...]|None=None
 
     # rw Properties
     @property
@@ -299,12 +300,15 @@ class FeatureClass(Generic[_GeometryType]):
     @property
     def fields(self) -> tuple[FieldName, ...]:
         """Tuple of all fieldnames in the FeatureClass"""
+        if self._fields:
+            return self._fields
         exclude = (self.oid_field_name, self.shape_field_name)
         replace = ('OID@', self.shape_token)
         _fields = ()
         with self.search_cursor('*') as c:
             _fields = c.fields
-        return replace + tuple((f for f in _fields if f not in exclude))
+        self._fields = replace + tuple((f for f in _fields if f not in exclude))
+        return self._fields
 
     @property
     def np_dtypes(self):
@@ -971,6 +975,36 @@ class FeatureClass(Generic[_GeometryType]):
         self.add_field(fieldname, **field)
 
     # Context Managers
+    
+    @contextmanager
+    def fields_as(self, fields: Sequence[FieldName] | FieldName):
+        """Override the default fields for the FeatureClass so all non-explicit Iterators will
+        only yield these fields (e.g. `for row in fc: ...`)
+        
+        Args:
+            fields (Sequence[FieldName]): The fieldnames to limit all unspecified Iterators to
+        
+        Example:
+            ```python
+            >>> with fc.fields_as(['OID@', 'NAME']):
+            ...     for row in fc:
+            ...         print(row)
+            {'OID@': 1, 'NAME': 'John'}
+            {'OID@': 2, 'NAME': 'Michael'}
+            ...
+            >>> for row in fc:
+            ...     print(row)
+            {'OID@': 1, 'NAME': 'John', 'AGE': 75, 'ADDRESS': 123 Silly Walk}
+            {'OID@': 2, 'NAME': 'Michael', 'AGE': 70, 'ADDRESS': 42 Dead Parrot Blvd}
+            ...
+        """
+        _fields = self.fields
+        self._fields = tuple(fields)
+        try:
+            yield self
+        finally:
+            self._fields = _fields
+    
     @contextmanager
     def editor(self, multiuser_mode: bool|None=True):
         """Create an editor context for the feature, required for features that participate in Topologies or exist
