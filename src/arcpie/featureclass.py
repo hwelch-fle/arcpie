@@ -4,7 +4,6 @@ from __future__ import annotations
 
 # Typing imports
 import arcpy.typing.describe as dt
-
 from string import ascii_letters, digits
 
 from functools import reduce
@@ -309,8 +308,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     @property
     def np_dtypes(self):
-        with self.search_cursor(self.fields) as c:
-            return c._dtype #type:ignore (This is the only way to access the dtype)
+        return self.search_cursor(self.fields)._dtype # pyright: ignore[reportPrivateUsage]
 
     @property
     def subtypes(self) -> dict[int, Subtype]:
@@ -1247,23 +1245,4 @@ class FeatureClass(Generic[_GeometryType]):
     
 
 if __name__ == '__main__':
-    line = FeatureClass[Polyline]('Polyline')
-    point = FeatureClass[PointGeometry]('Point')
-    poly = FeatureClass[Polygon]('Polygon')
-
-    # You can use a FeatureClass as an argument to pathlib.Path()
-    print(Path(poly))
-    # C:\...\database.gdb\Polygon
-    # Since the __fspath__ method will resolve the full path using Path.resolve(), 
-    # You can specify a relative Feature (e.g. 'database.gdb\Polygon') and it will
-    # Return the full path. This is also how the FeatureClass objects are conpared and
-    # The full filesystem path is used as their hash so they can be added as keys to
-    # dictionaries
-
-    # Get the count of all polygons that intersect a point of Subtype 8
-    # The where(1=0) will prevent an empty/None footprint from being passed to the
-    with point.where('SUBTYPE@ = 8'):
-        count(poly[point.footprint()])
-    
-    point.add_field('Name', Field(field_alias='Name1'))
-        
+    pass
