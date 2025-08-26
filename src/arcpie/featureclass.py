@@ -1285,44 +1285,42 @@ class FeatureClass(Generic[_GeometryType]):
 
     # Factory Constructors
     @classmethod
-    def from_layer(cls, layer: Layer, 
+    def from_layer(cls, layer: Layer,
                    *,
-                   max_selection: int=500_000, # This needs testing
-                   raise_exception: bool=False) -> FeatureClass[_GeometryType]:
+                   ignore_selection: bool = False,
+                   ignore_def_query: bool = False,) -> FeatureClass[_GeometryType]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Args:
             layer (Layer): The layer to convert to a FeatureClass
-            max_selection (int): Maximum number of records allowed in the selection
-                use this to prevent a SQL query with millions of OIDs from being generated
-            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
-                otherwise, it will print a warning to `stdout` and continue
-            max_selection (int): Maximum number of records allowed in the selection
-                use this to prevent a SQL query with millions of OIDs from being generated
-            raise_exception (bool): If this flag is set, a `max_selection` overrun will raise a `ValueError`
-                otherwise, it will print a warning to `stdout` and continue
+            ignore_selection (bool): Ignore the layer selection (default: False)
+            ignore_definition_query (bool): Ignore the layer definition query (default: False)
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
-        
-        Raises:
-            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
-        
-        Raises:
-            ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
-        selected_ids: set[int] | None = layer.getSelectionSet()
-
-        if selected_ids and len(selected_ids) > max_selection:
-            selected_ids = set()
-            if raise_exception:
-                raise ValueError(f'Layer has a selection set of {len(selected_ids)}, '
-                                 f'which is greater that the max limit of {max_selection}')
-            print(f'Layer: {layer.name} selection exceeds maximum, removed selection for {fc.name}')
-
-        selected = f"{fc.describe.OIDFieldName} IN ({format_query(selected_ids)})"
-        fc.search_options = SearchOptions(where_clause=selected)
-        fc.update_options = UpdateOptions(where_clause=selected)
+        
+        selected_ids: set[int] | None = (
+            layer.getSelectionSet() or None
+            if not ignore_selection 
+            else None
+        )
+        definition_query: str|None = (
+            layer.definitionQuery or None
+            if not ignore_def_query 
+            else None
+        )
+        selection: str|None = (
+            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})" 
+            if selected_ids 
+            else None
+        )
+        
+        if (query_components := list(filter(None, [definition_query, selection]))):
+            where_clause = ' AND '.join(query_components)
+            fc.search_options = SearchOptions(where_clause=where_clause)
+            fc.update_options = UpdateOptions(where_clause=where_clause)
+            
         fc.layer = layer
         return fc
     
