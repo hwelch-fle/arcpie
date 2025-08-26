@@ -58,6 +58,7 @@ from arcpy import (
     Describe, #type:ignore
     SpatialReference,
     Exists,
+    EnvManager,
 )
 
 from arcpy.management import (
@@ -677,7 +678,7 @@ class FeatureClass(Generic[_GeometryType]):
                 "and must only contain alphanumeric characters and underscores"
             )
         
-        with self.editor():
+        with EnvManager(workspace=self.workspace):
             AddField(self.path, fieldname, **field)
             self._fields = None
 
@@ -720,8 +721,9 @@ class FeatureClass(Generic[_GeometryType]):
             raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
         if fieldname not in [f for f in self.fields if '@' not in f]: # Skip tokens
             raise ValueError(f"{fieldname} does not exist in {self.name}")
-        with self.editor():
+        with EnvManager(workspace=self.workspace):
             DeleteField(self.path, fieldname)
+            self._fields = None
 
     def delete_fields(self, fieldnames: Sequence[str]) -> None:
         for fname in fieldnames:
