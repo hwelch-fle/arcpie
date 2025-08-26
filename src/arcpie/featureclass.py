@@ -1272,10 +1272,11 @@ class FeatureClass(Generic[_GeometryType]):
             set[int] The selected OIDs
         """
         if not self.layer:
+            print('No associated layer')
             return set()
         
-        self.layer.setSelectionSet(list(self['OID@']), method=method) #type:ignore
-        return self.layer.getSelectionSet() #type:ignore
+        self.layer.setSelectionSet(list(self['OID@']), method=method)
+        return self.layer.getSelectionSet() or set()
         
     def unselect(self) -> set[int]:
         """Remove all layer selections
@@ -1318,9 +1319,9 @@ class FeatureClass(Generic[_GeometryType]):
             ( ValueError ): If the layer selection set is greater than the `max_selection` arg and the `raise_exception` flag is set
         """
         fc = cls(layer.dataSource)
-        selected_ids: set[int] = layer.getSelectionSet() #type:ignore
+        selected_ids: set[int] | None = layer.getSelectionSet()
 
-        if len(selected_ids) > max_selection:
+        if selected_ids and len(selected_ids) > max_selection:
             selected_ids = set()
             if raise_exception:
                 raise ValueError(f'Layer has a selection set of {len(selected_ids)}, '
@@ -1330,6 +1331,7 @@ class FeatureClass(Generic[_GeometryType]):
         selected = f"{fc.describe.OIDFieldName} IN ({format_query(selected_ids)})"
         fc.search_options = SearchOptions(where_clause=selected)
         fc.update_options = UpdateOptions(where_clause=selected)
+        fc.layer = layer
         return fc
     
 
