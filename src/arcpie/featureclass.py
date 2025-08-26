@@ -911,7 +911,7 @@ class FeatureClass(Generic[_GeometryType]):
                     "Must be a filter functon, set of keys, list of keys, or tuple of keys"
                 )
 
-    def __iter__(self) -> Iterator[dict[str, Any]]:
+    def __iter__(self) -> Iterator[dict[str, Any]] | Iterator[Any]:
         """Iterate all rows in the FeatureClass yielding mappings of field name to field value
         
         Note:
