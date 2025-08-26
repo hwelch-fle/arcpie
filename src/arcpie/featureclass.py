@@ -148,7 +148,7 @@ def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
     yield from ( dict(zip(cursor.fields, row)) for row in cursor )
 
-def format_query(vals: Iterable[Any]) -> str:
+def format_query_list(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
     if isinstance(vals, (str , int)):
         return f"{vals}"
@@ -483,7 +483,7 @@ class FeatureClass(Generic[_GeometryType]):
         Yields:
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
-        clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
+        clause = SQLClause(prefix=f'DISTINCT {format_query_list(distinct_fields)}', postfix=None)
         with self.search_cursor(distinct_fields, sql_clause=clause) as clause_cur:
             yield from ( value for value in clause_cur)
 
