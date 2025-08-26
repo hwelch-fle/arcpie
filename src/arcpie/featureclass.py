@@ -663,11 +663,11 @@ class FeatureClass(Generic[_GeometryType]):
         # Handle malformed Field arg
         field['field_type'] = field.get('field_type', 'TEXT')
         
-        _optional = Field.__optional_keys__
+        _option_kwargs = set(Field.__optional_keys__) | set(Field.__required_keys__)
         _provided = set(field.keys())
         
-        if not _provided <= _optional:
-            raise ValueError(f"Unknown Field properties provided: {_provided - _optional}")
+        if not _provided <= _option_kwargs:
+            raise ValueError(f"Unknown Field properties provided: {_provided - _option_kwargs}")
         
         if fieldname in self.fields:
             raise ValueError(f"{fieldname} already exists in {self.name}!")
@@ -677,7 +677,56 @@ class FeatureClass(Generic[_GeometryType]):
                 f"{fieldname} is invalid, fieldnames must not start with a number "
                 "and must only contain alphanumeric characters and underscores"
             )
-        AddField(self.path, fieldname, **field)
+        
+        with self.editor():
+            AddField(self.path, fieldname, **field)
+            self._fields = None
+
+    def add_fields(self, fields: dict[str, Field]) -> None:
+        """Provide a mapping of fieldnames to Fields
+        
+        Args:
+            fields (dict[str, Field]): A mapping of fieldnames to Field objects
+            
+        Example:
+            ```python
+            >>> fields = {'f1': Field(...), 'f2': Field(...)}
+            >>> fc.add_fields(fields)
+            >>> fc.fields
+            ['OID@', 'SHAPE@', 'f1', 'f2']
+        """
+        for fieldname, field in fields.items():
+            self.add_field(fieldname, field)
+
+    def delete_field(self, fieldname: str) -> None:
+        """Delete a field from a FeatureClass
+        
+        Args:
+            fieldname (str): The name of the field to delete/drop
+        
+        Example:
+            ```python
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            
+            >>> del fc['month']
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year']
+            >>> fc.delete_field('year')
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name']
+            ```
+        """
+        if fieldname in CursorTokens:
+            raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
+        if fieldname not in [f for f in self.fields if '@' not in f]: # Skip tokens
+            raise ValueError(f"{fieldname} does not exist in {self.name}")
+        with self.editor():
+            DeleteField(self.path, fieldname)
+
+    def delete_fields(self, fieldnames: Sequence[str]) -> None:
+        for fname in fieldnames:
+            self.delete_field(fname)
 
     def clear(self, all: bool=False) -> int:
         """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
@@ -950,26 +999,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     # Handle Fields
     def __delitem__(self, fieldname: str) -> None:
-        """Delete a field from a FeatureClass
-        
-        Args:
-            fieldname (str): The name of the field to delete/drop
-        
-        Example:
-            ```python
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year', 'month']
-            
-            >>> del fc['month']
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year']
-            ```
-        """
-        if fieldname in CursorTokens:
-            raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
-        if fieldname not in self.fields[2:]: # Skip [OID and ShapeToken]
-            raise ValueError(f"{fieldname} does not exist in {self.name}")
-        DeleteField(self.path, fieldname)
+        self.delete_field(fieldname)
 
     def __setitem__(self, fieldname: str, field: Field) -> None:
         self.add_field(fieldname, **field)
