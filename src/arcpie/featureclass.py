@@ -1257,7 +1257,7 @@ class FeatureClass(Generic[_GeometryType]):
             map.removeLayer(self.layer) #type:ignore (Incorrect Signature)
         map.addLayer(self.layer, pos) #type:ignore
 
-    def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> set[int]:
+    def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> None:
         """If the FeatureClass is bound to a layer, update the layer selection with the active SearchOptions
         
         Args:
@@ -1268,28 +1268,20 @@ class FeatureClass(Generic[_GeometryType]):
                 `SYMDIFFERENCE`: Selects the features that are in the current selection or the FeatureClass but not both.\n
                 `UNION`: Selects all the features in both the current selection and those in FeatureClass.\n
         
-        Returns:
-            set[int] The selected OIDs
+        Note:
+            Selection changes require the project file to be saved to take effect. 
         """
-        if not self.layer:
-            print('No associated layer')
-            return set()
+        if self.layer:
+            self.layer.setSelectionSet(list(self['OID@']), method=method)
         
-        self.layer.setSelectionSet(list(self['OID@']), method=method)
-        return self.layer.getSelectionSet() or set()
+    def unselect(self) -> None:
+        """If the FeatureClass is bound to a layer, Remove layer selection
         
-    def unselect(self) -> set[int]:
-        """Remove all layer selections
-        
-        Returns:
-            set[int] The selection that is being removed
+        Note:
+            Selection changes require the project file to be saved to take effect.
         """
-        if not self.layer:
-            return set()
-        try:
-            return self.layer.getSelectionSet() #type:ignore
-        finally:
-            self.layer.setSelectionSet(method='NEW')#type:ignore
+        if self.layer:
+            self.layer.setSelectionSet(method='NEW')
 
     # Factory Constructors
     @classmethod
