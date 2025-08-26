@@ -891,14 +891,14 @@ class FeatureClass(Generic[_GeometryType]):
             # Conditional Requests
             case shape if isinstance(shape, GeometryType | Extent):
                 with self.search_cursor(self.fields, spatial_filter=shape) as cur:
-                    yield from (row for row in cur)
+                    yield from (row for row in as_dict(cur))
             case wc if isinstance(wc, WhereClause):
                 if not wc.validate(self.fields):
                     raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
                 with self.search_cursor(self.fields, where_clause=wc.where_clause) as cur:
                     yield from (row for row in as_dict(cur))
             case func if callable(func):
-                yield from ( row for row in self.filter(func) )
+                yield from (row for row in self.filter(func))
             case _:
                 raise KeyError(
                     f"Invalid option: {field}\n"
