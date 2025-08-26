@@ -202,6 +202,7 @@ class FeatureClass(Generic[_GeometryType]):
             update_options: UpdateOptions|None=None, 
             insert_options: InsertOptions|None=None,
             clause: SQLClause|None=None,
+            where: str|None=None,
             shape_token: ShapeToken='SHAPE@'
         ) -> None:
         self._path = str(path)
@@ -209,7 +210,12 @@ class FeatureClass(Generic[_GeometryType]):
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
-
+        
+        # Override
+        if where:
+            self._search_options['where_clause'] = where
+            self._update_options['where_clause'] = where
+        
         self._shape_token: ShapeToken = shape_token
         self._layer: Layer|None=None
         self._in_edit_session=False
