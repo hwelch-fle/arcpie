@@ -1036,6 +1036,11 @@ class FeatureClass(Generic[_GeometryType]):
             {'OID@': 2, 'NAME': 'Michael', 'AGE': 70, 'ADDRESS': 42 Dead Parrot Blvd}
             ...
         """
+        # Allow passing a single field as a string `fc.fields_as('OID@')` to maintain
+        # The call format of *Cursor objects
+        if isinstance(fields, str):
+            fields = (fields,)
+        
         _fields = self.fields
         self._fields = tuple(fields)
         try:
