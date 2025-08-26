@@ -918,6 +918,9 @@ class FeatureClass(Generic[_GeometryType]):
             It was decided to yield mappings because without specifying fields, it is up to the user
             to deal with the data as they see fit. Yielding tuples in an order that's not defined by
             the user would be confusing, so a mapping makes it clear exactly what they're accessing
+            
+        Note:
+            When a single field is specified using the `fields_as` context, values will be yielded
         """ 
         with self.search_cursor(self.fields) as cur:
             if len(self.fields) == 1:
