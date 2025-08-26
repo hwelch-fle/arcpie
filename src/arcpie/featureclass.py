@@ -1070,7 +1070,7 @@ class FeatureClass(Generic[_GeometryType]):
             ...     new_ids = [cur.insertRow(r) for r in new_rows]
             ```
         """
-        with Editor(self.path, multiuser_mode=multiuser_mode):
+        with Editor(self.workspace, multiuser_mode=multiuser_mode):
             try:
                 self._in_edit_session = True
                 yield self
