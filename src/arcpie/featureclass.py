@@ -196,7 +196,7 @@ class FeatureClass(Generic[_GeometryType]):
     """
 
     def __init__(
-            self, path: str,
+            self, path: str|Path,
             *,
             search_options: SearchOptions|None=None, 
             update_options: UpdateOptions|None=None, 
