@@ -918,9 +918,12 @@ class FeatureClass(Generic[_GeometryType]):
             It was decided to yield mappings because without specifying fields, it is up to the user
             to deal with the data as they see fit. Yielding tuples in an order that's not defined by
             the user would be confusing, so a mapping makes it clear exactly what they're accessing
-        """
+        """ 
         with self.search_cursor(self.fields) as cur:
-            yield from as_dict(cur)
+            if len(self.fields) == 1:
+                yield from (row for row, in cur)
+            else:
+                yield from as_dict(cur)
 
     def __len__(self) -> int:
         """Iterate all rows and count them. Only count with `self.search_options` queries.
