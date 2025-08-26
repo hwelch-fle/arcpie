@@ -463,12 +463,8 @@ class FeatureClass(Generic[_GeometryType]):
 
         for group in groups:
             where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
-            yield (
-                   extract_singleton(group), (
-                       extract_singleton(row) 
-                       for row in self.search_cursor(return_fields, where_clause=where_clause)
-                    )
-                )
+            with self.search_cursor(return_fields, where_clause=where_clause) as group_cur:
+                yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
 
     def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
@@ -481,7 +477,8 @@ class FeatureClass(Generic[_GeometryType]):
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
         clause = SQLClause(prefix=f'DISTINCT {format_query(distinct_fields)}', postfix=None)
-        yield from ( value for value in self.search_cursor(distinct_fields, sql_clause=clause) )
+        with self.search_cursor(distinct_fields, sql_clause=clause) as clause_cur:
+            yield from ( value for value in clause_cur)
 
     def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[RowRecord]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
@@ -495,7 +492,8 @@ class FeatureClass(Generic[_GeometryType]):
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
-        yield from as_dict(self.search_cursor(field_names, **options))
+        with self.search_cursor(field_names, **options) as cur:
+            yield from as_dict(cur)
 
     def get_tuples(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
@@ -504,7 +502,8 @@ class FeatureClass(Generic[_GeometryType]):
             field_names (str | Iterable[str]): The columns to iterate
             **options (SearchOptions): Additional parameters to pass to the SearchCursor
         """
-        yield from self.search_cursor(field_names, **options)
+        with self.search_cursor(field_names, **options) as cur:
+            yield from cur
 
     def insert_records(self, records: Iterable[RowRecord] | Iterator[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
         """Provide a list of records to insert
@@ -873,23 +872,29 @@ class FeatureClass(Generic[_GeometryType]):
         match field:
             # Field Requests
             case str():
-                yield from ( val for val, in self.search_cursor(field) )
+                with self.search_cursor(field) as cur:
+                    yield from (val for val, in cur)
             case tuple():
-                yield from ( row for row in self.search_cursor(field) )
+                with self.search_cursor(field) as cur:
+                    yield from (row for row in cur)
             case list():
-                yield from ( list(row) for row in self.search_cursor(field) )
+                with self.search_cursor(field) as cur:
+                    yield from (list(row) for row in cur)
             case set():
-                yield from ( row for row in as_dict(self.search_cursor(list(field))) )
+                with self.search_cursor(list(field)) as cur:
+                    yield from (row for row in as_dict(cur))
             case None:
                 yield from () # This allows a side effect None to be used to get nothing
 
             # Conditional Requests
             case shape if isinstance(shape, GeometryType | Extent):
-                yield from ( row for row in self.search_cursor(self.fields, spatial_filter=shape) )
+                with self.search_cursor(self.fields, spatial_filter=shape) as cur:
+                    yield from (row for row in cur)
             case wc if isinstance(wc, WhereClause):
                 if not wc.validate(self.fields):
                     raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
-                yield from ( row for row in as_dict(self.search_cursor(self.fields, where_clause=wc.where_clause)) )
+                with self.search_cursor(self.fields, where_clause=wc.where_clause) as cur:
+                    yield from (row for row in as_dict(cur))
             case func if callable(func):
                 yield from ( row for row in self.filter(func) )
             case _:
@@ -906,7 +911,8 @@ class FeatureClass(Generic[_GeometryType]):
             to deal with the data as they see fit. Yielding tuples in an order that's not defined by
             the user would be confusing, so a mapping makes it clear exactly what they're accessing
         """
-        yield from ( as_dict(self.search_cursor(self.fields)) )
+        with self.search_cursor(self.fields) as cur:
+            yield from as_dict(cur)
 
     def __len__(self) -> int:
         """Iterate all rows and count them. Only count with `self.search_options` queries.
@@ -932,7 +938,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `FeatureClass[Polygon]('path')`"""
-        return f"{self.__class__.__name__}[{_GeometryType.__name__}]('{self.path}')"
+        return f"{self.__class__.__name__}('{self.__fspath__()}')"
 
     def __str__(self) -> str:
         """Return the `FeatureClass` path for use with other arcpy methods"""
