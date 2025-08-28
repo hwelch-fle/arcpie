@@ -1283,6 +1283,10 @@ class FeatureClass(Generic[_GeometryType]):
         if self.layer:
             self.layer.setSelectionSet(method='NEW')
 
+    def exists(self) -> bool:
+        """Check if the FeatureClass actually exists (check for deletion or initialization with bad path)"""
+        return Exists(str(self))
+    
     # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer,
