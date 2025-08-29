@@ -86,7 +86,7 @@ from pathlib import (
 )
 
 # Library imports
-from cursor import (
+from .cursor import (
     SearchOptions, 
     InsertOptions, 
     UpdateOptions,
@@ -551,8 +551,8 @@ class FeatureClass(Generic[_GeometryType]):
 
         # Confirm that the first record has valid field names
         rec_fields = sorted(_first_rec.keys())
-        if set(rec_fields) != set(*self.fields, *CursorTokens):
-            raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
+        #if set(rec_fields) != set([*self.fields, *CursorTokens]):
+        #    raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
 
         # Create a key filter to remove any invalid records or raise a KeyError
         def rec_filter(rec: RowRecord) -> bool:
@@ -1121,19 +1121,10 @@ class FeatureClass(Generic[_GeometryType]):
             SpatialReference(26971)
             ```
         """
-        _old_src_ref = self.search_options.get('spatial_reference')
-        _old_upd_ref = self.update_options.get('spatial_reference')
-
-        try:
-            self._search_options['spatial_reference'] = spatial_reference
-            self._update_options['spatial_reference'] = spatial_reference
+        with self.options(
+            search_options=SearchOptions(spatial_reference=spatial_reference), 
+            update_options=UpdateOptions(spatial_reference=spatial_reference)):
             yield self
-
-        finally:
-            if _old_src_ref:
-                self._search_options['spatial_reference'] = _old_src_ref
-            if _old_upd_ref:
-                self._update_options['spatial_reference'] = _old_upd_ref
 
     @contextmanager
     def options(self,
@@ -1195,7 +1186,8 @@ class FeatureClass(Generic[_GeometryType]):
             This method of filtering a FeatureClass will always be more performant than using the 
             `.filter` method. If you can achieve the filtering you want with a where clause, do it.
         """
-        with self.options(search_options=SearchOptions(where_clause=where_clause)):
+        with self.options(
+            search_options=SearchOptions(where_clause=where_clause)):
             yield self
 
     @contextmanager
@@ -1228,7 +1220,10 @@ class FeatureClass(Generic[_GeometryType]):
             >>>         ...
                 
         """
-        with self.options(search_options=SearchOptions(spatial_filter=spatial_filter, spatial_relationship=spatial_relationship)):
+        with self.options(
+            search_options=SearchOptions(
+                spatial_filter=spatial_filter, 
+                spatial_relationship=spatial_relationship)):
             yield self
 
     # Mapping interfaces (These pass common `Layer` operations up to the FeatureClass)
