@@ -1149,10 +1149,26 @@ class FeatureClass(Generic[_GeometryType]):
         _ins_ops = self.insert_options
         _clause  = self.clause
         try:
-            self._search_options = search_options or _src_ops if not strict else SearchOptions()
-            self._update_options = update_options or _upd_ops if not strict else UpdateOptions()
-            self._insert_options = insert_options or _ins_ops if not strict else InsertOptions()
-            self._clause = clause or _clause if not strict else SQLClause(None, None)
+            self._search_options = (
+                self._resolve_search_options(_src_ops, search_options or {}) 
+                if not strict
+                else search_options or SearchOptions()
+            )
+            self._update_options = (
+                self._resolve_update_options(_upd_ops, update_options or {})
+                if not strict 
+                else insert_options or UpdateOptions()
+            )
+            self._insert_options = (
+                self._resolve_insert_options(_ins_ops, insert_options or {})
+                if not strict 
+                else insert_options or InsertOptions()
+            )
+            self._clause = (
+                clause or _clause
+                if not strict 
+                else SQLClause(None, None)
+            )
             yield self
 
         finally:
