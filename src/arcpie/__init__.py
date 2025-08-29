@@ -1,7 +1,7 @@
 # pyright: reportUnusedImport=false
 # Modules exposed here under arcpie.<obj>
 
-from featureclass import (
+from .featureclass import (
     FeatureClass,
     count,
     where,
@@ -11,7 +11,7 @@ from featureclass import (
     SQLClause,
     WhereClause,
 )
-from toolbox import (
+from .toolbox import (
     ToolABC, 
     Parameters,
 )
