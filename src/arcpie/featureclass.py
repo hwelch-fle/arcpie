@@ -1394,7 +1394,10 @@ class FeatureGraph:
             # Generate all unique connections for the edge and add them to the graph with the edge attrs
             # avoid connecting nodes to themselves
             for cxn in {tuple(sorted([a, b])) for a in to_add for b in to_add if a != b}:
-                g.add_edge(cxn[0], cxn[1], **dict(zip(self.edge_attributes, edge_attrs)))
+                user_attrs = dict(zip(self.edge_attributes, edge_attrs))
+                system_attrs = {'length': edge.length}
+                # system attrs take precidence since 'length' will be used by pathing algos
+                g.add_edge(cxn[0], cxn[1], **user_attrs, **system_attrs)
         return g
 
 if __name__ == '__main__':
