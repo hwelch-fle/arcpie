@@ -1362,7 +1362,7 @@ class FeatureGraph:
 
         # Add all points as nodes (with specified attributes)
         for oid, *node_attrs in self.nodes[('OID@', *self.node_attributes)]:
-            g.add_nodes_from(oid, **dict(zip(self.node_attributes, node_attrs)))
+            g.add_node(oid, **dict(zip(self.node_attributes, node_attrs)))
 
         # Connect all nodes using edges (with specified attributes)
         for edge, *edge_attrs in self.edges[('SHAPE@', *self.edge_attributes)]:
