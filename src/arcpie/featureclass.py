@@ -1355,7 +1355,19 @@ class FeatureGraph:
         self._graph = self.build_graph()
 
     def build_graph(self) -> nx.Graph:
-        """Build a graph from the provided features"""
+        """Build a graph from the provided features
+        Structure of the Graph will be:
+        
+        `node:oid[attrs] <-(edge:[attrs])-> node:oid[attrs]`
+        
+        e.g.
+        
+        `45: {'name': 'bill'} <-{'length': 1200.4, 'link_name': 'direct'}-> 46: {'name': 'sue'}`
+        
+        Returns:
+            (nx.Graph): A networkx Graph with all points connected by the provided edges
+        
+        """
 
         # Initialize an undirected graph
         g = nx.Graph()
