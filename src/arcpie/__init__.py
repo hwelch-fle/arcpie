@@ -10,6 +10,7 @@ from .featureclass import (
     UpdateOptions,
     SQLClause,
     WhereClause,
+    FeatureGraph,
 )
 from .toolbox import (
     ToolABC, 
