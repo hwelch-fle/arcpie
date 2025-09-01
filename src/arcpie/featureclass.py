@@ -1373,11 +1373,14 @@ class FeatureGraph:
         g = nx.Graph()
 
         # Add all points as nodes (with specified attributes)
-        for oid, *node_attrs in self.nodes[('OID@', *self.node_attributes)]:
-            g.add_node(oid, **dict(zip(self.node_attributes, node_attrs)))
+        for oid, node, *node_attrs in self.nodes[('OID@', 'SHAPE@', *self.node_attributes)]:
+            user_attrs: dict[str, Any] = dict(zip(self.node_attributes, node_attrs))
+            system_attrs: dict[str, Any] = {'OID@': oid, 'SHAPE@': node}
+            # Merge user and system attrs then unpack into **attr
+            g.add_node(oid, **{**user_attrs, **system_attrs})
 
         # Connect all nodes using edges (with specified attributes)
-        for edge, *edge_attrs in self.edges[('SHAPE@', *self.edge_attributes)]:
+        for oid, edge, *edge_attrs in self.edges[('OID@', 'SHAPE@', *self.edge_attributes)]:
             edge: Polyline
             fp = PointGeometry(edge.firstPoint)
             lp = PointGeometry(edge.lastPoint)
@@ -1394,11 +1397,13 @@ class FeatureGraph:
             # Generate all unique connections for the edge and add them to the graph with the edge attrs
             # avoid connecting nodes to themselves
             for cxn in {tuple(sorted([a, b])) for a in to_add for b in to_add if a != b}:
-                user_attrs = dict(zip(self.edge_attributes, edge_attrs))
-                system_attrs = {'length': edge.length}
-                # system attrs take precidence since 'length' will be used by pathing algos
-                g.add_edge(cxn[0], cxn[1], **user_attrs, **system_attrs)
+                user_attrs: dict[str, Any] = dict(zip(self.edge_attributes, edge_attrs))
+                system_attrs: dict[str, Any] = {'length': edge.length, 'OID@': oid, 'SHAPE@': edge}
+                # Merge user and system attrs then unpack into **attr
+                g.add_edge(cxn[0], cxn[1], **{**user_attrs, **system_attrs})
         return g
 
+    
+    
 if __name__ == '__main__':
     pass
