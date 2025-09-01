@@ -35,11 +35,11 @@ from arcpy.da import (
 
 if TYPE_CHECKING:
     # Shadow cursors during type check with proper typing
-    from _types import (
-        SearchCursor,
-        InsertCursor,
-        UpdateCursor,
-    )
+    #from _types import (
+    #    SearchCursor,
+    #    InsertCursor,
+    #    UpdateCursor,
+    #)
     from arcpy.da import (
         SpatialRelationship,
         Subtype,
