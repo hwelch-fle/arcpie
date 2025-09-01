@@ -99,6 +99,8 @@ from .cursor import (
     Field,
 )
 
+import networkx as nx
+
 FieldName = str | CursorToken
 
 def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
@@ -1339,6 +1341,49 @@ class FeatureClass(Generic[_GeometryType]):
         fc.layer = layer
         return fc
     
+
+class FeatureGraph:
+    def __init__(self, edges: FeatureClass[Polyline], nodes: FeatureClass[PointGeometry], tolerance: float=0.0,
+                 *,
+                 node_attributes: Sequence[str] | None=None,
+                 edge_attributes: Sequence[str] | None=None) -> None:
+        self.nodes = nodes
+        self.edges = edges
+        self.node_attributes = node_attributes or tuple()
+        self.edge_attributes = edge_attributes or tuple()
+        self.tolerance = tolerance
+        self._graph = self.build_graph()
+
+    def build_graph(self) -> nx.Graph:
+        """Build a graph from the provided features"""
+
+        # Initialize an undirected graph
+        g = nx.Graph()
+
+        # Add all points as nodes (with specified attributes)
+        for oid, *node_attrs in self.nodes[('OID@', *self.node_attributes)]:
+            g.add_nodes_from(oid, **dict(zip(self.node_attributes, node_attrs)))
+
+        # Connect all nodes using edges (with specified attributes)
+        for edge, *edge_attrs in self.edges[('SHAPE@', *self.edge_attributes)]:
+            edge: Polyline
+            fp = PointGeometry(edge.firstPoint)
+            lp = PointGeometry(edge.lastPoint)
+
+            # Buffer anything with a specified non-zero tolerance
+            if self.tolerance:
+                fp = fp.buffer(self.tolerance)
+                lp = lp.buffer(self.tolerance)
+
+            # Get all nodes that Intersect the endpoints of the edge
+            with self.nodes.spatial_filter(fp.union(lp)):
+                to_add: list[int] = list(self.nodes['OID@'])
+            
+            # Generate all unique connections for the edge and add them to the graph with the edge attrs
+            # avoid connecting nodes to themselves
+            for cxn in {tuple(sorted([a, b])) for a in to_add for b in to_add if a != b}:
+                g.add_edge(cxn[0], cxn[1], **dict(zip(self.edge_attributes, edge_attrs)))
+        return g
 
 if __name__ == '__main__':
     pass
