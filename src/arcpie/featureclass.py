@@ -240,7 +240,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     @property
     def update_options(self) -> UpdateOptions:
-        return self._update_options.copy()
+        return self._update_options.copy() # pyright: ignore[reportReturnType]
     
     @update_options.setter
     def update_options(self, update_options: UpdateOptions) -> None:
