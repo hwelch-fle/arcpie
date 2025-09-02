@@ -1424,12 +1424,10 @@ class FeatureGraph:
     def __contains__(self, node: int | PointGeometry) -> bool:
         if not isinstance(node, PointGeometry):
             return node in self.graph
-
         for _, data in self.nodes:
             shape: PointGeometry = data['SHAPE@']
             if shape == node:
                 return True
-            
         return False
 
     def index_of(self, node: PointGeometry) -> int:
@@ -1485,17 +1483,17 @@ class FeatureGraph:
 
         with self.edge_features.spatial_filter(node):
             connecting_edges = tuple(self.edge_features[('OID@', 'SHAPE@', *self.edge_attributes)])
-
+            
         for oid, edge_shape, *edge_attrs in connecting_edges:
             oid: int
             edge_shape: Polyline
+            user_attrs = dict(zip(self.edge_attributes, edge_attrs))
+            system_attrs: dict[str, Any] = {'length': edge_shape.length, 'OID@': oid, 'SHAPE@': edge_shape}
+            
             with self.node_features.spatial_filter(edge_shape):
                 cxns = list(self.node_features['OID@'])
-
-            for neighbor in cxns:
-                user_attrs = dict(zip(self.edge_attributes, edge_attrs))
-                system_attrs: dict[str, Any] = {'length': edge_shape.length, 'OID@': oid, 'SHAPE@': edge_shape}
-                self.graph.add_edge(new_index, neighbor, **{**user_attrs, **system_attrs})
+                
+            self.graph.add_edges_from([(new_index, n) for n in cxns], **{**user_attrs, **system_attrs})
 
         return new_index
 
