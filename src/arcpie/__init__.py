@@ -10,8 +10,12 @@ from .featureclass import (
     UpdateOptions,
     SQLClause,
     WhereClause,
+)
+
+from .network import (
     FeatureGraph,
 )
+
 from .toolbox import (
     ToolABC, 
     Parameters,
