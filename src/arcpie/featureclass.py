@@ -351,7 +351,12 @@ class FeatureClass(Generic[_GeometryType]):
     # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: SearchOptions|None, overrides: SearchOptions) -> SearchOptions:
         """Combine all provided SearchOptions into one dictionary"""
-        return {'sql_clause': self.clause or SQLClause(None, None), **self.search_options, **(options or {}), **overrides}
+        return {
+            'sql_clause': self.clause or SQLClause(None, None), 
+            **self.search_options, 
+            **(options or {}), 
+            **overrides
+        }
 
     def _resolve_insert_options(self, options: InsertOptions|None, overrides: InsertOptions) -> InsertOptions:
         """Combine all provided InsertOptions into one dictionary"""
@@ -359,7 +364,12 @@ class FeatureClass(Generic[_GeometryType]):
 
     def _resolve_update_options(self, options: UpdateOptions|None, overrides: UpdateOptions) -> UpdateOptions:
         """Combine all provided UpdateOptions into one dictionary"""
-        return {'sql_clause': self.clause or SQLClause(None, None), **self.update_options, **(options or {}), **overrides}
+        return {
+            'sql_clause': self.clause or SQLClause(None, None), 
+            **self.update_options, 
+            **(options or {}), 
+            **overrides
+        }
 
     # Cursor Handlers
     def search_cursor(self, field_names: FieldName | Sequence[FieldName],
