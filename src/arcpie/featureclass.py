@@ -306,7 +306,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     @property
     def fields(self) -> tuple[FieldName, ...]:
-        """Tuple of all fieldnames in the FeatureClass"""
+        """Tuple of all fieldnames in the FeatureClass with `OID@` and `SHAPE@` as first 2"""
         if self._fields:
             return self._fields
         exclude = (self.oid_field_name, self.shape_field_name)
