@@ -9,7 +9,36 @@ from collections.abc import (
     Sequence, 
     Iterator,
 )
-from typing import Any
+from typing import Any, overload, Hashable
+from functools import wraps
+
+class _FeatureGraph(nx.Graph):
+    """Wrapper for `networkx.Graph` that adds geospatial compatibility"""
+
+    def add_node(self, node_for_adding: PointGeometry | Hashable, **attr) -> None:
+        if not isinstance(node_for_adding, PointGeometry):
+            return super().add_node(node_for_adding.centroid, **attr)
+        return super().add_node(node_for_adding, **attr)
+
+    def add_nodes_from(self, nodes_for_adding) -> None:
+        if isinstance(nodes_for_adding, FeatureClass):
+            return super().add_nodes_from( 
+                (
+                    (n['SHAPE@'].centroid, n)
+                    for n in nodes_for_adding
+                    if isinstance(n['SHAPE@'], PointGeometry)
+                )
+            )
+        return super().add_nodes_from(nodes_for_adding)
+
+    def add_edge(self, u_of_edge, v_of_edge, **attr):
+        return super().add_edge(u_of_edge, v_of_edge, **attr)
+
+    def add_edges_from(self, ebunch_to_add, **attr) -> None:
+        if not isinstance(ebunch_to_add, FeatureClass):
+            return super().add_edges_from(ebunch_to_add, **attr)
+        edges = ebunch_to_add
+
 
 class FeatureGraph:
     def __init__(self, edges: FeatureClass[Polyline], nodes: FeatureClass[PointGeometry], tolerance: float=0.0,
