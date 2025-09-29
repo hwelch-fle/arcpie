@@ -348,18 +348,6 @@ class FeatureClass(Generic[_GeometryType]):
         return Editor(self.workspace, multiuser_mode=self.describe.canVersion)
 
     @property
-    def is_editable(self) -> bool:
-        """Returns True if the FeatureClass can be edited"""
-        try:
-            with self.editor, self.update_cursor(['OID@']) as cur:
-                for row in cur:
-                    cur.updateRow(row)
-                    break
-            return True
-        except Exception:
-            return False
-        
-    @property
     def extent(self) -> Extent:
         """Get the stored extent of the feature class"""
         return self.describe.extent
