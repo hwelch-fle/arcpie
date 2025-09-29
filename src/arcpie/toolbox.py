@@ -1,11 +1,27 @@
 from __future__ import annotations
 
 from arcpy import Parameter
+from arcpy.mp import ArcGISProject
 from abc import ABC
 from typing import Any, overload, SupportsIndex
 
 class ToolABC(ABC):
-    def __init__(self) -> None: ...
+    def __init__(self) -> None:
+        self.label: str
+        self.description: str
+        self.category: str
+        self._project: ArcGISProject|None = None
+        
+    @property
+    def project(self) -> ArcGISProject | None:
+        """Get the current project that the tool is running in if it exists (otherwise: None)"""
+        if self._project is None:
+            try:
+                self._project = ArcGISProject('CURRENT')
+            except Exception:
+                pass
+        return self._project
+    
     def getParameterInfo(self) -> list[Parameter]: return []
     def isLicensed(self) -> bool: return True
     def updateParameters(self, parameters: list[Parameter]) -> None: ...
