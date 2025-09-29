@@ -16,12 +16,12 @@ class ToolABC(ABC):
 class Parameters(list[Parameter]):
     """Wrap a list of parameters and override the index to allow indexing by name"""
     @overload
-    def __getitem__(self, key: slice, /) -> list[Parameter]: ...
-    @overload
     def __getitem__(self, key: SupportsIndex, /) -> Parameter: ...
     @overload
+    def __getitem__(self, key: slice, /) -> list[Parameter]: ...
+    @overload
     def __getitem__(self, key: str, /) -> Parameter: ...
-    def __getitem__(self, key): # type: ignore
+    def __getitem__(self, key: SupportsIndex|slice|str, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
             _matches = [p for p in self if p.name == key]
             if not _matches:
@@ -29,5 +29,4 @@ class Parameters(list[Parameter]):
             if len(_matches) == 1:
                 return _matches.pop()
             raise KeyError(f'{key} is used for multiple parameters')
-        return super().__getitem__(key) # type: ignore
-    
+        return self[key]
