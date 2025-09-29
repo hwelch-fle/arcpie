@@ -271,6 +271,7 @@ class FeatureClass(Generic[_GeometryType]):
 
     @property
     def shape_token(self) -> ShapeToken:
+        """Set the default `SHAPE@??` token for iteration. Use `SHAPE@` for full shape (default: `SHAPE@`)"""
         return self._shape_token
 
     @shape_token.setter
