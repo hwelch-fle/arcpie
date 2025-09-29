@@ -199,7 +199,7 @@ class EsriGeometryPolyline(ComplexShapeMixin, total=False):
 class EsriGeometryPolygon(TypedDict, total=False):
     rings: list[Point]
 
-class EsriJsonFeature(TypedDict, total=False)
+class EsriJsonFeature(TypedDict, total=False):
     attributes: dict[str, Any]
     geometry: dict[str, Any]
 
