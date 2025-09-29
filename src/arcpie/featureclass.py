@@ -162,14 +162,14 @@ def valid_field(fieldname: str) -> bool:
     return not (
             # Has characters
             len(fieldname) == 0
+            # Is under 160 characters
+            or len(fieldname) > 160
             # Doesn't start with a number
             or fieldname[0] in digits 
             # Only has alphanum and underscore
-            or any(c not in ascii_letters + digits + '_' for c in fieldname)
+            or not set(fieldname).issubset(ascii_letters + digits + '_')
             # Doesn't have reserved prefix
             or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
-            # Is under 160 characters
-            or len(fieldname) > 160
         )
 
 RowRecord = dict[FieldName, Any]
