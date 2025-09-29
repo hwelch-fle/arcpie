@@ -637,6 +637,14 @@ class FeatureClass(Generic[_GeometryType]):
             fc.clause = self.clause
         return fc
 
+    def exists(self) -> bool:
+        """Check if the FeatureClass actually exists (check for deletion or initialization with bad path)"""
+        return Exists(str(self))
+
+    def has_field(self, fieldname: str) -> bool:
+        """Check if the field exists in the featureclass or is a valid Token (@[TOKEN])"""
+        return fieldname in self.fields or fieldname in CursorTokens
+
     def add_field(self, fieldname: str, field: Field|None=None, **options: Unpack[Field]) -> None:
         """Add a new field to a FeatureClass, if no type is provided, deafault of `VARCHAR(255)` is used
         
