@@ -341,10 +341,24 @@ class FeatureClass(Generic[_GeometryType]):
         return self.spatial_reference.linearUnitName
 
     @property
-    def is_editing(self) -> bool:
-        """Returns true if the featureclass is currently within an edit session"""
-        return self._in_edit_session
+    def editor(self) -> Editor:
+        """Get an Editor manager for the FeatureClass
+        Will set multiuser_mode to True if the feature can version
+        """
+        return Editor(self.workspace, multiuser_mode=self.describe.canVersion)
 
+    @property
+    def is_editable(self) -> bool:
+        """Returns True if the FeatureClass can be edited"""
+        try:
+            with self.editor, self.update_cursor(['OID@']) as cur:
+                for row in cur:
+                    cur.updateRow(row)
+                    break
+            return True
+        except Exception:
+            return False
+        
     @property
     def extent(self) -> Extent:
         """Get the stored extent of the feature class"""
@@ -568,7 +582,7 @@ class FeatureClass(Generic[_GeometryType]):
             raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
 
         new_ids: list[int] = []
-        with self.editor(), self.insert_cursor(rec_fields) as cur:
+        with self.editor, self.insert_cursor(rec_fields) as cur:
             new_ids.append(cur.insertRow(tuple(first_rec.get(k) for k in rec_fields)))
             for rec in filter(rec_filter, records):
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
@@ -1070,41 +1084,7 @@ class FeatureClass(Generic[_GeometryType]):
             yield self
         finally:
             self._fields = _fields
-
-    @contextmanager
-    def editor(self, multiuser_mode: bool|None=True):
-        """Create an editor context for the feature, required for features that participate in Topologies or exist
-        on remote servers
-        
-        Args:
-            multiuser_mode (bool): When edits will be performed on versioned data, set this to `True`; otherwise, set it to `False`. 
-                Only use with enterprise geodatabases. (default: `True`)
-        
-        Yields:
-            (self): Yields the featureclass back to you within an edit context and with the `is_editing` flag set
-
-        Example:
-            ```python
-            >>> new_rows = [('John', 'Cleese', 1939), ('Michael', 'Palin', 1943)]
-            
-            >>> new_ids = []
-            >>> with fc.editor:
-            ...     with fc.insert_cursor(['first', 'last', 'year']) as cur:
-            ...        for r in new_rows:
-            ...            new_ids.append(cur.insertRow(r))
-
-            >>> # --OR-- (This is a much cleaner way)
-            >>> with fc.editor, fc.insert_cursor(['first', 'last', 'year']) as cur:
-            ...     new_ids = [cur.insertRow(r) for r in new_rows]
-            ```
-        """
-        with Editor(self.workspace, multiuser_mode=multiuser_mode):
-            try:
-                self._in_edit_session = True
-                yield self
-            finally:
-                self._in_edit_session = False
-
+    
     @contextmanager
     def reference_as(self, spatial_reference: SpatialReference):
         """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
