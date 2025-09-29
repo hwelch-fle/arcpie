@@ -65,6 +65,7 @@ from arcpy.management import (
     CopyFeatures,  #type:ignore
     DeleteField, #type:ignore
     AddField, #type:ignore
+    RecalculateFeatureClassExtent, #type:ignore
 )
 
 from arcpy._mp import ( 
@@ -780,6 +781,10 @@ class FeatureClass(Generic[_GeometryType]):
             _first = _first.buffer(buffer)
         
         return reduce(merge, _shapes, _first)
+    
+    def recalculate_extent(self) -> None:
+        """Recalculate the FeatureClass Extent"""
+        RecalculateFeatureClassExtent(self.path, 'STORE_EXTENT')
 
     # Magic Methods
     if TYPE_CHECKING:
