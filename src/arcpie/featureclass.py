@@ -343,7 +343,7 @@ class FeatureClass(Generic[_GeometryType]):
     @property
     def is_editing(self) -> bool:
         """Returns true if the featureclass is currently within an edit session"""
-        return self._in_edit_session    
+        return self._in_edit_session
 
     @property
     def extent(self) -> Extent:
@@ -671,6 +671,9 @@ class FeatureClass(Generic[_GeometryType]):
             ['OID@', 'SHAPE@', 'name', 'year', 'month']
             ```
         """
+        if self.has_field(fieldname):
+            raise ValueError(f'{self.name} already has a field called {fieldname}!')
+        
         # Use provided field or default to 'TEXT' and override with kwargs
         field = {**(field or Field(field_type='TEXT')), **options}
         
@@ -682,9 +685,6 @@ class FeatureClass(Generic[_GeometryType]):
         
         if not _provided <= _option_kwargs:
             raise ValueError(f"Unknown Field properties provided: {_provided - _option_kwargs}")
-        
-        if fieldname in self.fields:
-            raise ValueError(f"{fieldname} already exists in {self.name}!")
         
         if not valid_field(fieldname):
             raise ValueError(
@@ -733,11 +733,11 @@ class FeatureClass(Generic[_GeometryType]):
         """
         if fieldname in CursorTokens:
             raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
-        if fieldname not in [f for f in self.fields if '@' not in f]: # Skip tokens
+        if not self.has_field(fieldname):
             raise ValueError(f"{fieldname} does not exist in {self.name}")
         with EnvManager(workspace=self.workspace):
             DeleteField(self.path, fieldname)
-            self._fields = None
+            self._fields = None # Defer new field check to next access
 
     def delete_fields(self, fieldnames: Sequence[str]) -> None:
         for fname in fieldnames:
@@ -758,10 +758,9 @@ class FeatureClass(Generic[_GeometryType]):
         Warning:
             No way to undo this!
         """
-        total = 0
         with self.update_cursor('OID@') as cur:
-            total = sum(cur.deleteRow() or 1 for _ in cur)
-        return total
+            return sum(cur.deleteRow() or 1 for _ in cur)
+        return 0
 
     def footprint(self, buffer: float|None=None) -> _GeometryType | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
@@ -1037,7 +1036,7 @@ class FeatureClass(Generic[_GeometryType]):
         self.add_field(fieldname, **field)
 
     # Context Managers
-    
+
     @contextmanager
     def fields_as(self, fields: Sequence[FieldName] | FieldName):
         """Override the default fields for the FeatureClass so all non-explicit Iterators will
@@ -1071,7 +1070,7 @@ class FeatureClass(Generic[_GeometryType]):
             yield self
         finally:
             self._fields = _fields
-    
+
     @contextmanager
     def editor(self, multiuser_mode: bool|None=True):
         """Create an editor context for the feature, required for features that participate in Topologies or exist
@@ -1296,7 +1295,7 @@ class FeatureClass(Generic[_GeometryType]):
         """
         if self.layer:
             self.layer.setSelectionSet(list(self['OID@']), method=method)
-        
+   
     def unselect(self) -> None:
         """If the FeatureClass is bound to a layer, Remove layer selection
         
@@ -1306,10 +1305,6 @@ class FeatureClass(Generic[_GeometryType]):
         if self.layer:
             self.layer.setSelectionSet(method='NEW')
 
-    def exists(self) -> bool:
-        """Check if the FeatureClass actually exists (check for deletion or initialization with bad path)"""
-        return Exists(str(self))
-    
     # Factory Constructors
     @classmethod
     def from_layer(cls, layer: Layer,
