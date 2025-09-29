@@ -5,6 +5,12 @@ from arcpy.mp import ArcGISProject
 from abc import ABC
 from typing import Any, overload, SupportsIndex
 
+class ToolboxABC(ABC):
+    def __init__(self) -> None:
+        self.label: str
+        self.alias: str
+        self.tools: list[type[ToolABC]]
+
 class ToolABC(ABC):
     def __init__(self) -> None:
         self.label: str
