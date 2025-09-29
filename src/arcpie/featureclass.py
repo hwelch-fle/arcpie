@@ -523,7 +523,7 @@ class FeatureClass(Generic[_GeometryType]):
         with self.search_cursor(field_names, **options) as cur:
             yield from cur
 
-    def insert_records(self, records: Iterable[RowRecord] | Iterator[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
+    def insert_records(self, records: Iterator[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
         """Provide a list of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -549,26 +549,18 @@ class FeatureClass(Generic[_GeometryType]):
             (1,2)
             ```
         """
-        # Grab the first record
-        # Doing it this way allows Iterators to be passed
-        _first_rec = None
         for record in records:
-            _first_rec = record
+            first_rec = record
             break
+        else:
+            return tuple()
 
-        # Nothing to insert
-        if not _first_rec:
-            return tuple[int, ...]()
+        rec_fields = list(first_rec.keys())
+        if not set(rec_fields).issubset((*self.fields, *CursorTokens)):
+            raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
 
-        # Confirm that the first record has valid field names
-        rec_fields = sorted(_first_rec.keys())
-        #if set(rec_fields) != set([*self.fields, *CursorTokens]):
-        #    raise KeyError(f"Provided Record is not a valid subset of {self.name} fields:\n{self.fields}")
-
-        # Create a key filter to remove any invalid records or raise a KeyError
         def rec_filter(rec: RowRecord) -> bool:
-            _valid = rec.keys() == set(rec_fields)
-            if _valid:
+            if rec.keys() == first_rec.keys():
                 return True
             if ignore_errors:
                 return False
@@ -576,11 +568,7 @@ class FeatureClass(Generic[_GeometryType]):
 
         new_ids: list[int] = []
         with self.editor(), self.insert_cursor(rec_fields) as cur:
-            # Handle case where records is a Iterator and the field validation 
-            # consumed the first record
-            if isinstance(records, Iterator):
-                new_ids.append(cur.insertRow(tuple(_first_rec.get(k) for k in rec_fields)))
-
+            new_ids.append(cur.insertRow(tuple(first_rec.get(k) for k in rec_fields)))
             for rec in filter(rec_filter, records):
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
