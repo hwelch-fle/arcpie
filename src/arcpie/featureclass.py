@@ -944,7 +944,7 @@ class FeatureClass(Generic[_GeometryType]):
             field (list[str]): Yield lists of values for requested columns (requested fields)
             field (tuple[str]): Yield tuples of values for requested columns (requested fields)
             field (set[str]): Yield dictionaries of values for requested columns (requested fields)
-            field (Callable[[Row], bool]): Yield rows that match function (all fields)
+            field (FilterFunc): Yield rows that match function (all fields)
             field (WhereClause): Yield rows that match clause (all fields)
 
         Example:
