@@ -178,28 +178,48 @@ def filter_fields(fields: Sequence[FieldName]):
     Note:
         Iterating filtered rows using a decorated filter will limit available columns inside the 
         context of the filter. This should only be used if you need to improve performance of a 
-        filter and don't care about the fields not included in the `filter_fields` decorator!
+        filter and don't care about the fields not included in the `filter_fields` decorator:
     
-    Example:
-        ```python
-        >>> @filter_fields(['Name', 'Age'])
-        >>> def age_over_21(row):
-        ...     return row['Age'] > 21
-        ...
-        >>> for row in feature_class[age_over_21]:
-        ...     print(row)
-        ...
-        {'Name': 'John', 'Age': 23}
-        {'Name': 'Terry', 'Age': 42}
-        ...
-        >>> for row in feature_class:
-        ...     print(row)
-        ...
-        {'Name': 'John', 'LastName': 'Cleese', 'Age': 23}
-        {'Name': 'Graham', 'LastName': 'Chapman', 'Age': 18}
-        {'Name': 'Terry', 'LastName': 'Gilliam', 'Age': 42}
-        ...
-        ```
+        Example:
+            ```python
+            >>> @filter_fields(['Name', 'Age'])
+            >>> def age_over_21(row):
+            ...     return row['Age'] > 21
+            ...
+            >>> for row in feature_class[age_over_21]:
+            ...     print(row)
+            ...
+            {'Name': 'John', 'Age': 23}
+            {'Name': 'Terry', 'Age': 42}
+            ...
+            >>> for row in feature_class:
+            ...     print(row)
+            ...
+            {'Name': 'John', 'LastName': 'Cleese', 'Age': 23}
+            {'Name': 'Graham', 'LastName': 'Chapman', 'Age': 18}
+            {'Name': 'Terry', 'LastName': 'Gilliam', 'Age': 42}
+            ...
+            ```
+
+    Note:
+        You can achieve field filtering using the `FeatureClass.fields_as` context manager as well. 
+        This method adds a level of indentation and can be more extensible:
+        
+        Example:
+            ```python
+            >>> def age_over_21(row):
+            ...     return row['Age'] > 21
+            ...
+            >>> with feature_class.fields_as(['Name', 'Age']):
+            ...     for row in feature_class[age_over_21]:
+            ...         print(row)
+            ...
+            {'Name': 'John', 'Age': 23}
+            {'Name': 'Terry', 'Age': 42}
+            ```
+        Since the inspected fields live in the same code block as the filter that uses them, you can 
+        easily add the fields in one place. This method is preferred for data manipulation operations 
+        while counting operations can use the decorated filter to cut down on boilerplate.
     """
     def _filter_wrapper(func: FilterFunc):
         setattr(func, 'fields', fields)
