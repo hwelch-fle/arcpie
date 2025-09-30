@@ -172,7 +172,7 @@ def filter_fields(fields: Sequence[FieldName]):
         fields (Sequence[FielName]): The fields to limit the filter to
     
     Returns:
-        (Callable[[RowRecord], bool]): A filter function with a `fields` attribute added
+        (FilterFunc): A filter function with a `fields` attribute added
         Used with FeatureClass.filter to limit columns
     
     Note:
@@ -197,7 +197,7 @@ def filter_fields(fields: Sequence[FieldName]):
             ...
         ```
     """
-    def _filter_wrapper(func: Callable[[RowRecord], bool]):
+    def _filter_wrapper(func: FilterFunc):
         setattr(func, 'fields', fields)
         return func
     return _filter_wrapper
@@ -218,6 +218,7 @@ def valid_field(fieldname: str) -> bool:
         )
 
 RowRecord = dict[FieldName, Any]
+FilterFunc = Callable[[RowRecord], bool]
 _GeometryType = TypeVar('_GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint, GeometryType)
 
 class FeatureClass(Generic[_GeometryType]):
@@ -661,7 +662,7 @@ class FeatureClass(Generic[_GeometryType]):
                     cur.deleteRow()
         return deleted
                 
-    def filter(self, func: Callable[[RowRecord], bool], invert: bool=False) -> Iterator[RowRecord]:
+    def filter(self, func: FilterFunc, invert: bool=False) -> Iterator[RowRecord]:
         """Apply a function filter to rows in the FeatureClass
 
         Args:
@@ -888,7 +889,7 @@ class FeatureClass(Generic[_GeometryType]):
         
         _OVERLOAD_TYPES = (
             FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
-            Callable[[RowRecord], bool] | WhereClause | Extent | GeometryType | None
+            FilterFunc | WhereClause | Extent | GeometryType | None
         )
         
         @overload
@@ -912,7 +913,7 @@ class FeatureClass(Generic[_GeometryType]):
             pass
         
         @overload
-        def __getitem__(self, field: Callable[[RowRecord], bool]) -> Iterator[RowRecord]:
+        def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]:
             """Yield dictionaries of the rows that match the filter function"""
             pass
 
