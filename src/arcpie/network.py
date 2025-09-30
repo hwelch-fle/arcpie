@@ -2,7 +2,7 @@ from arcpy import (
     Polyline, 
     PointGeometry,
 )
-from featureclass import FeatureClass
+from .featureclass import FeatureClass
 
 import networkx as nx
 from collections.abc import (
