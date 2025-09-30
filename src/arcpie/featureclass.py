@@ -93,15 +93,17 @@ from .cursor import (
     InsertOptions, 
     UpdateOptions,
     ShapeToken,
-    CursorToken,
-    CursorTokens,
+    FeatureToken,
+    FeatureTokens,
+    TableToken,
+    TableTokens,
     SQLClause,
     GeometryType,
     WhereClause,
     Field,
 )
 
-FieldName = str | CursorToken
+FieldName = str | FeatureToken
 
 def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
@@ -226,7 +228,7 @@ def filter_fields(fields: Sequence[FieldName]):
         return func
     return _filter_wrapper
 
-def valid_field(fieldname: str) -> bool:
+def valid_field(fieldname: FieldName) -> bool:
     """Validate a fieldname"""
     return not (
             # Has characters
@@ -245,26 +247,8 @@ RowRecord = dict[FieldName, Any]
 FilterFunc = Callable[[RowRecord], bool]
 _GeometryType = TypeVar('_GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint, GeometryType)
 
-class FeatureClass(Generic[_GeometryType]):
-    """A Wrapper for ArcGIS FeatureClass objects
-    
-    Example:
-        ```python
-        >>> # Initialize FeatureClass with Geometry Type
-        >>> point_features = FeatureClass[PointGeometry]('<feature_class_path>')
-        >>> # Create a buffer Iterator
-        >>> buffers = (pt.buffer(10) for pt in point_features.shapes)
-        ... 
-        >>> sr = SpatialReference(4206)
-        >>> # Set a new spatial reference
-        >>> with point_features.reference_as(sr):
-        ...     # Consume the Iterator, but with the new reference
-        ...     for buffer in buffers:
-        ...        area = buffer.area
-        ...        units = sr.linearUnitName
-        ...        print(f"{area} Sq{units}")
-    """
-
+class Table:
+    """A Wrapper for ArcGIS Table objects"""
     def __init__(
             self, path: str|Path,
             *,
@@ -273,7 +257,6 @@ class FeatureClass(Generic[_GeometryType]):
             insert_options: InsertOptions|None=None,
             clause: SQLClause|None=None,
             where: str|None=None,
-            shape_token: ShapeToken='SHAPE@'
         ) -> None:
         self._path = str(path)
         self._clause = clause or SQLClause(None, None)
@@ -286,12 +269,12 @@ class FeatureClass(Generic[_GeometryType]):
             self._search_options['where_clause'] = where
             self._update_options['where_clause'] = where
         
-        self._shape_token: ShapeToken = shape_token
         self._layer: Layer|None=None
         self._in_edit_session=False
         self._fields: tuple[FieldName, ...]|None=None
 
     # rw Properties
+    
     @property
     def search_options(self) -> SearchOptions:
         return self._search_options.copy()
@@ -338,16 +321,7 @@ class FeatureClass(Generic[_GeometryType]):
         if layer.dataSource != self.path:
             raise ValueError(f'Layer: {layer.name} does not source to {self.name} FeatureClass at {self.path}!')
         self._layer = layer
-
-    @property
-    def shape_token(self) -> ShapeToken:
-        """Set the default `SHAPE@??` token for iteration. Use `SHAPE@` for full shape (default: `SHAPE@`)"""
-        return self._shape_token
-
-    @shape_token.setter
-    def shape_token(self, shape_token: ShapeToken) -> None:
-        self._shape_token = shape_token
-
+    
     # ro Properties
 
     @property
@@ -355,7 +329,7 @@ class FeatureClass(Generic[_GeometryType]):
         return self._path
 
     @property
-    def describe(self) -> dt.FeatureClass:
+    def describe(self) -> dt.Table:
         return Describe(self.path) #type:ignore (Will be dt.FeatureClass)
 
     @property
@@ -366,10 +340,6 @@ class FeatureClass(Generic[_GeometryType]):
     @property
     def name(self) -> str:
         return self.describe.name
-
-    @property
-    def shape_field_name(self) -> str:
-        return self.describe.shapeFieldName
 
     @property
     def oid_field_name(self) -> str:
@@ -398,28 +368,11 @@ class FeatureClass(Generic[_GeometryType]):
         return ListSubtypes(self.path) # type:ignore
 
     @property
-    def shapes(self) -> Iterator[_GeometryType]:
-        yield from ( shape for shape, in self.search_cursor('SHAPE@'))
-
-    @property
-    def spatial_reference(self):
-        return self.describe.spatialReference
-
-    @property
-    def unit_name(self):
-        return self.spatial_reference.linearUnitName
-
-    @property
     def editor(self) -> Editor:
         """Get an Editor manager for the FeatureClass
         Will set multiuser_mode to True if the feature can version
         """
         return Editor(self.workspace, multiuser_mode=self.describe.canVersion)
-
-    @property
-    def extent(self) -> Extent:
-        """Get the stored extent of the feature class"""
-        return self.describe.extent
 
     # Option Resolvers (kwargs -> Options Object -> FeatureClass Options)
     def _resolve_search_options(self, options: SearchOptions|None, overrides: SearchOptions) -> SearchOptions:
@@ -724,197 +677,13 @@ class FeatureClass(Generic[_GeometryType]):
         else:
             yield from (row for row in self if func(row) == (not invert))
 
-    # Data Operations
-    def copy(self, workspace: str, options: bool=True) -> FeatureClass[_GeometryType]:
-        """Copy this `FeatureClass` to a new workspace
-        
-        Args:
-            workspace (str): The path to the workspace
-            options (bool): Copy the cursor options to the new `FeatureClass` (default: `True`)
-            
-        Returns:
-            (FeatureClass): A `FeatureClass` instance of the copied features
-        
-        Example:
-            ```python
-            >>> new_fc = fc.copy('workspace2')
-            >>> new_fc == fc
-            False
-        """
-        name = Path(self.path).relative_to(Path(self.workspace))
-        if Exists(copy_fc := Path(workspace) / name):
-            raise ValueError(f'{name} already exists in {workspace}!')
-        CopyFeatures(self.path, str(copy_fc))
-        fc = FeatureClass[_GeometryType](str(copy_fc))
-        if options:
-            fc.search_options = self.search_options
-            fc.update_options = self.update_options
-            fc.insert_options = self.insert_options
-            fc.clause = self.clause
-        return fc
-
-    def exists(self) -> bool:
-        """Check if the FeatureClass actually exists (check for deletion or initialization with bad path)"""
-        return Exists(str(self))
-
-    def has_field(self, fieldname: str) -> bool:
-        """Check if the field exists in the featureclass or is a valid Token (@[TOKEN])"""
-        return fieldname in self.fields or fieldname in CursorTokens
-
-    def add_field(self, fieldname: str, field: Field|None=None, **options: Unpack[Field]) -> None:
-        """Add a new field to a FeatureClass, if no type is provided, deafault of `VARCHAR(255)` is used
-        
-        Args:
-            fieldname (str): The name of the new field (must not start with a number and be alphanum or underscored)
-            field (Field): A Field object that contains the desired field properties
-            **options (**Field): Allow passing keyword arguments for field directly (Overrides field arg)
-
-        Example:
-            ```python
-            >>> new_field = Field(
-            ...     field_alias='Abbreviated Month',
-            ...     field_type='TEXT',
-            ...     field_length='3',
-            ...     field_domain='Months_ABBR',
-            ... )
-            
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year']
-            
-            >>> fc['month'] = new_field
-            >>> fc2['month'] = new_field # Can re-use a field definition 
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year', 'month']
-            ```
-        """
-        if self.has_field(fieldname):
-            raise ValueError(f'{self.name} already has a field called {fieldname}!')
-        
-        # Use provided field or default to 'TEXT' and override with kwargs
-        field = {**(field or Field(field_type='TEXT')), **options}
-        
-        # Handle malformed Field arg
-        field['field_type'] = field.get('field_type', 'TEXT')
-        
-        _option_kwargs = set(Field.__optional_keys__) | set(Field.__required_keys__)
-        _provided = set(field.keys())
-        
-        if not _provided <= _option_kwargs:
-            raise ValueError(f"Unknown Field properties provided: {_provided - _option_kwargs}")
-        
-        if not valid_field(fieldname):
-            raise ValueError(
-                f"{fieldname} is invalid, fieldnames must not start with a number "
-                "and must only contain alphanumeric characters and underscores"
-            )
-        
-        with EnvManager(workspace=self.workspace):
-            AddField(self.path, fieldname, **field)
-            self._fields = None
-
-    def add_fields(self, fields: dict[str, Field]) -> None:
-        """Provide a mapping of fieldnames to Fields
-        
-        Args:
-            fields (dict[str, Field]): A mapping of fieldnames to Field objects
-            
-        Example:
-            ```python
-            >>> fields = {'f1': Field(...), 'f2': Field(...)}
-            >>> fc.add_fields(fields)
-            >>> fc.fields
-            ['OID@', 'SHAPE@', 'f1', 'f2']
-        """
-        for fieldname, field in fields.items():
-            self.add_field(fieldname, field)
-
-    def delete_field(self, fieldname: str) -> None:
-        """Delete a field from a FeatureClass
-        
-        Args:
-            fieldname (str): The name of the field to delete/drop
-        
-        Example:
-            ```python
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year', 'month']
-            
-            >>> del fc['month']
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name', 'year']
-            >>> fc.delete_field('year')
-            >>> print(fc.fields)
-            ['OID@', 'SHAPE@', 'name']
-            ```
-        """
-        if fieldname in CursorTokens:
-            raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
-        if not self.has_field(fieldname):
-            raise ValueError(f"{fieldname} does not exist in {self.name}")
-        with EnvManager(workspace=self.workspace):
-            DeleteField(self.path, fieldname)
-            self._fields = None # Defer new field check to next access
-
-    def delete_fields(self, fieldnames: Sequence[str]) -> None:
-        for fname in fieldnames:
-            self.delete_field(fname)
-
-    def clear(self, all: bool=False) -> int:
-        """Delete all rows in the `FeatureClass` that are returned with the active `update_options`
-
-        Args:
-            all (bool): Set to `True` to clear all rows ignoring supplied `update_options`
-
-        Returns:
-            (int): The number of rows deleted
-            
-        Note:
-            With `all` not set to `True`, only rows that match the `update_options` settings will be deleted
-        
-        Warning:
-            No way to undo this!
-        """
-        with self.update_cursor('OID@') as cur:
-            return sum(cur.deleteRow() or 1 for _ in cur)
-        return 0
-
-    def footprint(self, buffer: float|None=None) -> _GeometryType | None:
-        """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
-        as a spatial filter on other FeatureClasses
-        
-        Args:
-            buffer (float | None): Optional buffer (in feature units, respects projection context) to buffer by (default: None)
-
-        Returns:
-            (GeometryType | None): A merged Multi-Geometry of all feature geometries or `None` if no features in FeatureClass
-        """
-        if len(self) == 0:
-            return None
-
-        def merge(acc: _GeometryType, nxt: _GeometryType) -> _GeometryType:
-            if buffer:
-                nxt = nxt.buffer(buffer)
-            return acc.union(nxt)
-        
-        # Consume the shape generator popping off the first shape and applying the buffer, 
-        # Then buffering each additional shape and merging it into the accumulator (starting with _first)
-        _shapes = self.shapes
-        _first = next(_shapes)
-        if buffer:
-            _first = _first.buffer(buffer)
-        
-        return reduce(merge, _shapes, _first)
-    
-    def recalculate_extent(self) -> None:
-        """Recalculate the FeatureClass Extent"""
-        RecalculateFeatureClassExtent(self.path, 'STORE_EXTENT')
-
     # Magic Methods
+    
     if TYPE_CHECKING:
         
         _OVERLOAD_TYPES = (
             FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
-            FilterFunc | WhereClause | Extent | GeometryType | None
+            FilterFunc | WhereClause | None
         )
         
         @overload
@@ -945,11 +714,6 @@ class FeatureClass(Generic[_GeometryType]):
         @overload
         def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]:
             """Yield values that match the provided WhereClause SQL statement"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]:
-            """Yield rows that intersect the provided geometry"""
             pass
         
         @overload
@@ -994,10 +758,6 @@ class FeatureClass(Generic[_GeometryType]):
             >>> # Where Clause (Use where() helper function or a WhereClause object)
             >>> print(list(fc[where('field1 = target')]))
             [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
-             
-            >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
-            >>> print(list(fc[shape]))
-            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
             
             >>> # None (Empty Iterator)
             >>> print(list(fc[None]))
@@ -1022,9 +782,6 @@ class FeatureClass(Generic[_GeometryType]):
                 yield from () # This allows a side effect None to be used to get nothing
 
             # Conditional Requests
-            case shape if isinstance(shape, GeometryType | Extent):
-                with self.search_cursor(self.fields, spatial_filter=shape) as cur:
-                    yield from (row for row in as_dict(cur))
             case wc if isinstance(wc, WhereClause):
                 if not wc.validate(self.fields):
                     raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
@@ -1127,10 +884,6 @@ class FeatureClass(Generic[_GeometryType]):
                 return self.layer.longName if self.layer else 'None'
             case 'shape' | 'shp':
                 return self.describe.shapeType
-            case 'units' | 'unt':
-                return self.unit_name
-            case 'wkid' | 'code':
-                return str(self.spatial_reference.factoryCode)
             case 'name' | 'nm':
                 return self.name
             case 'fields' | 'flds':
@@ -1145,6 +898,7 @@ class FeatureClass(Generic[_GeometryType]):
         return hash(self.__fspath__())
 
     # Handle Fields
+    
     def __delitem__(self, fieldname: str) -> None:
         self.delete_field(fieldname)
 
@@ -1152,7 +906,7 @@ class FeatureClass(Generic[_GeometryType]):
         self.add_field(fieldname, **field)
 
     # Context Managers
-
+    
     @contextmanager
     def fields_as(self, fields: Sequence[FieldName] | FieldName):
         """Override the default fields for the FeatureClass so all non-explicit Iterators will
@@ -1187,38 +941,6 @@ class FeatureClass(Generic[_GeometryType]):
         finally:
             self._fields = _fields
     
-    @contextmanager
-    def reference_as(self, spatial_reference: SpatialReference):
-        """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
-        
-        Args:
-            spatial_reference (SpatialReference): The spatial reference to apply to the cursor objects
-        
-        Yields:
-            (self): Mutated self with search and update options set to use the provided spatial reference
-
-        Example:
-            ```python
-            >>> sr = arcpy.SpatialReference(26971)
-            >>> fc = FeatureClass[Polygon]('<fc_path>')
-               
-            >>> orig_shapes = list(fc.shapes)
-               
-            >>> with fc.project_as(sr):
-            ...     proj_shapes = list(fc.shapes)
-               
-            >>> print(orig_shapes[0].spatialReference)
-            SpatialReference(4326)
-            
-            >>> print(proj_shapes[0].spatialReference)
-            SpatialReference(26971)
-            ```
-        """
-        with self.options(
-            search_options=SearchOptions(spatial_reference=spatial_reference), 
-            update_options=UpdateOptions(spatial_reference=spatial_reference)):
-            yield self
-
     @contextmanager
     def options(self,
                 *, 
@@ -1388,6 +1110,7 @@ class FeatureClass(Generic[_GeometryType]):
             self.layer.setSelectionSet(method='NEW')
 
     # Factory Constructors
+    
     @classmethod
     def from_layer(cls, layer: Layer,
                    *,
@@ -1428,5 +1151,278 @@ class FeatureClass(Generic[_GeometryType]):
         fc.layer = layer
         return fc
     
+
+class FeatureClass(Generic[_GeometryType], Table):
+    """A Wrapper for ArcGIS FeatureClass objects
+    
+    Example:
+        ```python
+        >>> # Initialize FeatureClass with Geometry Type
+        >>> point_features = FeatureClass[PointGeometry]('<feature_class_path>')
+        >>> # Create a buffer Iterator
+        >>> buffers = (pt.buffer(10) for pt in point_features.shapes)
+        ... 
+        >>> sr = SpatialReference(4206)
+        >>> # Set a new spatial reference
+        >>> with point_features.reference_as(sr):
+        ...     # Consume the Iterator, but with the new reference
+        ...     for buffer in buffers:
+        ...        area = buffer.area
+        ...        units = sr.linearUnitName
+        ...        print(f"{area} Sq{units}")
+    """
+
+    def __init__(
+            self, path: str|Path,
+            *,
+            search_options: SearchOptions|None=None, 
+            update_options: UpdateOptions|None=None, 
+            insert_options: InsertOptions|None=None,
+            clause: SQLClause|None=None,
+            where: str|None=None,
+            shape_token: ShapeToken='SHAPE@'
+        ) -> None:
+        super().__init__(
+            path=path, 
+            search_options=search_options, update_options=update_options, insert_options=insert_options, 
+            clause=clause, where=where
+        )
+        self._shape_token: ShapeToken = shape_token
+
+    # rw Properties
+    
+    @property
+    def shape_token(self) -> ShapeToken:
+        """Set the default `SHAPE@??` token for iteration. Use `SHAPE@` for full shape (default: `SHAPE@`)"""
+        return self._shape_token
+
+    @shape_token.setter
+    def shape_token(self, shape_token: ShapeToken) -> None:
+        self._shape_token = shape_token
+
+    # ro Properties
+
+    @property
+    def describe(self) -> dt.FeatureClass:
+        return Describe(self.path) # type: ignore
+
+    @property
+    def shape_field_name(self) -> str:
+        return self.describe.shapeFieldName
+
+    @property
+    def shapes(self) -> Iterator[_GeometryType]:
+        yield from ( shape for shape, in self.search_cursor('SHAPE@'))
+
+    @property
+    def spatial_reference(self):
+        return self.describe.spatialReference
+
+    @property
+    def unit_name(self):
+        return self.spatial_reference.linearUnitName
+
+    @property
+    def extent(self) -> Extent:
+        """Get the stored extent of the feature class"""
+        return self.describe.extent
+
+    # Data Operations
+    
+    def footprint(self, buffer: float|None=None) -> _GeometryType | None:
+        """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
+        as a spatial filter on other FeatureClasses
+        
+        Args:
+            buffer (float | None): Optional buffer (in feature units, respects projection context) to buffer by (default: None)
+
+        Returns:
+            (GeometryType | None): A merged Multi-Geometry of all feature geometries or `None` if no features in FeatureClass
+        """
+        if len(self) == 0:
+            return None
+
+        def merge(acc: _GeometryType, nxt: _GeometryType) -> _GeometryType:
+            if buffer:
+                nxt = nxt.buffer(buffer)
+            return acc.union(nxt)
+        
+        # Consume the shape generator popping off the first shape and applying the buffer, 
+        # Then buffering each additional shape and merging it into the accumulator (starting with _first)
+        _shapes = self.shapes
+        _first = next(_shapes)
+        if buffer:
+            _first = _first.buffer(buffer)
+        
+        return reduce(merge, _shapes, _first)
+    
+    def recalculate_extent(self) -> None:
+        """Recalculate the FeatureClass Extent"""
+        RecalculateFeatureClassExtent(self.path, 'STORE_EXTENT')
+
+    # Magic Methods
+    if TYPE_CHECKING:
+        
+        _OVERLOAD_TYPES = (
+            FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
+            FilterFunc | WhereClause | Extent | GeometryType | None
+        )
+        
+        @overload
+        def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]:
+            """Yield tuples of the requested field values"""
+            pass
+        
+        @overload
+        def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]:
+            """Yield lists of the requested field values"""
+            pass
+        
+        @overload
+        def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]:
+            """Yield dictionaries of the requested field values"""
+            pass
+  
+        @overload
+        def __getitem__(self, field: FieldName) -> Iterator[Any]:
+            """Yield values from the requested field"""
+            pass
+        
+        @overload
+        def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]:
+            """Yield dictionaries of the rows that match the filter function"""
+            pass
+
+        @overload
+        def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]:
+            """Yield values that match the provided WhereClause SQL statement"""
+            pass
+        
+        @overload
+        def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]:
+            """Yield rows that intersect the provided geometry"""
+            pass
+        
+        @overload
+        def __getitem__(self, field: None) -> Iterator[None]:
+            """Yield nothing (used as fallback if an indexing argument is None)"""
+            pass
+
+    def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
+        """Handle all defined overloads using pattern matching syntax
+        
+        Args:
+            field (str): Yield values in the specified column (values only)
+            field (list[str]): Yield lists of values for requested columns (requested fields)
+            field (tuple[str]): Yield tuples of values for requested columns (requested fields)
+            field (set[str]): Yield dictionaries of values for requested columns (requested fields)
+            field (Geometry | Extent): Yield dictionaries of values for all features intersecting the specified shape
+            field (FilterFunc): Yield rows that match function (all fields)
+            field (WhereClause): Yield rows that match clause (all fields)
+
+        Example:
+            ```python
+            >>> # Single Field
+            >>> print(list(fc['field']))
+            [val1, val2, val3, ...]
+            
+            >>> # Field Tuple
+            >>> print(list(fc[('field1', 'field2')]))
+            [(val1, val2), (val1, val2), ...]
+             
+            >>> # Field List
+            >>> print(list(fc[['field1', 'field2']]))
+            [[val1, val2], [val1, val2], ...]
+            
+            >>> # Field Set (Row mapping limited to only requested fields)
+            >>> print(list(fc[{'field1', 'field2'}]))
+            [{'field1': val1, 'field2': val2}, {'field1': val1, 'field2': val2}, ...]
+            
+            >>> # Last two options always return all fields in a mapping
+            >>> # Filter Function (passed to FeatureClass.filter())
+            >>> print(list(fc[lambda r: r['field1'] == target]))
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+             
+            >>> # Where Clause (Use where() helper function or a WhereClause object)
+            >>> print(list(fc[where('field1 = target')]))
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+             
+            >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
+            >>> print(list(fc[shape]))
+            [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
+            
+            >>> # None (Empty Iterator)
+            >>> print(list(fc[None]))
+
+            ```
+        """
+        match field:
+            # Field Requests
+            case str():
+                with self.search_cursor(field) as cur:
+                    yield from (val for val, in cur)
+            case tuple():
+                with self.search_cursor(field) as cur:
+                    yield from (row for row in cur)
+            case list():
+                with self.search_cursor(field) as cur:
+                    yield from (list(row) for row in cur)
+            case set():
+                with self.search_cursor(list(field)) as cur:
+                    yield from (row for row in as_dict(cur))
+            case None:
+                yield from () # This allows a side effect None to be used to get nothing
+
+            # Conditional Requests
+            case shape if isinstance(shape, GeometryType | Extent):
+                with self.search_cursor(self.fields, spatial_filter=shape) as cur:
+                    yield from (row for row in as_dict(cur))
+            case wc if isinstance(wc, WhereClause):
+                if not wc.validate(self.fields):
+                    raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
+                with self.search_cursor(self.fields, where_clause=wc.where_clause) as cur:
+                    yield from (row for row in as_dict(cur))
+            case func if callable(func):
+                yield from (row for row in self.filter(func))
+            case _:
+                raise KeyError(
+                    f"Invalid option: {field}\n"
+                    "Must be a filter functon, set of keys, list of keys, or tuple of keys"
+                )
+
+    # Context Managers
+
+    @contextmanager
+    def reference_as(self, spatial_reference: SpatialReference):
+        """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
+        
+        Args:
+            spatial_reference (SpatialReference): The spatial reference to apply to the cursor objects
+        
+        Yields:
+            (self): Mutated self with search and update options set to use the provided spatial reference
+
+        Example:
+            ```python
+            >>> sr = arcpy.SpatialReference(26971)
+            >>> fc = FeatureClass[Polygon]('<fc_path>')
+               
+            >>> orig_shapes = list(fc.shapes)
+               
+            >>> with fc.project_as(sr):
+            ...     proj_shapes = list(fc.shapes)
+               
+            >>> print(orig_shapes[0].spatialReference)
+            SpatialReference(4326)
+            
+            >>> print(proj_shapes[0].spatialReference)
+            SpatialReference(26971)
+            ```
+        """
+        with self.options(
+            search_options=SearchOptions(spatial_reference=spatial_reference), 
+            update_options=UpdateOptions(spatial_reference=spatial_reference)):
+            yield self
+
 if __name__ == '__main__':
     pass
