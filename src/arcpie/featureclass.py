@@ -473,25 +473,28 @@ class FeatureClass(Generic[_GeometryType]):
             <etc>
         """
 
+        # Parameter Validations
         if isinstance(group_fields, str):
             group_fields = (group_fields,)
-        
         if return_fields == '*':
             return_fields = self.fields
-        
         if isinstance(return_fields, str):
             return_fields = (return_fields,)
-        
         if len(group_fields) < 1 or len(return_fields) < 1:
             raise ValueError("Group Fields and Return Fields must be populated")
         
-        # This is the most immediately expensive operation
-        groups = sorted(list(set(self.get_tuples(group_fields))))
-
-        for group in groups:
-            where_clause = " AND ".join(f"{field} = {value}" for field, value in zip(group_fields, group))
-            with self.search_cursor(return_fields, where_clause=where_clause) as group_cur:
-                yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
+        group_fields = list(group_fields)
+        return_fields = list(return_fields)
+        _all_fields = group_fields + return_fields
+        for group in self.distinct(group_fields):
+            group_key = {field : value for field, value in zip(group_fields, group)}
+            where_clause = " AND ".join(f"{field} = {norm(value)}" for field, value in group_key.items())
+            if '@' not in where_clause: # Handle valid clause (no tokens)
+                with self.search_cursor(return_fields, where_clause=where_clause) as group_cur:
+                    yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
+            else: # Handle token being passed by iterating a cursor and checking values directly
+                for row in filter(lambda row: all(row[k] == group_key[k] for k in group_key), self[set(_all_fields)]):
+                    yield (extract_singleton(group), (row.pop(k) for k in return_fields))
 
     def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
