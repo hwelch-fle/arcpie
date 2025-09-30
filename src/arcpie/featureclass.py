@@ -185,16 +185,20 @@ def filter_fields(fields: Sequence[FieldName]):
         >>> @filter_fields(['Name', 'Age'])
         >>> def age_over_21(row):
         ...     return row['Age'] > 21
+        ...
         >>> for row in feature_class[age_over_21]:
         ...     print(row)
-            {'Name': 'John', 'Age': 23}
-            {'Name': 'Terry', 'Age': 42}
+        ...
+        {'Name': 'John', 'Age': 23}
+        {'Name': 'Terry', 'Age': 42}
+        ...
         >>> for row in feature_class:
         ...     print(row)
-            {'Name': 'John', 'LastName': 'Cleese', 'Age': 23}
-            {'Name': 'Graham', 'LastName': 'Chapman', 'Age': 18}
-            {'Name': 'Terry', 'LastName': 'Gilliam', 'Age': 42}
-            ...
+        ...
+        {'Name': 'John', 'LastName': 'Cleese', 'Age': 23}
+        {'Name': 'Graham', 'LastName': 'Chapman', 'Age': 18}
+        {'Name': 'Terry', 'LastName': 'Gilliam', 'Age': 42}
+        ...
         ```
     """
     def _filter_wrapper(func: FilterFunc):
