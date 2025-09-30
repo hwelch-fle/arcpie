@@ -155,6 +155,12 @@ def format_query_list(vals: Iterable[Any]) -> str:
         return f"{vals}"
     return ','.join([f"{val}" for val in vals])
 
+def norm(val: Any) -> str:
+    """Normalize a value for SQL query (wrap strings in single quotes)"""
+    if isinstance(val, str):
+        return f"'{val}'"
+    return val
+
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
 
