@@ -507,8 +507,10 @@ class FeatureClass(Generic[_GeometryType]):
             ( tuple[Any, ...] ): A tuple containing the distinct values (single fields will yield `(value, )` tuples)
         """
         clause = SQLClause(prefix=f'DISTINCT {format_query_list(distinct_fields)}', postfix=None)
-        with self.search_cursor(distinct_fields, sql_clause=clause) as clause_cur:
-            yield from ( value for value in clause_cur)
+        try:
+            yield from (value for value in self.search_cursor(distinct_fields, sql_clause=clause))
+        except RuntimeError: # Fallback when DISTINCT is not available or fails with Token input
+            yield from sorted(set(self.get_tuples(distinct_fields)))
 
     def get_records(self, field_names: Sequence[FieldName], **options: Unpack[SearchOptions]) -> Iterator[RowRecord]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
