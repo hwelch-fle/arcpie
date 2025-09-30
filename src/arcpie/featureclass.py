@@ -719,7 +719,8 @@ class FeatureClass(Generic[_GeometryType]):
 
         """
         if hasattr(func, 'fields'): # Allow decorated filters for faster iteration (see `filter_fields`)
-            yield from (row for row in self[set(getattr(func, 'fields'))] if func(row) == (not invert))
+            with self.fields_as(getattr(func, 'fields')):
+                yield from (row for row in self if func(row) == (not invert))
         else:
             yield from (row for row in self if func(row) == (not invert))
 
