@@ -35,11 +35,12 @@ from arcpy.da import (
 
 if TYPE_CHECKING:
     # Shadow cursors during type check with proper typing
-    #from _types import (
+    from _types import (
     #    SearchCursor,
     #    InsertCursor,
     #    UpdateCursor,
-    #)
+        Subtype,
+    )
     from arcpy.da import (
         SpatialRelationship,
         Subtype,
@@ -369,7 +370,7 @@ class FeatureClass(Generic[_GeometryType]):
     @property
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
-        return ListSubtypes(self.path)
+        return ListSubtypes(self.path) # type:ignore
 
     @property
     def shapes(self) -> Iterator[_GeometryType]:

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from arcpy.da import (
         SpatialRelationship,
         SearchOrder,
+        Domain,
     )
 else:
     SpatialRelationship = None
@@ -111,6 +112,11 @@ class UpdateCursor(Iterator[tuple[*_RowTs]]):
     def __next__(self) -> tuple[*_RowTs]: ...
     def __iter__(self) -> Iterator[tuple[*_RowTs]]: ...
 
+
+class Subtype(TypedDict):
+    Name: str
+    FieldValues: dict[str, tuple[Any|None, Domain|None]]
+    SubtypeField: str
 
 # Esri spec from here https://developers.arcgis.com/rest/services-reference/enterprise/geometry-objects/
 # TODO: Figure out the chaos that is the ESRI geometry spec
