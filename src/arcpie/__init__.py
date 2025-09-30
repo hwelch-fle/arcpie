@@ -5,6 +5,7 @@ from .featureclass import (
     FeatureClass,
     count,
     where,
+    filter_fields,
     SearchOptions,
     InsertOptions,
     UpdateOptions,

@@ -164,6 +164,43 @@ def norm(val: Any) -> str:
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
 
+def filter_fields(fields: Sequence[FieldName]):
+    """Decorator for filter functions that limits fields checked by the SearchCursor
+    
+    Args:
+        fields (Sequence[FielName]): The fields to limit the filter to
+    
+    Returns:
+        (Callable[[RowRecord], bool]): A filter function with a `fields` attribute added
+        Used with FeatureClass.filter to limit columns
+    
+    Note:
+        Iterating filtered rows using a decorated filter will limit available columns inside the 
+        context of the filter. This should only be used if you need to improve performance of a 
+        filter and don't care about the fields not included in the `filter_fields` decorator!
+    
+    Example:
+        ```python
+        >>> @filter_fields(['Name', 'Age'])
+        >>> def age_over_21(row):
+        ...     return row['Age'] > 21
+        >>> for row in feature_class[age_over_21]:
+        ...     print(row)
+            {'Name': 'John', 'Age': 23}
+            {'Name': 'Terry', 'Age': 42}
+        >>> for row in feature_class:
+        ...     print(row)
+            {'Name': 'John', 'LastName': 'Cleese', 'Age': 23}
+            {'Name': 'Graham', 'LastName': 'Chapman', 'Age': 18}
+            {'Name': 'Terry', 'LastName': 'Gilliam', 'Age': 42}
+            ...
+        ```
+    """
+    def _filter_wrapper(func: Callable[[RowRecord], bool]):
+        setattr(func, 'fields', fields)
+        return func
+    return _filter_wrapper
+
 def valid_field(fieldname: str) -> bool:
     """Validate a fieldname"""
     return not (
@@ -655,7 +692,10 @@ class FeatureClass(Generic[_GeometryType]):
             ```
 
         """
-        yield from ( row for row in self if func(row) == (not invert) )
+        if hasattr(func, 'fields'): # Allow decorated filters for faster iteration (see `filter_fields`)
+            yield from (row for row in self[set(getattr(func, 'fields'))] if func(row) == (not invert))
+        else:
+            yield from (row for row in self if func(row) == (not invert))
 
     # Data Operations
     def copy(self, workspace: str, options: bool=True) -> FeatureClass[_GeometryType]:
