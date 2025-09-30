@@ -584,6 +584,45 @@ class FeatureClass(Generic[_GeometryType]):
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
 
+    def delete_identical(self, field_names: Sequence[FieldName] | FieldName) -> dict[int, int]:
+        """Delete all records that have matching field values
+        
+        Args:
+            field_names (Sequence[FieldName] | FieldName): The fields used to define an identical feature
+        
+        Returns:
+            (dict[int, int]): A dictionary of count of identical features deleted per feature
+            
+        Note:
+            Insertion order takes precidence unless the FeatureClass is ordered. The first feature found
+            by the cursor will be maintained and all subsequent matches will be removed
+        """
+        # All
+        if isinstance(field_names, str):
+            field_names = [field_names]
+            
+        unique: dict[int, tuple[Any]] = {}
+        deleted: dict[int, int] = {}
+        with self.editor, self.update_cursor(['OID@'] + list(field_names)) as cur:
+            for row in cur:
+                oid: int = row[0]
+                row = tuple(row[1:])
+                for match_id, match_row in unique.items():
+                    if all(a == b for a, b in zip(row, match_row)):
+                        match = match_id
+                        break
+                else:
+                    match = False
+                
+                if not match:
+                    unique[oid] = row
+                
+                else:
+                    deleted.setdefault(match, 0)
+                    deleted[match] += 1
+                    cur.deleteRow()
+        return deleted
+                
     def filter(self, func: Callable[[RowRecord], bool], invert: bool=False) -> Iterator[RowRecord]:
         """Apply a function filter to rows in the FeatureClass
 
