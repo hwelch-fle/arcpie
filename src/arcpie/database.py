@@ -42,15 +42,13 @@ class Dataset:
 
     def walk(self) -> None:
         self._feature_classes = {}
-        for g_type in (PointGeometry, Polyline, Polygon, Multipoint, Multipatch):
-            g_type_string = g_type.__name__ if g_type.__name__ != 'PointGeometry' else 'Point'
-            for root, ds, fcs in Walk(str(self.conn), datatype=['FeatureClass'], type=g_type_string):
-                root = Path(root)
-                if ds:
-                    self._datasets = self._datasets or {}
-                    self._datasets.update({d: Dataset(root / d) for d in ds})
-                else:
-                    self._feature_classes.update({fc: FeatureClass[g_type](root / fc) for fc in fcs})
+        for root, ds, fcs in Walk(str(self.conn), datatype=['FeatureClass']):
+            root = Path(root)
+            if ds:
+                self._datasets = self._datasets or {}
+                self._datasets.update({d: Dataset(root / d) for d in ds})
+            else:
+                self._feature_classes.update({fc: FeatureClass(root / fc) for fc in fcs})
         self._tables = {}
         for root, ds, tbls in Walk(str(self.conn), datatype=['Table']):
             root = Path(root)
