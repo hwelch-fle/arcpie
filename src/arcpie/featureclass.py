@@ -1204,7 +1204,7 @@ class Table:
         if self.layer:
             _selected = list(self['OID@'])
             self.layer.setSelectionSet(_selected, method=method)
-            try:
+            try: # Try to select the layer in the active map
                 if len(_selected) == 1:
                     _query = f'{self.oid_field_name} = {_selected.pop()})'
                 if len(_selected) > 1:
@@ -1223,7 +1223,7 @@ class Table:
         """
         if self.layer:
             self.layer.setSelectionSet(method='NEW')
-            try:
+            try: # Try to unselect the layer in the active map
                 SelectLayerByAttribute(self.layer.longName, 'CLEAR_SELECTION')
             except Exception:
                 return
