@@ -18,6 +18,7 @@ from arcpy import (
     PointGeometry,
     Polyline,
     Multipoint,
+    Multipatch,
     Extent,
 )
 
@@ -66,7 +67,7 @@ TableTokens: tuple[TableToken, ...] = TableToken.__args__
 FeatureToken = Literal[TableToken | ShapeToken]
 FeatureTokens: tuple[FeatureToken, ...] = FeatureToken.__args__
 
-GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint
+GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint | Multipatch
 
 class WhereClause:
     def __init__(self, where_clause: str, skip_validation: bool=False) -> None:
