@@ -2,6 +2,7 @@
 # Modules exposed here under arcpie.<obj>
 
 from .featureclass import (
+    Table,
     FeatureClass,
     count,
     where,
