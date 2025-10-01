@@ -8,14 +8,6 @@ from .featureclass import (
     GeometryType,
 )
 
-from arcpy import (
-    Polygon,
-    PointGeometry,
-    Polyline,
-    Multipoint,
-    Multipatch,
-)
-
 from arcpy.da import (
     Walk,
 )
@@ -59,3 +51,10 @@ class Dataset:
         if not ret:
             raise KeyError(f'{key} is not a child of {self.conn.stem}')
         return ret
+    
+    def __contains__(self, key: str) -> bool:
+        try:
+            self[key]
+            return True
+        except KeyError:
+            return False
