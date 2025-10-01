@@ -30,13 +30,29 @@ else:
     SpatialRelationship = None
     SearchOrder = None
 
-from numpy import (
-    dtype, 
-    record,
-)
-
+import numpy as np
+import builtins
+from datetime import datetime
 from types import TracebackType
 from .cursor import SQLClause
+
+def cast_type(dt: np.dtype[Any]) -> type:
+    match dt.type:
+        case np.int_:
+            return int
+        case np.float_:
+            return float
+        case np.str_:
+            return str
+        case np.datetime64:
+            return datetime
+        case builtins.object:
+            return builtins.object
+        case _:
+            return builtins.object
+
+def convert_dtypes(dtypes: np.dtype[Any]) -> dict[str, type]:
+    return {field: cast_type(dtypes[field]) for field in dtypes.names or {}}
 
 # Typevar that can be used with a cursor to type the yielded tuples
 # SearchCursor[int, str, str]('table', ['total', 'name', 'city'])
@@ -62,11 +78,11 @@ class SearchCursor(Iterator[tuple[*_RowTs]]):
     def __iter__(self) -> Iterator[tuple[*_RowTs]]: ...
     def next(self) -> tuple[*_RowTs]: ...
     def reset(self) -> None: ...
-    def _as_narray(self) -> record: ...
+    def _as_narray(self) -> np.record: ...
     @property
     def fields(self) -> tuple[str, ...]: ...
     @property
-    def _dtype(self) -> dtype[Any]: ...
+    def _dtype(self) -> np.dtype[Any]: ...
 
 class InsertCursor(Generic[*_RowTs]):
     _enable_simplify: bool = False
@@ -110,7 +126,6 @@ class UpdateCursor(Iterator[tuple[*_RowTs]]):
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: TracebackType | None): ...
     def __next__(self) -> tuple[*_RowTs]: ...
     def __iter__(self) -> Iterator[tuple[*_RowTs]]: ...
-
 
 class Subtype(TypedDict):
     Name: str
