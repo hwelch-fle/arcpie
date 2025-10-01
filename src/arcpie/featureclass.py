@@ -49,6 +49,7 @@ else:
 
 from ._types import (
     Subtype,
+    convert_dtypes,
 )
 
 from arcpy import (
@@ -104,10 +105,6 @@ from .cursor import (
     TableToken,
     TableTokens,
     GeometryType,
-)
-
-from .utils import (
-    convert_dtypes,
 )
 
 FieldName = str #| FeatureToken
