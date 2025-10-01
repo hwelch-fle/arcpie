@@ -7,11 +7,14 @@ from .featureclass import (
     count,
     where,
     filter_fields,
+)
+
+from .cursor import (
+    SQLClause,
+    WhereClause,
     SearchOptions,
     InsertOptions,
     UpdateOptions,
-    SQLClause,
-    WhereClause,
 )
 
 from .network import (
