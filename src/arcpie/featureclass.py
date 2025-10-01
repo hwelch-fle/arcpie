@@ -169,11 +169,11 @@ def norm(val: Any) -> str:
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
 
-def filter_fields(fields: Sequence[FieldName]):
+def filter_fields(*fields: FieldName):
     """Decorator for filter functions that limits fields checked by the SearchCursor
     
     Args:
-        fields (Sequence[FielName]): The fields to limit the filter to
+        *fields (FieldName): Varargs for the fields to limit the filter to
     
     Returns:
         (FilterFunc): A filter function with a `fields` attribute added
@@ -186,7 +186,7 @@ def filter_fields(fields: Sequence[FieldName]):
     
         Example:
             ```python
-            >>> @filter_fields(['Name', 'Age'])
+            >>> @filter_fields('Name', 'Age')
             >>> def age_over_21(row):
             ...     return row['Age'] > 21
             ...
@@ -214,7 +214,7 @@ def filter_fields(fields: Sequence[FieldName]):
             >>> def age_over_21(row):
             ...     return row['Age'] > 21
             ...
-            >>> with feature_class.fields_as(['Name', 'Age']):
+            >>> with feature_class.fields_as('Name', 'Age'):
             ...     for row in feature_class[age_over_21]:
             ...         print(row)
             ...
@@ -678,7 +678,7 @@ class Table:
 
         """
         if hasattr(func, 'fields'): # Allow decorated filters for faster iteration (see `filter_fields`)
-            with self.fields_as(getattr(func, 'fields')):
+            with self.fields_as(*getattr(func, 'fields')):
                 yield from (row for row in self if func(row) == (not invert))
         else:
             yield from (row for row in self if func(row) == (not invert))
@@ -1048,16 +1048,16 @@ class Table:
     # Context Managers
     
     @contextmanager
-    def fields_as(self, fields: Sequence[FieldName] | FieldName):
+    def fields_as(self, *fields: FieldName):
         """Override the default fields for the Table or FeatureClass so all non-explicit Iterators will
         only yield these fields (e.g. `for row in fc: ...`)
         
         Args:
-            fields (Sequence[FieldName]): The fieldnames to limit all unspecified Iterators to
+            *fields (FieldName): Varargs of the fieldnames to limit all unspecified Iterators to
         
         Example:
             ```python
-            >>> with fc.fields_as(['OID@', 'NAME']):
+            >>> with fc.fields_as('OID@', 'NAME'):
             ...     for row in fc:
             ...         print(row)
             {'OID@': 1, 'NAME': 'John'}
@@ -1071,9 +1071,6 @@ class Table:
         """
         # Allow passing a single field as a string `fc.fields_as('OID@')` to maintain
         # The call format of *Cursor objects
-        if isinstance(fields, str):
-            fields = (fields,)
-        
         _fields = self.fields
         self._fields = tuple(fields)
         try:
