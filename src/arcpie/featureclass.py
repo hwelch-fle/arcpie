@@ -36,19 +36,20 @@ from arcpy.da import (
 
 if TYPE_CHECKING:
     # Shadow cursors during type check with proper typing
-    from _types import (
+    #from _types import (
     #    SearchCursor,
     #    InsertCursor,
     #    UpdateCursor,
-        Subtype,
-    )
+    #)
     from arcpy.da import (
         SpatialRelationship,
-        Subtype,
     )
 else:
     SpatialRelationship = None
-    Subtype = None
+
+from ._types import (
+    Subtype,
+)
 
 from arcpy import (
     Geometry,
@@ -353,6 +354,12 @@ class Table:
     @property
     def oid_field_name(self) -> str:
         return self.describe.OIDFieldName
+
+    @property
+    def subtype_field(self) -> str | None:
+        if not self.subtypes:
+            return None
+        return list(self.subtypes.values()).pop()['SubtypeField']
 
     @property
     def fields(self) -> tuple[TableToken | str, ...]:
@@ -942,8 +949,8 @@ class Table:
                 yield from (row for row in self.filter(func))
             case _:
                 raise KeyError(
-                    f"Invalid option: {field}\n"
-                    "Must be a filter functon, set of keys, list of keys, or tuple of keys"
+                    f"Invalid option: `{field}` "
+                    "Must be a WhereClause, filter functon, field, set of fields, list of fields, or tuple of fields"
                 )
 
     def __iter__(self) -> Iterator[dict[str, Any]] | Iterator[Any]:
@@ -1504,7 +1511,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
             case shape if isinstance(shape, Extent | GeometryType):
                 with self.search_cursor(self.fields, spatial_filter=shape) as cur:
                     yield from (row for row in as_dict(cur))
-            case field if isinstance(field, str|list|tuple|set|Callable):
+            case field if isinstance(field, str|list|tuple|set|Callable|WhereClause):
                 yield from super().__getitem__(field)
             case _:
                 raise KeyError(
