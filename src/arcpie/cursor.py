@@ -6,7 +6,6 @@ from collections.abc import (
 
 from typing import (
     TypedDict,
-    Required,
     Literal,
     NamedTuple,
     TYPE_CHECKING,
@@ -61,8 +60,11 @@ EditToken = Literal[
     'EDITOR@',
 ]
 
-CursorToken = Literal[GeneralToken | ShapeToken | EditToken]
-CursorTokens: tuple[CursorToken, ...] = CursorToken.__args__
+TableToken = Literal[GeneralToken | EditToken]
+TableTokens: tuple[TableToken, ...] = TableToken.__args__
+
+FeatureToken = Literal[TableToken | ShapeToken]
+FeatureTokens: tuple[FeatureToken, ...] = FeatureToken.__args__
 
 GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint
 
