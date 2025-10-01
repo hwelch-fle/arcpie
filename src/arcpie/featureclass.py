@@ -94,15 +94,19 @@ from .cursor import (
     SearchOptions, 
     InsertOptions, 
     UpdateOptions,
+    SQLClause,
+    WhereClause,
+    Field,
     ShapeToken,
     FeatureToken,
     FeatureTokens,
     TableToken,
     TableTokens,
-    SQLClause,
     GeometryType,
-    WhereClause,
-    Field,
+)
+
+from .utils import (
+    convert_dtypes,
 )
 
 FieldName = str #| FeatureToken
@@ -365,6 +369,11 @@ class Table:
     @property
     def np_dtypes(self):
         return self.search_cursor(self.fields)._dtype # pyright: ignore[reportPrivateUsage]
+
+    @property
+    def py_types(self) -> dict[str, type]:
+        """Get a mapping of fieldnames to python types for the Table"""
+        return convert_dtypes(self.np_dtypes)
 
     @property
     def subtypes(self) -> dict[int, Subtype]:
@@ -1357,6 +1366,13 @@ class FeatureClass(Table, Generic[_GeometryType]):
         """Get the stored extent of the feature class"""
         return self.describe.extent
 
+    @property
+    def py_types(self) -> dict[str, type]:
+        """Get a mapping of the field types for the FeatureClass"""
+        _types = convert_dtypes(self.np_dtypes)
+        if 'SHAPE@' in _types and len(self) > 0:
+                _types['SHAPE@'] = type(next(self.shapes))
+        return _types
     # Data Operations
     
     def footprint(self, buffer: float|None=None) -> _GeometryType | None:
