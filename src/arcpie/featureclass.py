@@ -1497,6 +1497,10 @@ class FeatureClass(Table, Generic[_GeometryType]):
         match format_spec:
             case 'shape' | 'shp':
                 return self.describe.shapeType
+            case 'wkid' | 'code':
+                return str(self.spatial_reference.factoryCode)
+            case 'unit':
+                return self.spatial_reference.linearUnitName
             case _:
                 return super().__format__(format_spec)
 
