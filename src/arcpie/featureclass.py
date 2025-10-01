@@ -1484,11 +1484,17 @@ class FeatureClass(Table, Generic[_GeometryType]):
 
             ```
         """
-        if isinstance(field, GeometryType | Extent):
-            with self.search_cursor(self.fields, spatial_filter=field) as cur:
-                yield from (row for row in as_dict(cur))
-        else:
-            yield from super().__getitem__(field)
+        match field:
+            case shape if isinstance(shape, Extent | GeometryType):
+                with self.search_cursor(self.fields, spatial_filter=shape) as cur:
+                    yield from (row for row in as_dict(cur))
+            case field if isinstance(field, str|list|tuple|set|Callable):
+                yield from super().__getitem__(field)
+            case _:
+                raise KeyError(
+                    f"Invalid option: {field}\n"
+                    "Must be a filter functon, set of keys, list of keys, or tuple of keys"
+                )
                 
     def __format__(self, format_spec: str) -> str:
         match format_spec:
