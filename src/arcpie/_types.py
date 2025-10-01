@@ -7,7 +7,6 @@ from collections.abc import (
     Iterable,
 )
 
-
 from typing import (
     Literal,
     Self, 
@@ -20,7 +19,6 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from cursor import SQLClause
     from arcpy import SpatialReference
     from arcpy._mp import Layer
     from arcpy.da import (
@@ -38,6 +36,7 @@ from numpy import (
 )
 
 from types import TracebackType
+from .cursor import SQLClause
 
 # Typevar that can be used with a cursor to type the yielded tuples
 # SearchCursor[int, str, str]('table', ['total', 'name', 'city'])
