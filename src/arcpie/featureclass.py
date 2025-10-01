@@ -677,6 +677,142 @@ class Table:
         else:
             yield from (row for row in self if func(row) == (not invert))
 
+    # Data Operations
+    
+    def copy(self, workspace: str, options: bool=True) -> FeatureClass[_GeometryType]:
+        """Copy this `FeatureClass` to a new workspace
+        
+        Args:
+            workspace (str): The path to the workspace
+            options (bool): Copy the cursor options to the new `FeatureClass` (default: `True`)
+            
+        Returns:
+            (FeatureClass): A `FeatureClass` instance of the copied features
+        
+        Example:
+            ```python
+            >>> new_fc = fc.copy('workspace2')
+            >>> new_fc == fc
+            False
+        """
+        name = Path(self.path).relative_to(Path(self.workspace))
+        if Exists(copy_fc := Path(workspace) / name):
+            raise ValueError(f'{name} already exists in {workspace}!')
+        CopyFeatures(self.path, str(copy_fc))
+        fc = FeatureClass[_GeometryType](str(copy_fc))
+        if options:
+            fc.search_options = self.search_options
+            fc.update_options = self.update_options
+            fc.insert_options = self.insert_options
+            fc.clause = self.clause
+        return fc
+
+    def exists(self) -> bool:
+        """Check if the FeatureClass actually exists (check for deletion or initialization with bad path)"""
+        return Exists(str(self))
+
+    def has_field(self, fieldname: str) -> bool:
+        """Check if the field exists in the featureclass or is a valid Token (@[TOKEN])"""
+        return fieldname in self.fields or fieldname in CursorTokens
+
+    def add_field(self, fieldname: str, field: Field|None=None, **options: Unpack[Field]) -> None:
+        """Add a new field to a FeatureClass, if no type is provided, deafault of `VARCHAR(255)` is used
+        
+        Args:
+            fieldname (str): The name of the new field (must not start with a number and be alphanum or underscored)
+            field (Field): A Field object that contains the desired field properties
+            **options (**Field): Allow passing keyword arguments for field directly (Overrides field arg)
+
+        Example:
+            ```python
+            >>> new_field = Field(
+            ...     field_alias='Abbreviated Month',
+            ...     field_type='TEXT',
+            ...     field_length='3',
+            ...     field_domain='Months_ABBR',
+            ... )
+            
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year']
+            
+            >>> fc['month'] = new_field
+            >>> fc2['month'] = new_field # Can re-use a field definition 
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            ```
+        """
+        if self.has_field(fieldname):
+            raise ValueError(f'{self.name} already has a field called {fieldname}!')
+        
+        # Use provided field or default to 'TEXT' and override with kwargs
+        field = {**(field or Field(field_type='TEXT')), **options}
+        
+        # Handle malformed Field arg
+        field['field_type'] = field.get('field_type', 'TEXT')
+        
+        _option_kwargs = set(Field.__optional_keys__) | set(Field.__required_keys__)
+        _provided = set(field.keys())
+        
+        if not _provided <= _option_kwargs:
+            raise ValueError(f"Unknown Field properties provided: {_provided - _option_kwargs}")
+        
+        if not valid_field(fieldname):
+            raise ValueError(
+                f"{fieldname} is invalid, fieldnames must not start with a number "
+                "and must only contain alphanumeric characters and underscores"
+            )
+        
+        with EnvManager(workspace=self.workspace):
+            AddField(self.path, fieldname, **field)
+            self._fields = None
+
+    def add_fields(self, fields: dict[str, Field]) -> None:
+        """Provide a mapping of fieldnames to Fields
+        
+        Args:
+            fields (dict[str, Field]): A mapping of fieldnames to Field objects
+            
+        Example:
+            ```python
+            >>> fields = {'f1': Field(...), 'f2': Field(...)}
+            >>> fc.add_fields(fields)
+            >>> fc.fields
+            ['OID@', 'SHAPE@', 'f1', 'f2']
+        """
+        for fieldname, field in fields.items():
+            self.add_field(fieldname, field)
+
+    def delete_field(self, fieldname: str) -> None:
+        """Delete a field from a FeatureClass
+        
+        Args:
+            fieldname (str): The name of the field to delete/drop
+        
+        Example:
+            ```python
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year', 'month']
+            
+            >>> del fc['month']
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name', 'year']
+            >>> fc.delete_field('year')
+            >>> print(fc.fields)
+            ['OID@', 'SHAPE@', 'name']
+            ```
+        """
+        if fieldname in CursorTokens:
+            raise ValueError(f"{fieldname} is a CursorToken and cannot be deleted!")
+        if not self.has_field(fieldname):
+            raise ValueError(f"{fieldname} does not exist in {self.name}")
+        with EnvManager(workspace=self.workspace):
+            DeleteField(self.path, fieldname)
+            self._fields = None # Defer new field check to next access
+
+    def delete_fields(self, fieldnames: Sequence[str]) -> None:
+        for fname in fieldnames:
+            self.delete_field(fname)
+    
     # Magic Methods
     
     if TYPE_CHECKING:
