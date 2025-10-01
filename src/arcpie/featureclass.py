@@ -68,6 +68,7 @@ from arcpy.management import (
     DeleteField, #type:ignore
     AddField, #type:ignore
     RecalculateFeatureClassExtent, #type:ignore
+    SelectLayerByAttribute, #type: ignore
 )
 
 from arcpy._mp import ( 
@@ -1201,7 +1202,18 @@ class Table:
             Selection changes require the project file to be saved to take effect. 
         """
         if self.layer:
-            self.layer.setSelectionSet(list(self['OID@']), method=method)
+            _selected = list(self['OID@'])
+            self.layer.setSelectionSet(_selected, method=method)
+            try:
+                if len(_selected) == 1:
+                    _query = f'{self.oid_field_name} = {_selected.pop()})'
+                if len(_selected) > 1:
+                    _query = f'{self.oid_field_name} IN ({format_query_list(_selected)})'
+                else:
+                    return
+                SelectLayerByAttribute(self.layer.longName, 'NEW_SELECTION', _query)
+            except Exception:
+                return
    
     def unselect(self) -> None:
         """If the Table or FeatureClass is bound to a layer, Remove layer selection
@@ -1211,6 +1223,10 @@ class Table:
         """
         if self.layer:
             self.layer.setSelectionSet(method='NEW')
+            try:
+                SelectLayerByAttribute(self.layer.longName, 'CLEAR_SELECTION')
+            except Exception:
+                return
 
     # Factory Constructors
     
