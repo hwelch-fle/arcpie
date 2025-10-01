@@ -339,7 +339,7 @@ class Table:
 
     @property
     def workspace(self) -> str:
-        """Get the workspace of the `Table or FeatureClass`"""
+        """Get the workspace of the `Table` or `FeatureClass`"""
         return self.describe.workspace.catalogPath
 
     @property
@@ -408,8 +408,8 @@ class Table:
                       *,
                       search_options: SearchOptions|None=None, 
                       **overrides: Unpack[SearchOptions]) -> SearchCursor:
-        """Get a `SearchCursor` for the `Table or FeatureClass`
-        Supplied search options are resolved by updating the base Table or FeatureClass Search options in this order:
+        """Get a `SearchCursor` for the `Table` or `FeatureClass`
+        Supplied search options are resolved by updating the base `Table` or `FeatureClass` Search options in this order:
 
         `**overrides['kwarg'] -> search_options['kwarg'] -> self.search_options['kwarg']`
 
@@ -422,14 +422,14 @@ class Table:
         then a direct keyword override to be supplied while never mutating the base options of the feature class.
         
         Args:
-            field_names (str | Iterable[str]): The column names to include from the `Table or FeatureClass`
+            field_names (str | Iterable[str]): The column names to include from the `Table` or `FeatureClass`
             search_options (SearchOptions|None): A `SeachOptions` instance that will be used to shadow
-                `search_options` set on the `Table or FeatureClass`
+                `search_options` set on the `Table` or `FeatureClass`
             **overrides ( Unpack[SeachOptions] ): Additional keyword arguments for the cursor that shadow 
-                both the `seach_options` variable and the `Table or FeatureClass` instance `SearchOptions`
+                both the `seach_options` variable and the `Table` or `FeatureClass` instance `SearchOptions`
         
         Returns:
-            ( SearchCursor ): A `SearchCursor` for the `Table or FeatureClass` instance that has all supplied options
+            ( SearchCursor ): A `SearchCursor` for the `Table` or `FeatureClass` instance that has all supplied options
                 resolved and applied
                 
         Example:
@@ -454,14 +454,14 @@ class Table:
                       *,
                       insert_options: InsertOptions|None=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
-        """See `Table or FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
+        """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
     def update_cursor(self, field_names: FieldName | Sequence[FieldName],
                       *,
                       update_options: UpdateOptions|None=None, 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
-        """See `Table or FeatureClass.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
+        """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     if TYPE_CHECKING:
@@ -893,7 +893,7 @@ class Table:
             [{'field1': val1, 'field2': val2}, {'field1': val1, 'field2': val2}, ...]
             
             >>> # Last two options always return all fields in a mapping
-            >>> # Filter Function (passed to Table or FeatureClass.filter())
+            >>> # Filter Function (passed to Table.filter())
             >>> print(list(fc[lambda r: r['field1'] == target]))
             [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
              
@@ -981,7 +981,7 @@ class Table:
         return f"{self.__class__.__name__}('{self.__fspath__()}')"
 
     def __str__(self) -> str:
-        """Return the `Table or FeatureClass` path for use with other arcpy methods"""
+        """Return the `Table` or `FeatureClass` path for use with other arcpy methods"""
         return self.__fspath__()
 
     def __eq__(self, other: Any) -> bool:
@@ -1089,10 +1089,10 @@ class Table:
                 update_options: UpdateOptions|None=None, 
                 insert_options: InsertOptions|None=None, 
                 clause: SQLClause|None=None):
-        """Enter a context block where the supplied options replace the stored options for the `Table or FeatureClass`
+        """Enter a context block where the supplied options replace the stored options for the `Table` or `FeatureClass`
         
         Args:
-            strict (bool): If this is set to `True` the `Table or FeatureClass` will not fallback on existing options
+            strict (bool): If this is set to `True` the `Table` or `FeatureClass` will not fallback on existing options
                 when set to `False`, provided options override existing options (default: `False`)
             search_options (SearchOptions): Contextual search overrides
             update_options (UpdateOptions): Contextual update overrides
