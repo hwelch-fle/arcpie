@@ -127,14 +127,16 @@ class SQLClause(NamedTuple):
         postfix (str): The SQL postfix that will be appended to the `WHERE` clause
 
     Format:
-        `SELECT {prefix} {fields} FROM {table} WHERE {where_clause} {postfix}`
+        ```sql
+        SELECT {prefix} {fields} FROM {table} WHERE {where_clause} {postfix}
+        ```
 
     Usage:
         ```python
-            >>> five_longest = SQLClause(prefix='TOP 5', postfix='ORDER BY LENGTH DESC')
-            >>> fc_result = feature_class.get_tuples(('NAME', 'LENGTH'), sql_clause=five_longest))
-            >>> print(list(fc_result))
-            [('foo', 1001), ('bar', 999), ('baz', 567), ('buzz', 345), ('bang', 233)]
+        >>> five_longest = SQLClause(prefix='TOP 5', postfix='ORDER BY LENGTH DESC')
+        >>> fc_result = feature_class.get_tuples(('NAME', 'LENGTH'), sql_clause=five_longest))
+        >>> print(list(fc_result))
+        [('foo', 1001), ('bar', 999), ('baz', 567), ('buzz', 345), ('bang', 233)]
         ```
     """
     prefix: str|None
@@ -164,11 +166,11 @@ class SearchOptions(TypedDict, total=False):
 
     Usage:
         ```python
-            >>> options = SearchOptions(where_clause='OBJECTID > 10')
-            >>> not_first_ten = feature_class.get_tuples(['NAME', 'LENGTH'], **options)
-            >>> print(list(not_first_ten))
-            [('cleese', 777), ('idle', 222), ('gilliam', 111), ...]
-        
+        >>> options = SearchOptions(where_clause='OBJECTID > 10')
+        >>> not_first_ten = feature_class.get_tuples(['NAME', 'LENGTH'], **options)
+        >>> print(list(not_first_ten))
+        [('cleese', 777), ('idle', 222), ('gilliam', 111), ...]
+        ```
     """
     where_clause: str
     spatial_reference: str | int | SpatialReference

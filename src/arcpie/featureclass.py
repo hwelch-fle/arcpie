@@ -125,6 +125,7 @@ def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
         >>> boundary = next(FeatureClass[Polygon]('Boundaries').shapes)
         >>> count(fc[boundary])
         325
+        ```
     """
     # The __len__() method of FeatureClass only iterates
     # object ID values so this is a small optimisation we can do
@@ -490,6 +491,7 @@ class Table:
             ( Iterator[tuple[tuple[FieldName, ...], Iterator[tuple[Any, ...] | Any]]] ): A nested iterator of groups and then rows
         
         Example:
+            ```python
             >>> # With a field group, you will be able to unpack the tuple
             >>> for group, rows in fc.group_by(['GroupField1', 'GroupField2'], ['ValueField1', 'ValueField2', ...]):
             ...     print(group)
@@ -499,13 +501,14 @@ class Table:
             (GroupValue1A, GroupValue1B)
             valueA
             valueB
-            <etc>
+            ...
             >>> # With a single field, you will have direct access to the field values   
             >>> for group, district_populations in fc.group_by(['City', 'State'], 'Population'):
             >>>         print(f"{group}: {sum(district_populations)}")
             (New York, NY): 8260000
             (Boston, MA): 4941632
-            <etc>
+            ...
+            ```
         """
 
         # Parameter Validations
@@ -713,6 +716,7 @@ class Table:
             >>> new_fc = fc.copy('workspace2')
             >>> new_fc == fc
             False
+            ```
         """
         name = Path(self.path).relative_to(Path(self.workspace))
         if Exists(copy_fc := Path(workspace) / name):
@@ -797,6 +801,7 @@ class Table:
             >>> fc.add_fields(fields)
             >>> fc.fields
             ['OID@', 'SHAPE@', 'f1', 'f2']
+            ```
         """
         for fieldname, field in fields.items():
             self.add_field(fieldname, field)
@@ -1024,6 +1029,7 @@ class Table:
             wkid|code : Table or FeatureClass WKID
             name|nm   : Table or FeatureClass name
             fields|fld: Table or FeatureClass fields (comma seperated)
+
         Example:
             ```python
             >>> f'{fc:wkid}'
@@ -1087,6 +1093,7 @@ class Table:
             {'OID@': 1, 'NAME': 'John', 'AGE': 75, 'ADDRESS': 123 Silly Walk}
             {'OID@': 2, 'NAME': 'Michael', 'AGE': 70, 'ADDRESS': 42 Dead Parrot Blvd}
             ...
+            ```
         """
         # Allow passing a single field as a string `fc.fields_as('OID@')` to maintain
         # The call format of *Cursor objects
@@ -1304,6 +1311,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
         ...        area = buffer.area
         ...        units = sr.linearUnitName
         ...        print(f"{area} Sq{units}")
+        ```
     """
 
     Tokens = FeatureTokens
@@ -1507,7 +1515,6 @@ class FeatureClass(Table, Generic[_GeometryType]):
             
             >>> # None (Empty Iterator)
             >>> print(list(fc[None]))
-
             ```
         """
         match field:
@@ -1595,7 +1602,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
             >>> with fc.spatial_filter(boundary) as local:
             >>>     for row in fc.filter(expensive_filter):
             >>>         ...
-                
+            ```
         """
         with self.options(
             search_options=SearchOptions(

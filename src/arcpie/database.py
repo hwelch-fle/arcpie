@@ -13,6 +13,46 @@ from arcpy.da import (
 )
 
 class Dataset:
+    """A Container for managing workspace connections.
+    
+    A Dataset is initialized using `arcpy.da.Walk` and will discover all child datasets, tables, and featureclasses.
+    These discovered objects can be accessed by name directly (e.g. `dataset['featureclass_name']`) or by inspecting the
+    property of the type they belong to (e.g. dataset.feature_classes['featureclass_name']). The benefit of the second 
+    method is that you will be able to know you are getting a `FeatureClass`, `Table`, or `Dataset` object.
+
+    Usage:
+        ```python
+        >>> dataset = Dataset('dataset/path')
+        >>> fc1 = dataset.feature_classes['fc1']
+        >>> fc1 = dataset.feature_classes['fc2']
+        >>> len(fc1)
+        243
+        >>> len(fc2)
+        778
+
+        >>> count(dataset['fc1'][where('LENGTH > 500')])
+        42
+        >>> sum(dataset['fc2']['TOTAL'])
+        3204903
+        ```
+    As you can see, the dataset container makes it incredibly easy to interact with data concisely and clearly. 
+
+    Datasets also implement `__contains__` which allows you to check membership from the root node:
+
+    Example:
+        ```python
+        >>> 'fc1' in dataset
+        True
+        >>> 'fc6' in dataset
+        True
+        >>> list(dataset.feature_classes)
+        ['fc1', 'fc2']
+        >>> list(dataset.datasets)
+        ['ds1']
+        >>> list(dataset['ds1'].feature_classes)
+        ['fc3', 'fc4', 'fc5', 'fc6']
+        ```
+    """
     def __init__(self, conn: str|Path) -> None:
         self.conn = Path(conn)
         self._datasets: dict[str, Dataset] | None = None
@@ -22,17 +62,30 @@ class Dataset:
 
     @property
     def datasets(self) -> dict[str, Dataset]:
+        """A mapping of dataset names to child `Dataset` objects"""
         return self._datasets or {}
     
     @property
     def feature_classes(self) -> dict[str, FeatureClass[GeometryType]]:
+        """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
 
     @property
     def tables(self) -> dict[str, Table]:
+        """A mapping of table names to `Table` objects in the dataset root"""
         return self._tables or {}
 
     def walk(self) -> None:
+        """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
+        
+        Note:
+            This is called on dataset initialization and can take some time. Larger datasets can take up to
+            a second or more to initialize.
+        
+        Note:
+            If the contents of a dataset change during its lifetime, you may need to call walk again. All 
+            children that are already initialized will be skipped and only new children will be initialized
+        """
         self._feature_classes = {}
         for root, ds, fcs in Walk(str(self.conn), datatype=['FeatureClass']):
             root = Path(root)
