@@ -950,6 +950,12 @@ class Table:
                     "Must be a WhereClause, filter functon, field, set of fields, list of fields, or tuple of fields"
                 )
 
+    def __contains__(self, field: str) -> bool:
+        """Implementation of contains that checks for a field existing in the `FeatureClass`
+        """
+        return field in self.fields
+
+
     def __iter__(self) -> Iterator[dict[str, Any]] | Iterator[Any]:
         """Iterate all rows in the Table or FeatureClass yielding mappings of field name to field value
         
