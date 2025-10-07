@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from collections.abc import (
+    Iterator,
+)
+    
 from .featureclass import (
     Table,
     FeatureClass,
@@ -111,3 +115,10 @@ class Dataset:
             return True
         except KeyError:
             return False
+        
+    def __iter__(self) -> Iterator[Table]:
+        for feature_class in self.feature_classes.values():
+            yield feature_class
+            
+        for table in self.tables.values():
+            yield table
