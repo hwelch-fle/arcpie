@@ -57,8 +57,9 @@ class Dataset:
         ['fc3', 'fc4', 'fc5', 'fc6']
         ```
     """
-    def __init__(self, conn: str|Path) -> None:
+    def __init__(self, conn: str|Path, *, parent: Dataset|None=None) -> None:
         self.conn = Path(conn)
+        self.parent = parent
         self._datasets: dict[str, Dataset] | None = None
         self._feature_classes: dict[str, FeatureClass[GeometryType]] | None=None
         self._tables: dict[str, Table] | None=None
