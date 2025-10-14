@@ -107,15 +107,15 @@ class Manager(Generic[_MappingObject]):
                 return self.objects[name]
             case re.Pattern():
                 # Handle regex
-                return [o for o in self.objects if name.match(name_of(o))]
+                return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
             case str(name) if '*' in name:
                 # Handle wildcard
-                return [o for o in self.objects if all(part in name_of(o) for part in name.split('*'))]
+                return [o for o in self.objects if all(part in name_of(o, skip_uri=True) for part in name.split('*'))]
             case str(name) if name in self._objects:
                 return self._objects[name]
             case str(name) if name in self.names:
                 for o in self.objects:
-                    if name_of(o) == name:
+                    if name_of(o, skip_uri=True) == name:
                         return o
             case _ :
                 pass # Fallthrough to raise a KeyError
