@@ -46,7 +46,7 @@ class _Wrapper(Generic[_T]):
         return getattr(self._obj, attr)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}('{getattr(self, 'name')}', parent={getattr(self, '_parent')})"
+        return f"{self._obj.__class__.__name__}('{getattr(self._obj, 'name')}', parent={self._parent})"
 
 # Wrappers around existing Mapping Objects to allow extensible functionality
 class Map(_Map, _Wrapper[_Map]):
@@ -147,7 +147,7 @@ class Manager(Generic[_MappingObject]):
                 return any(o == name for o in self.objects)
 
     def __iter__(self) -> Iterator[_MappingObject]:
-        yield from (o for o in self._objects.values())
+        return iter(self._objects.values())
 
     def __len__(self) -> int:
         return len(self._objects)
@@ -163,7 +163,7 @@ class Project(_Wrapper[ArcGISProject], ArcGISProject):
         self._path = str(aprx_path)
     
     def __repr__(self) -> str:
-        return f"{Path(self.filePath).stem}"
+        return f"{Path(self.aprx.filePath).stem}"
     
     @cached_property
     def aprx(self) -> ArcGISProject:
