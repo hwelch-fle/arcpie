@@ -6,6 +6,7 @@ from collections.abc import (
     Sequence,
     Iterator,
 )
+from collections import UserString
 from typing import (
     Literal,
     TypeVar,
@@ -27,7 +28,13 @@ from arcpy._mp import (
 )
 
 _T = TypeVar('_T')
-_D = TypeVar('_D')
+_Default = TypeVar('_Default')
+
+# String Wrapper to make wildcards clear
+# Since the return type of a wildcard index is different from a string index
+class Wildcard(UserString): ...
+def wildcard(wc: str) -> Wildcard:
+    return Wildcard(wc)
 
 class _Wrapper(Generic[_T]):
     """Internal wrapper class for wrapping existing objects with new functionality"""
@@ -94,21 +101,25 @@ class Manager(Generic[_MappingObject]):
     @overload
     def __getitem__(self, name: str) -> _MappingObject: ...
     @overload
+    def __getitem__(self, name: int) -> _MappingObject: ...
+    @overload
+    def __getitem__(self, name: Wildcard) -> list[_MappingObject]: ...
+    @overload
     def __getitem__(self, name: re.Pattern[str]) -> list[_MappingObject]: ...
     @overload
     def __getitem__(self, name: slice) -> list[_MappingObject]: ...
-    @overload
-    def __getitem__(self, name: int) -> _MappingObject: ...
     
-    def __getitem__(self, name: str|re.Pattern[str]|int|slice) -> _MappingObject|list[_MappingObject]:
+    def __getitem__(self, name: str|Wildcard|re.Pattern[str]|int|slice) -> _MappingObject|list[_MappingObject]:
         """Access objects using a regex pattern (re.compile), wildcard (*STRING*), index, slice, name, or URI"""
+        if isinstance(name, str) and '*' in name:
+            name = Wildcard(name) # Allow passing a wildcard directly (lose type inference)
         match name:
             case int() | slice():
                 return self.objects[name]
             case re.Pattern():
                 # Handle regex
                 return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
-            case str(name) if '*' in name:
+            case Wildcard():
                 # Handle wildcard
                 return [o for o in self.objects if all(part in name_of(o, skip_uri=True) for part in name.split('*'))]
             case str(name) if name in self._objects:
@@ -122,7 +133,7 @@ class Manager(Generic[_MappingObject]):
             
         raise KeyError(f'{name} not found in objects: ({self.names})')
 
-    def get(self, name: str, default: _D=None) -> _MappingObject|list[_MappingObject]|_D:
+    def get(self, name: str, default: _Default=None) -> _MappingObject|list[_MappingObject]|_Default:
         try:
             return self[name]
         except KeyError:
