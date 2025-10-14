@@ -91,7 +91,6 @@ class Manager(Generic[_MappingObject]):
     
     @property
     def names(self) -> list[str]:
-        # Skip the URI 
         return [name_of(o, skip_uri=True) for o in self.objects]
     
     @property
@@ -117,10 +116,8 @@ class Manager(Generic[_MappingObject]):
             case int() | slice():
                 return self.objects[name]
             case re.Pattern():
-                # Handle regex
                 return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
             case Wildcard():
-                # Handle wildcard
                 return [o for o in self.objects if all(part in name_of(o, skip_uri=True) for part in name.split('*'))]
             case str(name) if name in self._objects:
                 return self._objects[name]
