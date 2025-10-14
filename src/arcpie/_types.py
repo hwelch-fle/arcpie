@@ -245,3 +245,44 @@ class GeoJsonFeature(TypedDict, total=False):
 class GeoJsonFeatureCollection(TypedDict, total=False):
     type: Literal['FeatureCollection']
     features: list[GeoJsonFeature]
+
+if TYPE_CHECKING:
+    from arcpy._mp import (
+        ImageQuality,
+        ImageCompression,
+        LayerAttributes,
+    )
+class PDFSetting(TypedDict, total=False):
+    resolution: int
+    image_quality: ImageQuality
+    compress_vector_graphics: bool
+    image_compression: ImageCompression
+    embed_fonts: bool
+    layers_attributes: LayerAttributes
+    georef_info: bool
+    jpeg_compression_quality: int
+    clip_to_elements: bool
+    output_as_image: bool
+    embed_color_profile: bool
+    pdf_accessibility: bool
+    keep_layout_background: bool
+    convert_markers: bool
+    simulate_overprint: bool
+    
+PDFDefault = PDFSetting(
+    resolution=96,
+    image_quality='BEST',
+    compress_vector_graphics=True,
+    image_compression='ADAPTIVE',
+    embed_fonts=True,
+    layers_attributes='LAYERS_ONLY',
+    georef_info=True,
+    jpeg_compression_quality=80,
+    clip_to_elements=False,
+    output_as_image= False,
+    embed_color_profile=True,
+    pdf_accessibility=False,
+    keep_layout_background=True,
+    convert_markers=False,
+    simulate_overprint=False,
+)

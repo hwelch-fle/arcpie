@@ -12,6 +12,7 @@ from typing import (
     TypeVar,
     Generic,
     Any,
+    Unpack,
     overload,
 )
 
@@ -19,6 +20,7 @@ from functools import cached_property
 
 from arcpy.mp import ArcGISProject
 
+# Shadow all _mp types with interface Wrappers
 from arcpy._mp import (
     Map as _Map,
     Layout as _Layout,
@@ -27,14 +29,17 @@ from arcpy._mp import (
     Report as _Report,
 )
 
+from arcpie._types import (
+    PDFSetting, 
+    PDFDefault,
+)
+
 _T = TypeVar('_T')
 _Default = TypeVar('_Default')
 
 # String Wrapper to make wildcards clear
 # Since the return type of a wildcard index is different from a string index
 class Wildcard(UserString): ...
-def wildcard(wc: str) -> Wildcard:
-    return Wildcard(wc)
 
 class _Wrapper(Generic[_T]):
     """Internal wrapper class for wrapping existing objects with new functionality"""
@@ -42,11 +47,15 @@ class _Wrapper(Generic[_T]):
         self._obj = obj
         self._parent = parent
     
+    @property
+    def parent(self):
+        return self._parent
+    
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._obj, attr)
 
     def __repr__(self) -> str:
-        return f"{self._obj.__class__.__name__}('{getattr(self._obj, 'name')}', parent={self._parent})"
+        return f"{self._obj.__class__.__name__}({name_of(self._obj, skip_uri=True)})"
 
 # Wrappers around existing Mapping Objects to allow extensible functionality
 class Map(_Map, _Wrapper[_Map]):
@@ -55,12 +64,18 @@ class Map(_Map, _Wrapper[_Map]):
         return LayerManager([Layer(l, self) for l in self._obj.listLayers()])
     
 class Layer(_Wrapper[_Layer], _Layer): ...
-class Layout(_Wrapper[_Layout], _Layout): ...
+class Layout(_Wrapper[_Layout], _Layout):
+    def to_pdf(self, out: str|Path, **settings: Unpack[PDFSetting]) -> Path:
+        if not settings:
+            settings = PDFDefault
+        pdf = self.exportToPDF(str(out), **settings)
+        return Path(pdf)
+        
 class Table(_Wrapper[_Table], _Table): ...
 class Report(_Wrapper[_Report], _Report): ...
 
 _MappingObject = TypeVar('_MappingObject', Map, Layout, Layer, Table, Report)
-def name_of(o: _MappingObject, skip_uri: bool=False, uri_only: bool=False) -> str:
+def name_of(o: Any, skip_uri: bool=False, uri_only: bool=False) -> str:
     """Handle the naming hierarchy of mapping objects URI -> longName -> name
     
     Allow setting flags to get specific names
@@ -114,7 +129,7 @@ class Manager(Generic[_MappingObject]):
             name = Wildcard(name) # Allow passing a wildcard directly (lose type inference)
         match name:
             case int() | slice():
-                return self.objects[name]
+                return self.objects[name] # Will raise IndexError
             case re.Pattern():
                 return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
             case Wildcard():
@@ -155,12 +170,12 @@ class LayerManager(Manager[Layer]): ...
 class LayoutManager(Manager[Layout]): ...
 class TableManager(Manager[Table]): ...
 
-class Project(_Wrapper[ArcGISProject], ArcGISProject):
+class Project:
     def __init__(self, aprx_path: str|Path|Literal['CURRRENT']='CURRENT') -> None:
         self._path = str(aprx_path)
     
     def __repr__(self) -> str:
-        return f"{Path(self.aprx.filePath).stem}"
+        return f"Project({Path(self.aprx.filePath).stem}.aprx)"
     
     @cached_property
     def aprx(self) -> ArcGISProject:
@@ -187,8 +202,12 @@ class Project(_Wrapper[ArcGISProject], ArcGISProject):
         return TableManager([Table(t, self) for t in self.aprx.listBrokenDataSources() if isinstance(t, _Table)])
     
     def refresh(self, *, managers: Sequence[str]|None=None) -> None:
-        """Clear cached object managers"""
+        """Clear cached object managers
+        
+        Args:
+            managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
+        """
         for prop in list(self.__dict__):
-            if prop.startswith('_'):
-                continue # Skip private instance attributes
+            if prop.startswith('_') or managers and prop not in managers:
+                continue # Skip private instance attributes and non-requested
             self.__dict__.pop(prop, None)
