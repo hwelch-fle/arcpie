@@ -76,6 +76,7 @@ from arcpy.management import (
 from arcpy._mp import ( 
     Layer,
     Map,
+    Table as TableLayer, # Alias
 )
 
 from typing_extensions import (
@@ -1252,6 +1253,13 @@ class Table:
                 return
 
     # Factory Constructors
+    @classmethod
+    def from_table(cls, table: TableLayer,
+                   *,
+                   ignore_selection: bool = False,
+                   ignore_def_query: bool = False,) -> Table:
+        """See `from_layer` for documentation, this is an alternative constructor that builds from a mp.Table object"""
+        return Table.from_layer(table, ignore_selection=ignore_selection, ignore_def_query=ignore_def_query) # type: ignore (this won't break the interface)
     
     @classmethod
     def from_layer(cls, layer: Layer,
