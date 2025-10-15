@@ -1,15 +1,8 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 
-import numpy as np
-from typing import Any
-from datetime import datetime
-import builtins
-
 from .featureclass import (
-    FeatureClass, 
     Table,
-    GeometryType,
     where,
     count,
 )
@@ -17,6 +10,32 @@ from .featureclass import (
 from .database import (
     Dataset,
 )
+
+def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    """Natural sort key for use in string sorting
+    
+    Usage:
+        ```python
+        >>> pages = ['P-1.3', 'P-2.11', ...]
+        >>> pages.sort(key=nat)
+        >>> print(pages)
+        ['P-1.1', 'P-1.2', ...]
+        ```
+    """
+    _digits: list[int] = []
+    _alpha: list[str] = []
+    _digit_chars: list[str] = []
+    for s in val:
+       if s.isdigit():
+          _digit_chars.append(s)
+       else:
+          _alpha.append(s)
+          if _digit_chars:
+             _digits.append(int(''.join(_digit_chars)))
+             _digit_chars = []
+    if _digit_chars:
+       _digits.append(int(''.join(_digit_chars)))
+    return tuple(_digits), tuple(_alpha)
 
 def get_subtype_count(fc: Table, drop_empty: bool=False) -> dict[str, int]:
     return {
