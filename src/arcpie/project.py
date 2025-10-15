@@ -42,7 +42,10 @@ from arcpie._types import (
     PDFDefault,
 )
 
-from arcpie.featureclass import FeatureClass
+from arcpie.featureclass import (
+    FeatureClass, 
+    Table as DataTable, # Alias Table to prevent conflict with Mapping Table
+)
 
 _T = TypeVar('_T')
 _Default = TypeVar('_Default')
@@ -74,7 +77,10 @@ class MappingWrapper(Generic[_T]):
             return super().__eq__(other)
 
 # Wrappers around existing Mapping Objects to allow extensible functionality 
-class Layer(MappingWrapper[_Layer], _Layer): ...
+class Layer(MappingWrapper[_Layer], _Layer):
+    @property
+    def feature_class(self) -> FeatureClass[Any]:
+        return FeatureClass[Any].from_layer(self)
 
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
@@ -108,6 +114,10 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
         """Get the mapseries target layer"""
         return Layer(self.indexLayer, self.map)
     
+    @property # Passthrough
+    def feature_class(self) -> FeatureClass[Any]:
+        return self.layer.feature_class
+    
     @property
     def map(self) -> Map:
         """Get the map object that is being seriesed"""
@@ -129,10 +139,6 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     def page_field_names(self) -> list[str]:
         """Get all fieldnames for the mapseriesed features"""
         return [f for f in self.feature_class.fields if not f.startswith('@')]
-    
-    @property
-    def feature_class(self) -> FeatureClass[Any]:
-        return FeatureClass[Any].from_layer(self.layer)
     
     @property
     def valid_pages(self) -> list[str]:
@@ -238,7 +244,11 @@ class Layout(MappingWrapper[_Layout], _Layout):
             pdf = self.exportToPDF(tmp.name, **_settings)
             return Path(pdf).read_bytes()
 
-class Table(MappingWrapper[_Table], _Table): ...
+class Table(MappingWrapper[_Table], _Table):
+    @property
+    def table(self) -> DataTable:
+        return DataTable.from_table(self)
+
 class Report(MappingWrapper[_Report], _Report): ...
 
 # Unified typevar for valid wrapped mapping objects
