@@ -35,11 +35,11 @@ from .utils import (
     get_subtype_counts,
 )
 
-import ._types
-import .cursor
-import .database
-import .featureclass
-import .network
-import .project
-import .toolbox
-import .utils
+from . import _types
+from . import cursor
+from . import database
+from . import featureclass
+from . import network
+from . import project
+from . import toolbox
+from . import utils
