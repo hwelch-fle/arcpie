@@ -81,6 +81,10 @@ class Layer(MappingWrapper[_Layer], _Layer):
     @property
     def feature_class(self) -> FeatureClass[Any]:
         return FeatureClass[Any].from_layer(self)
+    
+    @property
+    def symbology(self) -> Any:
+        return self._obj.symbology
 
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
