@@ -7,6 +7,7 @@ import arcpy.typing.describe as dt
 from string import ascii_letters, digits
 
 from functools import reduce
+import json
 
 from collections.abc import (
     Iterable,
@@ -32,6 +33,7 @@ from arcpy.da import (
     InsertCursor,
     UpdateCursor,
     ListSubtypes,
+    Describe as Describe_da,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +51,7 @@ else:
 
 from ._types import (
     Subtype,
+    AttributeRule,
     convert_dtypes,
 )
 
@@ -71,6 +74,14 @@ from arcpy.management import (
     AddField, #type:ignore
     RecalculateFeatureClassExtent, #type:ignore
     SelectLayerByAttribute, #type: ignore
+    AddAttributeRule, #type: ignore
+    AlterAttributeRule, #type: ignore
+    DeleteAttributeRule, #type: ignore
+    EnableAttributeRules, #type: ignore
+    DisableAttributeRules, #type: ignore    
+    ExportAttributeRules, #type: ignore
+    ImportAttributeRules, #type: ignore
+    ReorderAttributeRule, #type: ignore
 )
 
 from arcpy._mp import ( 
@@ -79,7 +90,7 @@ from arcpy._mp import (
     Table as TableLayer, # Alias
 )
 
-from typing_extensions import (
+from typing import (
     Unpack,
 )
 
@@ -339,8 +350,14 @@ class Table:
 
     @property
     def describe(self) -> dt.Table:
+        """Access the arcpy.Describe object for the `Table` or `FeatureClass`"""
         return Describe(self.path) #type:ignore (Will be dt.Table or FeatureClass)
 
+    @property
+    def da_describe(self) -> dict[str, Any]:
+        """Access the da.Describe dictionary for the `Table` or `FeatureClass`"""
+        return Describe_da(self.path)
+    
     @property
     def workspace(self) -> str:
         """Get the workspace of the `Table` or `FeatureClass`"""
@@ -392,6 +409,11 @@ class Table:
         Will set multiuser_mode to True if the feature can version
         """
         return Editor(self.workspace, multiuser_mode=self.describe.canVersion)
+
+    @property
+    def attribute_rules(self) -> dict[str, AttributeRule]:
+        """Get FeatureClass attribute rules access by name"""
+        return {rule['name']: AttributeRule(rule) for rule in self.da_describe['attributeRules']}
 
     # Option Resolvers (kwargs -> Options Object -> Table or FeatureClass Options)
     
@@ -701,6 +723,21 @@ class Table:
             yield from (row for row in self if func(row) == (not invert))
 
     # Data Operations
+    
+    def write_attribute_rules(self, out_dir: Path|str) -> None:
+        """Write attribute rules out to a structured directory
+        
+        Note:
+            out_dir -> fc_name -> [rule_name.cfg, rule_name.js]
+        """
+        out_dir = Path(out_dir)
+        for rule_name, rule in self.attribute_rules.items():
+            _script: str = rule['scriptExpression']
+            _cfg = {k:v for k,v in rule.items() if k not in ('scriptExpression',)}
+            out_file = out_dir / self.name / rule_name
+            out_file.with_suffix('.js').write_text(_script)
+            out_file.with_suffix('.cfg').write_text(json.dumps(_cfg, indent=2))
+        return
     
     def copy(self, workspace: str, options: bool=True) -> Self:
         """Copy this `Table` or `FeatureClass` to a new workspace
@@ -1659,6 +1696,6 @@ class FeatureClass(Table, Generic[_GeometryType]):
             
         fc.layer = layer
         return fc
-
+    
 if __name__ == '__main__':
     pass
