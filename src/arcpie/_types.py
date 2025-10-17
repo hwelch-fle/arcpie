@@ -302,3 +302,41 @@ for k, v in PDFDefault.items():
 MapseriesPDFDefault['page_range_type'] = 'ALL'
 MapseriesPDFDefault['multiple_files'] = 'PDF_SINGLE_FILE'
 MapseriesPDFDefault['page_range_string'] = ''
+
+# User and System strings for Attribute Rule Events
+TriggerEvent = Literal['INSERT', 'UPDATE', 'DELETE']
+_TriggerEvent = Literal['esriARTEUpdate', 'esriARTEInsert', 'esriARTEDelete']
+
+# User and System strings for Attribute Rule Types
+CalculationType = Literal['CALCULATION', 'VALIDATION', 'CONSTRAINT']
+_CalculationType = Literal['esriARTCalculation', 'esriARTValidation', 'esriARTConstraint']
+
+AttributeRule = TypedDict(
+    'AttributeRule',
+    {
+        'id': int,
+        'name': str,
+        'type': _CalculationType,
+        'evaluationOrder': int,
+        'fieldName': str,
+        'subtypeCode': int,
+        'description': str,
+        'errorNumber': int,
+        'errorMessage': str,
+        'userEditable': bool,
+        'isEnabled': bool,
+        'referencesExternalService': bool,
+        'excludeFromClientEvaluation': bool,
+        'scriptExpression': str,
+        'triggeringEvents': list[_TriggerEvent],
+        'checkParameters': dict[str, Any],
+        'category': int,
+        'severity': int,
+        'tags': str,
+        'batch': bool,
+        'requiredGeodatabaseClientVersion': str,
+        'creationTime': int,
+        'subtypeCodes': list[int],
+        'triggeringFields': list[str],
+    },
+)
