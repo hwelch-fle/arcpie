@@ -19,10 +19,10 @@ def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     """Get fields that are added/removed from source/target"""
     _diffs: dict[str, Diff] = {}
     for fc_name, source_fc in source.feature_classes.items():
-        if (tarfc := target.feature_classes.get(fc_name, None)) is not None:
+        if (target_fc := target.feature_classes.get(fc_name, None)) is not None:
             _diffs.setdefault(fc_name, {})
-            _diffs[fc_name]['added'] = [f for f in tarfc.fields if f not in source_fc.fields]
-            _diffs[fc_name]['removed'] = [f for f in source_fc.fields if f not in tarfc.fields]
+            _diffs[fc_name]['added'] = [f for f in target_fc.fields if f not in source_fc.fields]
+            _diffs[fc_name]['removed'] = [f for f in source_fc.fields if f not in target_fc.fields]
     return {k:v for k, v in _diffs.items() if v['added'] or v['removed']}
 
 def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
@@ -30,8 +30,8 @@ def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
     _diffs: dict[str, Diff] = {}
     for source_map in source.maps:
         map_name = source_map.name
-        if (tarmap := target.maps.get(source_map.name, None)) is not None:
+        if (target_map := target.maps.get(source_map.name, None)) is not None:
             _diffs.setdefault(map_name, {})
-            _diffs[map_name]['added'] = list(set(tarmap.layers.names) - set(source_map.layers.names))
-            _diffs[map_name]['removed'] = list(set(source_map.layers.names) - set(tarmap.layers.names))
+            _diffs[map_name]['added'] = list(set(target_map.layers.names) - set(source_map.layers.names))
+            _diffs[map_name]['removed'] = list(set(source_map.layers.names) - set(target_map.layers.names))
     return {k:v for k, v in _diffs.items() if v['added'] or v['removed']}
