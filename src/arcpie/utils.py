@@ -3,8 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 import json
 
+from typing import (
+    Any,
+)
+
 from .featureclass import (
     Table,
+    FeatureClass,
     where,
     count,
 )
@@ -14,11 +19,18 @@ from .database import (
 )
 
 from .project import (
-    Project
+    Project,
 )
 
 def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
     """Natural sort key for use in string sorting
+    
+    Args:
+        val (str): A value that you want the natural sort key for
+    
+    Returns:
+        (tuple[tuple[int, ...], tuple[str, ...]): A tuple containing all numeric and 
+        string components in order of appearance. Best used as a sort key
     
     Usage:
         ```python
@@ -43,7 +55,16 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
        _digits.append(int(''.join(_digit_chars)))
     return tuple(_digits), tuple(_alpha)
 
-def get_subtype_count(fc: Table, drop_empty: bool=False) -> dict[str, int]:
+def get_subtype_count(fc: Table | FeatureClass[Any], drop_empty: bool=False) -> dict[str, int]:
+    """Get the subtype counts for a Table or FeatureClass
+    
+    Args:
+        fc (Table | FeatureClass): The Table/FeatureClass you want subtype counts for
+        drop_empty (bool): Drop any counts that have no features from the output dictionary (default: False)
+    
+    Returns:
+        (dict[str, int]): A mapping of subtype name to subtype count
+    """
     return {
         subtype['Name']: cnt
         for code, subtype in fc.subtypes.items() 
@@ -54,7 +75,30 @@ def get_subtype_count(fc: Table, drop_empty: bool=False) -> dict[str, int]:
         )
     }
 
-def get_subtype_counts(gdb: Dataset, drop_empty: bool=False) -> dict[str, dict[str, int]]:
+def get_subtype_counts(gdb: Dataset, *, drop_empty: bool=False) -> dict[str, dict[str, int]]:
+    """Get a mapping of subtype counts for all featureclasses that have subtypes in the provided Dataset
+    
+    Args:
+        gdb (Dataset): The Dataset instance to get subtype counts for
+        drop_empty (bool): Drop any counts that have no features from the output dictionary (default: False)
+    
+    Returns:
+        (dict[str, dict[str, int]]): A mapping of FeatureClass -> SubtypeName -> SubtypeCount
+    
+    Usage:
+        ```python
+        >>> get_subtype_counts(Dataset('<path/to/gdb>', drop_empty=True))
+        {
+            'FC1': 
+                {
+                    'Default': 10
+                    'Subtype 1': 6
+                    ...
+                },
+            ...
+        }
+        ```  
+    """
     feats: list[Table] = [*gdb.feature_classes.values(), *gdb.tables.values()]
     return {
         fc.name: counts
@@ -78,7 +122,7 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort:
     
     Usage:
         ```python
-        export_project_lyrx(arcpie.Project('<path/to/aprx>'), '<path/to/output_dir>')
+        >>> export_project_lyrx(arcpie.Project('<path/to/aprx>'), '<path/to/output_dir>')
         ```
     
     Note:
