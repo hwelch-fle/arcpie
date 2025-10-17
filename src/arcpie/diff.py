@@ -9,14 +9,30 @@ from arcpie.project import Project
 Diff = dict[Literal['added', 'removed'], list[str]]
 
 def feature_diff(source: Dataset, target: Dataset) -> Diff:
-    """Get features that are added/removed from source/target"""
+    """Get features that are added/removed from source/target
+    
+    Args:
+        source (Dataset): The starting point of the delta
+        target (Dataset): The ending point of the delta
+    
+    Returns:
+        (Diff): FeatureClass delta
+    """
     _diff: Diff = {}
     _diff['added'] = list(set(target.feature_classes) - set(source.feature_classes))
     _diff['removed'] = list(set(source.feature_classes) - set(target.feature_classes))
     return _diff if _diff['added'] or _diff['removed'] else {}
 
 def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
-    """Get fields that are added/removed from source/target"""
+    """Get fields that are added/removed from source/target
+    
+    Args:
+        source (Dataset): The starting point of the delta
+        target (Dataset): The ending point of the delta
+    
+    Returns:
+        (dict[str, Diff]): A Mapping of feature names to field deltas
+    """
     _diffs: dict[str, Diff] = {}
     for fc_name, source_fc in source.feature_classes.items():
         if (target_fc := target.feature_classes.get(fc_name, None)) is not None:
@@ -26,7 +42,15 @@ def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     return {k:v for k, v in _diffs.items() if v['added'] or v['removed']}
 
 def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
-    """Get layers that are added/removed from source/target"""
+    """Get layers that are added/removed from source/target
+    
+    Args:
+        source (Project): The starting point of the delta
+        target (Project): The ending point of the delta
+    
+    Returns:
+        (dict[str, Diff]): A Mapping of map names to layer deltas
+    """
     _diffs: dict[str, Diff] = {}
     for source_map in source.maps:
         map_name = source_map.name
