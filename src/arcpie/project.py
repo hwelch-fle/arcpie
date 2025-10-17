@@ -19,8 +19,28 @@ from typing import (
 )
 
 from functools import cached_property
+import json
 
 from arcpy.mp import ArcGISProject
+from arcpy.cim.cimloader import CimJsonEncoder
+from arcpy.cim.CIMVectorLayers import (
+    CIMAnnotationLayer,
+    CIMFeatureLayer,
+    CIMVectorTileLayer,
+)
+from arcpy.cim.CIMServiceLayers import (
+    CIMTiledServiceLayer,
+)
+from arcpy.cim.CIMLayer import (
+    CIMGraphicsLayer,
+    CIMGroupLayer,
+)
+
+# Common layer CIM types 
+LayerCimTypes = (
+    CIMFeatureLayer | CIMVectorTileLayer | CIMAnnotationLayer | 
+    CIMTiledServiceLayer | CIMGraphicsLayer | CIMGroupLayer
+)
 
 # Shadow all _mp types with interface Wrappers
 from arcpy._mp import (
@@ -80,12 +100,46 @@ class MappingWrapper(Generic[_T]):
 class Layer(MappingWrapper[_Layer], _Layer):
     @property
     def feature_class(self) -> FeatureClass[Any]:
+        """Get a `arcpie.FeatureClass` object that is initialized using the layer and its current state"""
         return FeatureClass[Any].from_layer(self)
     
     @property
     def symbology(self) -> Any:
+        """Get the base symbology object for the layer"""
         return self._obj.symbology
+    
+    @property
+    def lyrx(self) -> dict[str, Any]:
+        """Get a dictionary representation of the layer that can be saved to an lyrx file using `json.dumps`"""
+        if self.isWebLayer:
+            return {} # Web layers have no valid CIM
+        _def = json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
+        if self.isGroupLayer and isinstance(self.parent, Map) and isinstance(self.cim, CIMGroupLayer):
+            _children: list[Layer] = [self.parent.layers.get(uri) for uri in self.cim_dict['layers']]
+            _lyrx: dict[str, Any] = {
+                'type': 'CIMLayerDocument',
+                'layers': [self.URI],
+                'layerDefinitions': [self.cim_dict] + [child.cim_dict for child in _children]
+            }
+        elif self.isFeatureLayer:
+            _lyrx: dict[str, Any] = { # Base required keys for lyrx file
+                'type': 'CIMLayerDocument',
+                'layers': [self.URI],
+                'layerDefinitions': [_def],
+            }
+        else:
+            _lyrx = {}
+        return _lyrx
 
+    @property
+    def cim(self) -> LayerCimTypes:
+        """Get the raw CIM V3 definition of the Layer, see `arcpy.cim` for more info"""
+        return self.getDefinition('V3')  # pyright: ignore[reportReturnType]
+    
+    @property
+    def cim_dict(self) -> dict[str, Any]:
+        """Get a dictionary representation of the layer CIM instead of a CIM object"""
+        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
 class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
@@ -273,13 +327,17 @@ def name_of(o: Any, skip_uri: bool=False, uri_only: bool=False) -> str:
     """Handle the naming hierarchy of mapping objects URI -> longName -> name
     
     Allow setting flags to get specific names
+    
+    Note:
+        If a URI is requested and no `URI` attribute is available in object, 
+        `'obj.name: NO URI(id(obj))'` will be returned, e.g. `'my_bookmark: NO URI(1239012093)'`
     """
     _uri: str|None = getattr(o, 'URI', None) if not skip_uri else None
     _long_name: str|None = getattr(o, 'longName', None) # longName will identify Grouped Layers
     _name: str|None = getattr(o, 'name', None)
     _id: str = str(id(o)) # Fallback to a locally unique id (should never happen)
     if uri_only:
-        return _uri or f"{_name}: NO URI"
+        return _uri or f"{_name}: NO URI({id(o)})"
     return _uri or _long_name or _name or _id
 
 class Manager(Generic[_MappingObject]):
@@ -296,14 +354,21 @@ class Manager(Generic[_MappingObject]):
         
     @property
     def objects(self) -> list[_MappingObject]:
+        """Get a list of all managed objects"""
         return list(self._objects.values())
     
     @property
     def names(self) -> list[str]:
+        """Get the names of all managed objects (skips URIs)"""
         return [name_of(o, skip_uri=True) for o in self.objects]
     
     @property
     def uris(self) -> list[str]:
+        """Get URIs/CIMPATH for all managed objects
+        
+        Note:
+            Default to a Python id() call if no URI is present
+        """
         return [name_of(o, uri_only=True) for o in self.objects]
     
     @overload
@@ -348,12 +413,14 @@ class Manager(Generic[_MappingObject]):
     @overload
     def get(self, name: Wildcard, default: _Default) -> list[_MappingObject] | _Default: ...
     def get(self, name: str|Wildcard, default: _Default|None=None) -> _MappingObject|list[_MappingObject]|_Default|None:
+        """Get a value from the Project with a safe default value"""
         try:
             return self[name]
         except KeyError:
             return default
 
     def __contains__(self, name: str|_MappingObject) -> bool:
+        """Check to see if a URI/name is present in the Manager"""
         match name:
             case str():
                 return True if self.get(name) else False
@@ -366,6 +433,7 @@ class Manager(Generic[_MappingObject]):
     def __len__(self) -> int:
         return len(self._objects)
 
+# Inherit Manager to allow extension if needed
 class ReportManager(Manager[Report]): ...
 class MapManager(Manager[Map]): ...
 class LayerManager(Manager[Layer]): ...
