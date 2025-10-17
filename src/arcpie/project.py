@@ -57,7 +57,7 @@ from arcpy._mp import (
 
 from arcpie._types import (
     PDFSetting,
-    MapseriesPDFSetting,
+    MapSeriesPDFSetting,
     MapseriesPDFDefault,
     PDFDefault,
 )
@@ -72,7 +72,9 @@ _Default = TypeVar('_Default')
 
 # String Wrapper to make wildcards clear
 # Since the return type of a wildcard index is different from a string index
-class Wildcard(UserString): ...
+class Wildcard(UserString): 
+    """Clarify that the string passed to a Manager index is a wildcard so the type checker knows you're getting a Sequence back"""
+    pass
 
 class MappingWrapper(Generic[_T]):
     """Internal wrapper class for wrapping existing objects with new functionality"""
@@ -82,6 +84,15 @@ class MappingWrapper(Generic[_T]):
     
     @property
     def parent(self):
+        """The parent object for the wrapper
+        
+        `Project -> Map -> Layer`\n
+        `Project -> Layout -> Map -> MapSeries`\n
+        `Project -> Report`
+        
+        The general parent/child relationships are based on how you would access the object in ArcPro.
+        Projects have maps, maps have layers, layouts have mapseries etc.
+        """
         return self._parent
     
     def __getattr__(self, attr: str) -> Any:
@@ -110,7 +121,11 @@ class Layer(MappingWrapper[_Layer], _Layer):
     
     @property
     def lyrx(self) -> dict[str, Any]:
-        """Get a dictionary representation of the layer that can be saved to an lyrx file using `json.dumps`"""
+        """Get a dictionary representation of the layer that can be saved to an lyrx file using `json.dumps`
+        
+        Note:
+            GroupLayer objects will return a lyrx template with all sub-layers included
+        """
         if self.isWebLayer:
             return {} # Web layers have no valid CIM
         _def = json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
@@ -143,6 +158,7 @@ class Layer(MappingWrapper[_Layer], _Layer):
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
 class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
+    """Wrapper around an arcpy.mp BookmarkMapSeries object that provides an ergonomic interface"""
     
     def __iter__(self) -> Iterator[BookmarkMapSeries]:
         _orig_page = self.currentPageNumber
@@ -153,6 +169,7 @@ class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
             self.currentPageNumber = _orig_page
     
     def __getitem__(self, page: int|str|_Bookmark) -> BookmarkMapSeries:
+        """Allow indexing the BookmarkMapSeries by name, index, or Bookmark object"""
         match page:
             case _Bookmark():
                 self.currentBookmark = page
@@ -166,7 +183,7 @@ class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
         return len(self.bookmarks)
 
 class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
-    
+    """Wrapper around an arcpy.mp MapSeries object that provides an ergonomic interface"""
     @property
     def layer(self) -> Layer:
         """Get the mapseries target layer"""
@@ -174,6 +191,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     
     @property # Passthrough
     def feature_class(self) -> FeatureClass[Any]:
+        """Get the FeatureClass of the parent layer"""
         return self.layer.feature_class
     
     @property
@@ -183,6 +201,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     
     @property
     def pageRow(self): # type: ignore (prevent access to uninitialized pageRow raising RuntimeError)
+        """Get a Row object for the active mapseries page"""
         try:
             return self._obj.pageRow
         except RuntimeError:
@@ -200,6 +219,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     
     @property
     def valid_pages(self) -> list[str]:
+        """Get all valid page names for the MapSeries"""
         return list(self.feature_class[self.page_field])
     
     @property
@@ -213,9 +233,22 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     
     @property
     def current_page_name(self) -> str:
+        """Get the name of the active mapseries page"""
         return self.page_values.get(self.page_field, 'No Page')
     
-    def to_pdf(self, **settings: Unpack[MapseriesPDFSetting]) -> bytes:
+    def to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> bytes:
+        """Export the MapSeries to a PDF, See Layer.to_pdf for more info
+        
+        Args:
+            **settings (Unpack[MapSeriesPDFSetting]): Passthrough kwargs for layout.exportToPDF
+        
+        Note:
+            By default, printing a mapseries will print all pages to a single file. To only print
+            the active page:
+            ```python
+            >>> ms.to_pdf(page_range_type='CURRENT')
+            ```
+        """
         _settings = MapseriesPDFDefault.copy()
         _settings.update(settings)
         with NamedTemporaryFile() as tmp:
@@ -230,6 +263,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
             self.currentPageNumber = _orig_page
     
     def __getitem__(self, page: int|str) -> MapSeries:
+        """Allow indexing a mapseries by a page name or a page index/number"""
         match page:
             case str():
                 if page not in self.valid_pages:
@@ -252,24 +286,29 @@ class ElevationSurface(MappingWrapper[_ElevationSurface], _ElevationSurface): ..
 class Map(_Map, MappingWrapper[_Map]):
     @property
     def layers(self) -> LayerManager:
+        """Get a LayerManager for all layers in the Map"""
         return LayerManager(Layer(l, self) for l in self.listLayers())
 
     @property
     def tables(self) -> TableManager:
+        """Get a TableManager for all tables in the Map"""
         return TableManager(Table(t, self) for t in self.listTables())
 
     @property
     def bookmarks(self) -> BookmarkManager:
+        """Get a BookmarkManager for all bookmarks in the Map"""
         return BookmarkManager(Bookmark(b, self) for b in self.listBookmarks())
     
     @property
     def elevation_surfaces(self) -> ElevationSurfaceManager:
+        """Get an ElevationSurfaceManager for all elevation surfaces in the Map"""
         return ElevationSurfaceManager(ElevationSurface(es, self) for es in self.listElevationSurfaces())
     
 class Layout(MappingWrapper[_Layout], _Layout):
     
     @property
     def mapseries(self) -> MapSeries | BookmarkMapSeries| None:
+        """Get the Layout MapSeries/BookmarkMapSeries if it exists"""
         if not self.mapSeries:
             return None
         if isinstance(self.mapSeries, _MapSeries):
@@ -305,6 +344,7 @@ class Layout(MappingWrapper[_Layout], _Layout):
 class Table(MappingWrapper[_Table], _Table):
     @property
     def table(self) -> DataTable:
+        """Get an `arcpie.Table` object from the TableLayer"""
         return DataTable.from_table(self)
 
 class Report(MappingWrapper[_Report], _Report): ...
@@ -443,6 +483,21 @@ class BookmarkManager(Manager[Bookmark]): ...
 class ElevationSurfaceManager(Manager[ElevationSurface]): ...
 
 class Project:
+    """Wrapper for an ArcGISProject (.aprx)
+    
+    Usage:
+        ```python
+        >>> prj = Project('<path/to/aprx>')
+        >>> lay = prj.layouts.get('My Layout')
+        >>> Path('My Layout.pdf').write_bytes(prj.layouts.get('My Layout').to_pdf())
+        4593490 # Bytes written
+        >>> for map in prj.maps:
+        ...     print(f'{map.name} has {len(map.layers)} layers')
+        My Map has 5 layers
+        My Map 2 has 15 layers
+        Other Map has 56 layers
+        ```
+    """
     def __init__(self, aprx_path: str|Path|Literal['CURRRENT']='CURRENT') -> None:
         self._path = str(aprx_path)
     
@@ -451,30 +506,37 @@ class Project:
     
     @cached_property
     def name(self) -> str:
+        """Get the file name of the wrapped aprx minus the file extension"""
         return Path(self.aprx.filePath).stem
     
     @cached_property
     def aprx(self) -> ArcGISProject:
+        """Get the base ArcGISProject for the Project"""
         return ArcGISProject(self._path)
     
     @cached_property
     def maps(self) -> MapManager:
+        """Get a MapManager for the Project maps"""
         return MapManager(Map(m, self) for m in self.aprx.listMaps())
     
     @cached_property
     def layouts(self) -> LayoutManager:
+        """Get a LayoutManager for the Project layouts"""
         return LayoutManager(Layout(l, self) for l in self.aprx.listLayouts())
     
     @cached_property
     def reports(self) -> ReportManager:
+        """Get a ReportManager for the Project reports"""
         return ReportManager(Report(r, self) for r in self.aprx.listReports())
     
     @cached_property
     def broken_layers(self) -> LayerManager:
+        """Get a LayerManager for all layers in the project with broken datasources"""
         return LayerManager(Layer(l, self) for l in self.aprx.listBrokenDataSources() if isinstance(l, _Layer))
     
     @cached_property
     def broken_tables(self) -> TableManager:
+        """Get a TableManager for all tables in the project with broken datasources"""
         return TableManager(Table(t, self) for t in self.aprx.listBrokenDataSources() if isinstance(t, _Table))
     
     def refresh(self, *, managers: Sequence[str]|None=None) -> None:

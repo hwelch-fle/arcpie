@@ -270,7 +270,7 @@ class PDFSetting(TypedDict, total=False):
     convert_markers: bool
     simulate_overprint: bool
 
-class MapseriesPDFSetting(PDFSetting, total=False):
+class MapSeriesPDFSetting(PDFSetting, total=False):
     page_range_type: Literal['ALL', 'CURRENT', 'RANGE', 'SELECTED']
     multiple_files: Literal['PDF_MULTIPLE_FILES_PAGE_NAME', 'PDF_MULTIPLE_FILES_PAGE_NUMBER', 'PDF_SINGLE_FILE']
     page_range_string: str
@@ -296,7 +296,7 @@ PDFDefault = PDFSetting(
 )
 
 # Use general PDF defaults for MapSeries and set map series specific defaults
-MapseriesPDFDefault = MapseriesPDFSetting()
+MapseriesPDFDefault = MapSeriesPDFSetting()
 for k, v in PDFDefault.items():
     MapseriesPDFDefault[k] = v
 MapseriesPDFDefault['page_range_type'] = 'ALL'
