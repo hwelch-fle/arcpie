@@ -1,1 +1,1 @@
-::arcpie.diff
+::: arcpie.diff options: show_submodules: true
