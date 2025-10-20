@@ -131,6 +131,7 @@ nav:
       - project: project.md
       - toolbox: toolbox.md
       - utils: utils.md
+      - diff: diff.md
 
 plugins:
   - search
