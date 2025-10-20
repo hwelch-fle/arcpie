@@ -19,7 +19,10 @@ from .database import (
 )
 
 from .project import (
+    Map,
     Project,
+    Layer,
+    Table as StandaloneTable,
 )
 
 def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
@@ -107,7 +110,7 @@ def get_subtype_counts(gdb: Dataset, *, drop_empty: bool=False) -> dict[str, dic
         or not drop_empty
     }
     
-def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort: bool=False, skip_errors: bool=False) -> None:
+def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort: bool=False, skip_empty: bool=True) -> None:
     """Pull all layers from a project file and output them in a directory as lyrx files
     
     Args:
@@ -115,10 +118,7 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort:
         out_dir (Path|str): The target directory for the layer files
         indent (int): Indentation level of the ouput files (default: 4)
         sort (bool): Sort the output file by key name (default: False)
-        skip_errors (bool): Skip any layers that fail to be converted to LYRX (default: False)
-    
-    Raises:
-        (JSONDecodeError) : If the `skip_errors` flag is not set, otherwise the error is printed
+        skip_empty (bool): Skips writing empty lyrx files for layers with no lyrx data (default: True)
     
     Usage:
         ```python
@@ -136,11 +136,56 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort:
     for map in project.maps:
         map_dir = out_dir / map.name
         for layer in map.layers:
+            _lyrx = getattr(layer, 'lyrx', None)
+            if _lyrx is None:
+                print(f'{(layer.cim_dict or {}).get("type")} is invalid!')
+                continue
+            if skip_empty and not _lyrx:
+                continue
             out_file = (map_dir / layer.longName).with_suffix('.lyrx')
             out_file.parent.mkdir(parents=True, exist_ok=True)
-            try:
-                out_file.write_text(json.dumps(layer.lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
-            except json.JSONDecodeError as e:
-                if not skip_errors:
-                    raise e
-                print(f'Failed to write {map.name}->{layer.longName}: {e}')
+            out_file.write_text(json.dumps(_lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
+
+def export_project_maps(project: Project, out_dir: Path|str, *, indent: int=4, sort: bool=False) -> None:
+    """Pull all layers from a project file and output them in a directory as mapx files
+    
+    Args:
+        project (Project): The `arcpie.Project` instance to export
+        out_dir (Path|str): The target directory for the mapx files
+        indent (int): Indentation level of the ouput files (default: 4)
+        sort (bool): Sort the output file by key name (default: False)
+    
+    Usage:
+        ```python
+        >>> export_project_maps(arcpie.Project('<path/to/aprx>'), '<path/to/output_dir>')
+        ```
+    """
+    out_dir = Path(out_dir)
+    for map in project.maps:
+        map_dir = out_dir / rf'{map.name}'
+        out_file = map_dir.with_suffix(f'{map_dir.suffix}.mapx') # handle '.' in map name
+        out_file.parent.mkdir(parents=True, exist_ok=True)
+        out_file.write_text(json.dumps(map.mapx, indent=indent, sort_keys=sort), encoding='utf-8')
+        
+def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTable]) -> dict[str, Any]:
+    _base_map = source_map.mapx
+    
+    # Remove existing definitions
+    _base_map.pop('layerDefinition', None)
+    _base_map.pop('tableDefinitions', None)
+    
+    # Remove existing CIM paths
+    _map_def: dict[str, Any] = _base_map['mapDefinition']
+    _map_def.pop('layers', None)
+    _map_def.pop('standaloneTables', None)
+    
+    if layers:
+        _map_def['layers'] = [l.URI for l in layers]
+        _base_map['layerDefinitions'] = [l.cim_dict for l in layers]
+    
+    if tables:
+        _map_def['standaloneTables'] = [t.URI for t in tables]
+        _base_map['tableDefinitions'] = [t.cim_dict for t in tables]
+    
+    return _base_map
+        
