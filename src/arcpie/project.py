@@ -22,7 +22,7 @@ from functools import cached_property
 import json
 
 from arcpy.mp import ArcGISProject
-from arcpy.cim.cimloader import CimJsonEncoder
+from arcpy.cim.cimloader.cimtojson import CimJsonEncoder
 from arcpy.cim.CIMVectorLayers import (
     CIMAnnotationLayer,
     CIMFeatureLayer,
@@ -35,9 +35,12 @@ from arcpy.cim.CIMLayer import (
     CIMGraphicsLayer,
     CIMGroupLayer,
 )
+from arcpy.cim import CIMStandaloneTable
+from arcpy.cim import CIMMapDocument
+from arcpy.cim.CIMCore import CIMDefinition
 
 # Common layer CIM types 
-LayerCimTypes = (
+CIMLayerType = (
     CIMFeatureLayer | CIMVectorTileLayer | CIMAnnotationLayer | 
     CIMTiledServiceLayer | CIMGraphicsLayer | CIMGroupLayer
 )
@@ -81,7 +84,7 @@ class MappingWrapper(Generic[_T]):
     def __init__(self, obj: _T, parent: _MappingObject|Project|None=None) -> None:
         self._obj = obj
         self._parent = parent
-    
+            
     @property
     def parent(self):
         """The parent object for the wrapper
@@ -94,6 +97,13 @@ class MappingWrapper(Generic[_T]):
         Projects have maps, maps have layers, layouts have mapseries etc.
         """
         return self._parent
+    
+    @property
+    def cim(self) -> CIMDefinition | None:
+        return self._obj.getDefinition('V3')  #type: ignore
+    @property
+    def cim_dict(self) -> dict[str, Any]:
+        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
     
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._obj, attr)
@@ -126,35 +136,27 @@ class Layer(MappingWrapper[_Layer], _Layer):
         Note:
             GroupLayer objects will return a lyrx template with all sub-layers included
         """
-        if self.isWebLayer:
-            return {} # Web layers have no valid CIM
-        _def = json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
-        if self.isGroupLayer and isinstance(self.parent, Map) and isinstance(self.cim, CIMGroupLayer):
-            _children: list[Layer] = [self.parent.layers.get(uri) for uri in self.cim_dict['layers']]
-            _lyrx: dict[str, Any] = {
-                'type': 'CIMLayerDocument',
-                'layers': [self.URI],
-                'layerDefinitions': [self.cim_dict] + [child.cim_dict for child in _children]
-            }
-        elif self.isFeatureLayer:
-            _lyrx: dict[str, Any] = { # Base required keys for lyrx file
-                'type': 'CIMLayerDocument',
-                'layers': [self.URI],
-                'layerDefinitions': [_def],
-            }
-        else:
-            _lyrx = {}
+        _def = self.cim_dict
+        _lyrx: dict[str, Any] = { # Base required keys for lyrx file
+            'type': 'CIMLayerDocument',
+            'layers': [self.URI],
+            'layerDefinitions': [_def],
+        }
+        
+        # Handle Group Layers
+        if self.isGroupLayer:
+            _child_tables: list[str] = [uri for uri in self.cim_dict.get('tables', [])]
+            _child_layers: list[str] = [uri for uri in self.cim_dict.get('layers', [])]
+            if self.parent and isinstance(self.parent, Map) and _child_tables:
+                _lyrx['tableDefinitions'] = [self.parent.tables.get(uri).lyrx for uri in _child_tables]
+                _lyrx['layerDefinitions'] = [_def] + [self.parent.layers.get(uri).lyrx for uri in _child_layers]
+                
         return _lyrx
 
     @property
-    def cim(self) -> LayerCimTypes:
-        """Get the raw CIM V3 definition of the Layer, see `arcpy.cim` for more info"""
-        return self.getDefinition('V3')  # pyright: ignore[reportReturnType]
+    def cim(self) -> CIMLayerType: # pyright: ignore[reportIncompatibleMethodOverride]
+        return super().cim # pyright: ignore[reportReturnType]
     
-    @property
-    def cim_dict(self) -> dict[str, Any]:
-        """Get a dictionary representation of the layer CIM instead of a CIM object"""
-        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
 class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
@@ -287,22 +289,36 @@ class Map(_Map, MappingWrapper[_Map]):
     @property
     def layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the Map"""
-        return LayerManager(Layer(l, self) for l in self.listLayers())
+        return LayerManager(Layer(l, self) for l in self.listLayers() or [])
 
     @property
     def tables(self) -> TableManager:
         """Get a TableManager for all tables in the Map"""
-        return TableManager(Table(t, self) for t in self.listTables())
+        return TableManager(Table(t, self) for t in self.listTables() or [])
 
     @property
     def bookmarks(self) -> BookmarkManager:
         """Get a BookmarkManager for all bookmarks in the Map"""
-        return BookmarkManager(Bookmark(b, self) for b in self.listBookmarks())
+        return BookmarkManager(Bookmark(b, self) for b in self.listBookmarks() or [])
     
     @property
     def elevation_surfaces(self) -> ElevationSurfaceManager:
         """Get an ElevationSurfaceManager for all elevation surfaces in the Map"""
-        return ElevationSurfaceManager(ElevationSurface(es, self) for es in self.listElevationSurfaces())
+        return ElevationSurfaceManager(ElevationSurface(es, self) for es in self.listElevationSurfaces() or [])
+    
+    @property
+    def mapx(self) -> dict[str, Any]:
+        with NamedTemporaryFile(suffix='.mapx') as tmp:
+            self.exportToMAPX(tmp.name)
+            return json.loads(Path(tmp.name).read_text(encoding='utf-8'))
+    
+    @property
+    def cim(self) -> CIMMapDocument: # pyright: ignore[reportIncompatibleMethodOverride]
+        return self.getDefinition('V3')  # pyright: ignore[reportReturnType]
+    
+    @property
+    def cim_dict(self) -> dict[str, Any]:
+        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
     
 class Layout(MappingWrapper[_Layout], _Layout):
     
@@ -346,6 +362,20 @@ class Table(MappingWrapper[_Table], _Table):
     def table(self) -> DataTable:
         """Get an `arcpie.Table` object from the TableLayer"""
         return DataTable.from_table(self)
+
+    @property
+    def cim(self) -> CIMStandaloneTable:
+        return super().cim # pyright: ignore[reportReturnType]
+
+    @property
+    def lyrx(self) -> dict[str, Any]:
+        _def = self.cim_dict
+        _lyrx: dict[str, Any] = { # Base required keys for lyrx file
+            'type': 'CIMLayerDocument',
+            'tables': [self.URI],
+            'tableDefinitions': [_def],
+        }
+        return _lyrx
 
 class Report(MappingWrapper[_Report], _Report): ...
 
