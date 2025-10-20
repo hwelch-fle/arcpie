@@ -412,7 +412,7 @@ class Table:
 
     @property
     def attribute_rules(self) -> dict[str, AttributeRule]:
-        """Get FeatureClass attribute rules access by name"""
+        """Get FeatureClass/Table attribute rules access by name"""
         return {rule['name']: AttributeRule(rule) for rule in self.da_describe['attributeRules']}
 
     # Option Resolvers (kwargs -> Options Object -> Table or FeatureClass Options)
