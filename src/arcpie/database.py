@@ -66,6 +66,10 @@ class Dataset:
         self.walk()
 
     @property
+    def name(self) -> str:
+        return self.conn.stem
+    
+    @property
     def datasets(self) -> dict[str, Dataset]:
         """A mapping of dataset names to child `Dataset` objects"""
         return self._datasets or {}
