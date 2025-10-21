@@ -1709,14 +1709,17 @@ class FeatureClass(Table, Generic[_GeometryType]):
 class AttributeRuleManager:
     def __init__(self, parent: Table|FeatureClass[Any]) -> None:
         self._parent = parent
-        self._rules: dict[str, AttributeRule] = {
-            rule['name']: AttributeRule(rule) 
-            for rule in parent.da_describe['attributeRules']
-        }
             
     @property
     def names(self) -> list[str]:
-        return list(self._rules.keys())
+        return list(self.rules.keys())
+    
+    @property
+    def rules(self) -> dict[str, AttributeRule]:
+        return {
+            rule['name']: AttributeRule(rule) 
+            for rule in self._parent.da_describe['attributeRules']
+        }
     
     def export_rules(self, out_dir: Path|str) -> None:
         """Write attribute rules out to a structured directory
@@ -1728,11 +1731,12 @@ class AttributeRuleManager:
             out_dir -> fc_name -> [rule_name.cfg, rule_name.js]
         """
         out_dir = Path(out_dir)
-        for rule_name, rule in self._rules.items():
+        for rule_name, rule in self.rules.items():
             rule_name = rule_name.replace('/', '-') # Arc allows / in rulenames
             _script: str = rule['scriptExpression']
             _cfg = {k:v for k,v in rule.items() if k not in ('scriptExpression',)}
             out_file = out_dir / self._parent.name / rule_name
+            out_file.parent.mkdir(exist_ok=True, parents=True)
             out_file.with_suffix('.js').write_text(_script)
             out_file.with_suffix('.cfg').write_text(json.dumps(_cfg, indent=2))
         return
@@ -1748,22 +1752,35 @@ class AttributeRuleManager:
         Note:
             the `disable` option will be ignored if strict is not set
         """
-        _rule_names: set[str] = set()
-        for cfg in Path(src_dir).glob('*.cfg'):
-            # Grab base config and attach script sidecar
-            rule: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
-            rule_script = cfg.with_suffix('.js').read_text(encoding='utf-8')
-            rule['scriptExpression'] = rule_script
+        _old_rules = {k: v.copy() for k,v in self.rules.items()}
+        try:
+            _rule_names: set[str] = set()
+            for cfg in Path(src_dir).glob('*.cfg'):
+                # Grab base config and attach script sidecar
+                rule: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
+                rule_script = cfg.with_suffix('.js').read_text(encoding='utf-8')
+                rule['scriptExpression'] = rule_script
+
+                # Let the __setitem__ logic handle the rule (alter/add)
+                self[rule['name']] = rule
+                _rule_names.add(rule['name'])
+
+            if strict and (to_remove := set(self.names).difference(_rule_names)):
+                if disable:
+                    self.disable_attribute_rules(list(to_remove))
+                else:
+                    self.delete_attribute_rules(list(to_remove))
+        except Exception as e:
+            # Revert the import if an Exception is rasied
+            for rule_name, rule in _old_rules.items():
+                self[rule_name] = rule
             
-            # Let the __setitem__ logic handle the rule (alter/add)
-            self[rule['name']] = rule
-            _rule_names.add(rule['name'])
-        
-        if strict and (to_remove := set(self.names).difference(_rule_names)):
-            if disable:
-                self.disable_attribute_rules(list(to_remove))
-            else:
+            # Remove rules
+            if (to_remove := set(_old_rules).difference(self.names)):
                 self.delete_attribute_rules(list(to_remove))
+            
+            e.add_note('Transaction reverted')
+            raise # Raise the Exception
     
     def sync(self, target: FeatureClass[Any]|Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
@@ -1774,12 +1791,25 @@ class AttributeRuleManager:
         """
         # Update/Add rules
         new_rules = target.attribute_rules
-        for rule in new_rules:
-            self[rule['name']] = rule
-        
-        # Remove rules
-        if (to_remove := set(self.names).difference(new_rules.names)):
-            self.delete_attribute_rules(list(to_remove))
+        _old_rules = {k: v.copy() for k, v in self.rules.items()}
+        try:
+            for rule in new_rules:
+                self[rule['name']] = rule
+                
+            # Remove rules
+            if (to_remove := set(self.names).difference(new_rules.names)):
+                self.delete_attribute_rules(list(to_remove))
+        except Exception as e:
+            # Revert the sync if an Exception is rasied
+            for rule_name, rule in _old_rules.items():
+                self[rule_name] = rule
+            
+            # Remove rules
+            if (to_remove := set(_old_rules).difference(self.names)):
+                self.delete_attribute_rules(list(to_remove))
+            
+            e.add_note('Transaction reverted')
+            raise # Raise the Exception
     
     def add_attribute_rule(self, **rule: Unpack[AddRuleOpts]) -> None:
         AddAttributeRule(self._parent.path, **rule)
@@ -1809,10 +1839,10 @@ class AttributeRuleManager:
         EnableAttributeRules(self, rule_names)
     
     def __iter__(self) -> Iterator[AttributeRule]:
-        return iter(self._rules.values())
+        return iter(self.rules.values())
     
     def __getitem__(self, rule_name: str) -> AttributeRule:
-        return self._rules[rule_name]
+        return self.rules[rule_name]
     
     def __setitem__(self, rule_name: str, rule: AttributeRule) -> None:
         _current_rule = self.get(rule_name)
@@ -1835,7 +1865,7 @@ class AttributeRuleManager:
             self.alter_attribute_rule(**to_rule_alter(rule))
         
     def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
-        return self._rules.get(rule_name, default)
+        return self.rules.get(rule_name, default)
 
 if __name__ == '__main__':
     pass
