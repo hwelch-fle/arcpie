@@ -1106,6 +1106,10 @@ class Table:
         self.delete_field(fieldname)
 
     def __setitem__(self, fieldname: str, field: Field) -> None:
+        if fieldname in self.fields:
+            raise ValueError(f'{fieldname} already exists in {self.name}')
+        if not set(field.keys()).issubset([*Field.__optional_keys__, *Field.__required_keys__]):
+            raise ValueError(f'Provided Field options are invalid, see `Field` from arcpie.cursor or arcpy for valid keys')
         self.add_field(fieldname, **field)
 
     # Context Managers
