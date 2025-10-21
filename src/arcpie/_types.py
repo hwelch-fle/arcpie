@@ -377,7 +377,7 @@ def convert_rule(rule: AttributeRule) -> dict[str, Any]:
             mapped_rule[k] = v
     return mapped_rule
 
-def to_alter(rule: AttributeRule) -> AlterRuleOpts:
+def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AlterAttributeRule"""
     _rule = convert_rule(rule) # Will always have correct keys
     _keys = {
@@ -386,7 +386,7 @@ def to_alter(rule: AttributeRule) -> AlterRuleOpts:
     }
     return AlterRuleOpts(**{k: v for k, v in _rule if k in _keys})  # pyright: ignore[reportArgumentType]
 
-def to_add(rule: AttributeRule) -> AlterRuleOpts:
+def to_rule_add(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
     _rule = convert_rule(rule) # Will always have correct keys
     _keys = {
