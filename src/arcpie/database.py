@@ -5,6 +5,7 @@ from pathlib import Path
 from collections.abc import (
     Iterator,
 )
+from typing import Any
     
 from .featureclass import (
     Table,
@@ -75,7 +76,7 @@ class Dataset:
         return self._datasets or {}
     
     @property
-    def feature_classes(self) -> dict[str, FeatureClass[GeometryType]]:
+    def feature_classes(self) -> dict[str, FeatureClass[Any]]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
 
