@@ -1481,50 +1481,25 @@ class FeatureClass(Table, Generic[_GeometryType]):
     # Magic Methods
     
     if TYPE_CHECKING:
+        _IndexableTypes = Table._IndexableTypes | Extent | GeometryType
         
-        _OVERLOAD_TYPES = Table._OVERLOAD_TYPES | Extent | GeometryType
-        
-        @overload
-        def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]:
-            """Yield tuples of the requested field values"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]:
-            """Yield lists of the requested field values"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]:
-            """Yield dictionaries of the requested field values"""
-            pass
-  
-        @overload
-        def __getitem__(self, field: FieldName) -> Iterator[Any]:
-            """Yield values from the requested field"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]:
-            """Yield dictionaries of the rows that match the filter function"""
-            pass
-
-        @overload
-        def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]:
-            """Yield values that match the provided WhereClause SQL statement"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: None) -> Iterator[None]:
-            """Yield nothing (used as fallback if an indexing argument is None)"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]:
-            """Yield rows that intersect the provided geometry"""
-            pass
-
-    def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
+    @overload
+    def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
+    @overload
+    def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]: ...
+    @overload
+    def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: FieldName) -> Iterator[Any]: ...
+    @overload
+    def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: None) -> Iterator[None]: ...
+    @overload
+    def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: _IndexableTypes) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -1582,7 +1557,32 @@ class FeatureClass(Table, Generic[_GeometryType]):
                     f"Invalid option: {field}\n"
                     "Must be a filter functon, set of keys, list of keys, or tuple of keys"
                 )
-                
+    @overload
+    def get(self, field: tuple[FieldName, ...], default: _T) -> Iterator[tuple[Any, ...]] | _T: ...
+    @overload
+    def get(self, field: list[FieldName], default: _T) -> Iterator[list[Any]] | _T: ...
+    @overload
+    def get(self, field: set[FieldName], default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: FieldName, default: _T) -> Iterator[Any] | _T: ...
+    @overload
+    def get(self, field: FilterFunc, default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: WhereClause, default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
+    @overload
+    def get(self, field: GeometryType | Extent, default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: _IndexableTypes, default: _T=None) -> Iterator[Any] | _T:
+        """Allows safe indexing of a FeatureClass, see `Table.get` for more information"""
+        try:
+            return self[field]
+        except (KeyError, RuntimeError) as e:
+            if isinstance(e, RuntimeError) and 'Cannot find field' in str(e):
+                raise
+            return default
+    
+    
     def __format__(self, format_spec: str) -> str:
         match format_spec:
             case 'shape' | 'shp':
