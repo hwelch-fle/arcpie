@@ -878,48 +878,26 @@ class Table:
     # Magic Methods
     
     if TYPE_CHECKING:
-        
-        _OVERLOAD_TYPES = (
+        _IndexableTypes = (
             FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
             FilterFunc | WhereClause | None
         )
         
-        @overload
-        def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]:
-            """Yield tuples of the requested field values"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]:
-            """Yield lists of the requested field values"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]:
-            """Yield dictionaries of the requested field values"""
-            pass
-  
-        @overload
-        def __getitem__(self, field: FieldName) -> Iterator[Any]:
-            """Yield values from the requested field"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]:
-            """Yield dictionaries of the rows that match the filter function"""
-            pass
-
-        @overload
-        def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]:
-            """Yield values that match the provided WhereClause SQL statement"""
-            pass
-        
-        @overload
-        def __getitem__(self, field: None) -> Iterator[None]:
-            """Yield nothing (used as fallback if an indexing argument is None)"""
-            pass
-
-    def __getitem__(self, field: _OVERLOAD_TYPES) -> Iterator[Any]:
+    @overload
+    def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
+    @overload
+    def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]: ...
+    @overload
+    def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: FieldName) -> Iterator[Any]: ...
+    @overload
+    def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]: ...
+    @overload
+    def __getitem__(self, field: None) -> Iterator[None]: ...
+    def __getitem__(self, field: _IndexableTypes) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -982,7 +960,7 @@ class Table:
             # Conditional Requests
             case wc if isinstance(wc, WhereClause):
                 if not wc.validate(self.fields):
-                    raise AttributeError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
+                    raise KeyError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
                 with self.search_cursor(self.fields, where_clause=wc.where_clause) as cur:
                     yield from (row for row in as_dict(cur))
             case func if callable(func):
@@ -993,6 +971,45 @@ class Table:
                     "Must be a WhereClause, filter functon, field, set of fields, list of fields, or tuple of fields"
                 )
 
+    @overload
+    def get(self, field: tuple[FieldName, ...], default: _T) -> Iterator[tuple[Any, ...]] | _T: ...
+    @overload
+    def get(self, field: list[FieldName], default: _T) -> Iterator[list[Any]] | _T: ...
+    @overload
+    def get(self, field: set[FieldName], default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: FieldName, default: _T) -> Iterator[Any] | _T: ...
+    @overload
+    def get(self, field: FilterFunc, default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: WhereClause, default: _T) -> Iterator[RowRecord] | _T: ...
+    @overload
+    def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
+    def get(self, field: _IndexableTypes, default: _T=None) -> Iterator[Any] | _T:
+        """Allow accessing the implemented indexes defined by `__getitem__` with a default shielding a raised `KeyError`
+        
+        Args:
+            field (_Indexable_Types): The index to check (see `__getitem__` implementations)
+            default (_T): A default to return when the indexing raises a `KeyError` or cursor field `RuntimeError` (default: None)
+        
+        Example:
+            ```python
+            >>> for name, age in fc[('Name', 'Age')]:
+            >>>     print(name, age)
+            ...
+            KeyError "Name"
+            ...
+            
+            >>> for name, age in fc.get(('Name', 'Age'), [])    
+        
+        """
+        try:
+            return self[field]
+        except (KeyError , RuntimeError) as e:
+            if isinstance(e, RuntimeError) and 'Cannot find field' not in str(e):
+                raise # Raise any non field related RuntimeErrors
+            return default
+    
     def __contains__(self, field: str) -> bool:
         """Implementation of contains that checks for a field existing in the `FeatureClass`
         """
