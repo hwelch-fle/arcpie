@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import (
     Iterator, 
     Iterable,
+    Sequence,
 )
 
 from typing import (
@@ -14,6 +15,7 @@ from typing import (
     TypeVarTuple,
     TYPE_CHECKING,
     TypedDict,
+    Required,
     Generic,
     NamedTuple,
 )
@@ -311,32 +313,116 @@ _TriggerEvent = Literal['esriARTEUpdate', 'esriARTEInsert', 'esriARTEDelete']
 CalculationType = Literal['CALCULATION', 'VALIDATION', 'CONSTRAINT']
 _CalculationType = Literal['esriARTCalculation', 'esriARTValidation', 'esriARTConstraint']
 
-AttributeRule = TypedDict(
-    'AttributeRule',
-    {
-        'id': int,
-        'name': str,
-        'type': _CalculationType,
-        'evaluationOrder': int,
-        'fieldName': str,
-        'subtypeCode': int,
-        'description': str,
-        'errorNumber': int,
-        'errorMessage': str,
-        'userEditable': bool,
-        'isEnabled': bool,
-        'referencesExternalService': bool,
-        'excludeFromClientEvaluation': bool,
-        'scriptExpression': str,
-        'triggeringEvents': list[_TriggerEvent],
-        'checkParameters': dict[str, Any],
-        'category': int,
-        'severity': int,
-        'tags': str,
-        'batch': bool,
-        'requiredGeodatabaseClientVersion': str,
-        'creationTime': int,
-        'subtypeCodes': list[int],
-        'triggeringFields': list[str],
-    },
-)
+# System representation of an attribute rule
+class AttributeRule(TypedDict):
+        id: int
+        name: str
+        type: _CalculationType
+        evaluationOrder: int
+        fieldName: str
+        subtypeCode: int
+        description: str
+        errorNumber: int
+        errorMessage: str
+        userEditable: bool
+        isEnabled: bool
+        referencesExternalService: bool
+        excludeFromClientEvaluation: bool
+        scriptExpression: str
+        triggeringEvents: list[_TriggerEvent]
+        checkParameters: dict[str, Any]
+        category: int
+        severity: int
+        tags: str
+        batch: bool
+        requiredGeodatabaseClientVersion: str
+        creationTime: int
+        subtypeCodes: list[int]
+        triggeringFields: list[str]
+
+def convert_rule(rule: AttributeRule) -> dict[str, Any]:
+    """Convert system keys to Python keys"""
+    attr_map = {
+        'evaluationOrder': 'evaluation_order',
+        'fieldName': 'field',
+        'subtypeCode': 'subtype',
+        'errorNumber': 'error_number',
+        'error_message': 'error_message',
+        'userEditable': 'is_editable',
+        'isEnabled': 'enabled',
+        'excludeFromClientEvaluation': 'exclude_from_client_evaluation',
+        'scriptExpression': 'script_expression',
+        'triggeringEvents': 'triggering_events',
+        'triggeringFields': 'triggering_fields',
+    }
+    mapped_rule: dict[str, Any] = {}
+    for k, v in rule:
+        
+        # Map incompatible values
+        if k == 'triggeringEvents':
+            v = v.removeprefix('esriARTE').upper()
+        elif k == 'type':
+            v = v.removeprefix('esriART').upper()
+        elif k == 'excludeFromClientEvaluation':
+            v = 'EXCLUDE' if v else 'INCLUDE'
+        elif k == 'batch':
+            v = 'BATCH' if v else 'NOT_BATCH'
+        elif k == 'userEditable':
+            v = 'EDITABLE' if v else 'NONEDITABLE'
+        
+        # Map Names
+        if k in attr_map:
+            mapped_rule[k] = v
+        else:
+            mapped_rule[k] = v
+    return mapped_rule
+
+def to_alter(rule: AttributeRule) -> AlterRuleOpts:
+    """Convert a system AttributeRule to a set of key value pairs that can be used with AlterAttributeRule"""
+    _rule = convert_rule(rule) # Will always have correct keys
+    _keys = {
+        *AlterRuleOpts.__optional_keys__,
+        *AlterRuleOpts.__required_keys__
+    }
+    return AlterRuleOpts(**{k: v for k, v in _rule if k in _keys})  # pyright: ignore[reportArgumentType]
+
+def to_add(rule: AttributeRule) -> AlterRuleOpts:
+    """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
+    _rule = convert_rule(rule) # Will always have correct keys
+    _keys = {
+        *AddRuleOpts.__optional_keys__,
+        *AddRuleOpts.__required_keys__
+    } # Linter does not understand this _keys check
+    return AddRuleOpts(**{k: v for k, v in _rule if k in _keys})  # pyright: ignore[reportArgumentType]
+
+# Typed passthough options for Attribute Rule functions
+class AlterRuleOpts(TypedDict, total=False):
+    """Typed kwargs for AlterAttributeRule"""
+    name: Required[str]
+    script_expression: str
+    triggering_events: list[Literal['INSERT', 'DELETE', 'UPDATE']]
+    error_number: int
+    error_message: str
+    description: str | Literal['RESET']
+    exclude_from_client_evaluation: Literal['EXCLUDE', 'INCLUDE']
+    tags: str
+    triggering_fields: Sequence[str]
+
+class AddRuleOpts(TypedDict, total=False):
+    """Typed kwargs for AddAttributeRule"""
+    name: Required[str]
+    type: Literal['CALCULATION', 'CONSTRAINT', 'VALIDATION']
+    script_expression: str
+    is_editable: Literal['EDITABLE', 'NONEDITABLE']
+    triggering_events: list[Literal['INSERT', 'DELETE', 'UPDATE']]
+    error_number: int
+    error_message: str
+    description: str
+    subtype: int
+    field: str
+    exclude_from_client_evaluation: Literal['EXCLUDE', 'INCLUDE']
+    batch: Literal['BATCH', 'NOT_BATCH']
+    severity: int
+    tags: str
+    triggering_fields: Sequence[str]
+    
