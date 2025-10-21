@@ -50,9 +50,13 @@ else:
     SpatialRelationship = None
 
 from ._types import (
+    AddRuleOpts,
+    AlterRuleOpts,
     Subtype,
     AttributeRule,
     convert_dtypes,
+    to_rule_add,
+    to_rule_alter,
 )
 
 from arcpy import (
@@ -78,9 +82,7 @@ from arcpy.management import (
     AlterAttributeRule, #type: ignore
     DeleteAttributeRule, #type: ignore
     EnableAttributeRules, #type: ignore
-    DisableAttributeRules, #type: ignore    
-    ExportAttributeRules, #type: ignore
-    ImportAttributeRules, #type: ignore
+    DisableAttributeRules, #type: ignore
     ReorderAttributeRule, #type: ignore
 )
 
@@ -120,6 +122,7 @@ from .cursor import (
 )
 
 FieldName = str #| FeatureToken
+_T = TypeVar('_T')
 
 def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
@@ -411,9 +414,9 @@ class Table:
         return Editor(self.workspace, multiuser_mode=self.describe.canVersion)
 
     @property
-    def attribute_rules(self) -> dict[str, AttributeRule]:
-        """Get FeatureClass/Table attribute rules access by name"""
-        return {rule['name']: AttributeRule(rule) for rule in self.da_describe['attributeRules']}
+    def attribute_rules(self) -> AttributeRuleManager:
+        """Get an `AttributeRuleManager` object bound to the Table/FeatureClass"""
+        return AttributeRuleManager(self)
 
     # Option Resolvers (kwargs -> Options Object -> Table or FeatureClass Options)
     
@@ -723,21 +726,6 @@ class Table:
             yield from (row for row in self if func(row) == (not invert))
 
     # Data Operations
-    
-    def write_attribute_rules(self, out_dir: Path|str) -> None:
-        """Write attribute rules out to a structured directory
-        
-        Note:
-            out_dir -> fc_name -> [rule_name.cfg, rule_name.js]
-        """
-        out_dir = Path(out_dir)
-        for rule_name, rule in self.attribute_rules.items():
-            _script: str = rule['scriptExpression']
-            _cfg = {k:v for k,v in rule.items() if k not in ('scriptExpression',)}
-            out_file = out_dir / self.name / rule_name
-            out_file.with_suffix('.js').write_text(_script)
-            out_file.with_suffix('.cfg').write_text(json.dumps(_cfg, indent=2))
-        return
     
     def copy(self, workspace: str, options: bool=True) -> Self:
         """Copy this `Table` or `FeatureClass` to a new workspace
@@ -1717,6 +1705,137 @@ class FeatureClass(Table, Generic[_GeometryType]):
             
         fc.layer = layer
         return fc
+
+class AttributeRuleManager:
+    def __init__(self, parent: Table|FeatureClass[Any]) -> None:
+        self._parent = parent
+        self._rules: dict[str, AttributeRule] = {
+            rule['name']: AttributeRule(rule) 
+            for rule in parent.da_describe['attributeRules']
+        }
+            
+    @property
+    def names(self) -> list[str]:
+        return list(self._rules.keys())
     
+    def export_rules(self, out_dir: Path|str) -> None:
+        """Write attribute rules out to a structured directory
+        
+        Args:
+            out_dir (Path|str): The target directory to dump all attribute rules and configs to
+        
+        Note:
+            out_dir -> fc_name -> [rule_name.cfg, rule_name.js]
+        """
+        out_dir = Path(out_dir)
+        for rule_name, rule in self._rules.items():
+            rule_name = rule_name.replace('/', '-') # Arc allows / in rulenames
+            _script: str = rule['scriptExpression']
+            _cfg = {k:v for k,v in rule.items() if k not in ('scriptExpression',)}
+            out_file = out_dir / self._parent.name / rule_name
+            out_file.with_suffix('.js').write_text(_script)
+            out_file.with_suffix('.cfg').write_text(json.dumps(_cfg, indent=2))
+        return
+    
+    def import_rules(self, src_dir: Path|str, *, strict: bool=False, disable: bool=False) -> None:
+        """Import attribute rules that were previously exported to the filesystem for editing
+        
+        Args:
+            src_dir (Path|str): The directory that contains the `.cfg` and `.js` files for each rule
+            strict (bool): Delete any attribute rules in the FeatureClass that do not have a matching file (default: False)
+            disable (bool): Disable any attribute rules in the FeatureClass that do not have a matching file (default: False)
+        
+        Note:
+            the `disable` option will be ignored if strict is not set
+        """
+        _rule_names: set[str] = set()
+        for cfg in Path(src_dir).glob('*.cfg'):
+            # Grab base config and attach script sidecar
+            rule: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
+            rule_script = cfg.with_suffix('.js').read_text(encoding='utf-8')
+            rule['scriptExpression'] = rule_script
+            
+            # Let the __setitem__ logic handle the rule (alter/add)
+            self[rule['name']] = rule
+            _rule_names.add(rule['name'])
+        
+        if strict and (to_remove := set(self.names).difference(_rule_names)):
+            if disable:
+                self.disable_attribute_rules(list(to_remove))
+            else:
+                self.delete_attribute_rules(list(to_remove))
+    
+    def sync(self, target: FeatureClass[Any]|Table) -> None:
+        """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
+        the current ruleset with the targeted ruleset
+        
+        Args:
+            target (FeatureClass|Table): The target ruleset to overwrite the current rules with
+        """
+        # Update/Add rules
+        new_rules = target.attribute_rules
+        for rule in new_rules:
+            self[rule['name']] = rule
+        
+        # Remove rules
+        if (to_remove := set(self.names).difference(new_rules.names)):
+            self.delete_attribute_rules(list(to_remove))
+    
+    def add_attribute_rule(self, **rule: Unpack[AddRuleOpts]) -> None:
+        AddAttributeRule(self._parent.path, **rule)
+    
+    def alter_attribute_rule(self, evaluation_order: int | None=None, **rule: Unpack[AlterRuleOpts]) -> None:
+        if evaluation_order: # Handle reorder
+            ReorderAttributeRule(self._parent.path, rule['name'], evaluation_order)
+        if rule:
+            AlterAttributeRule(self._parent.path, **rule)
+        
+    def delete_attribute_rule(self, rule_name: str) -> None:
+        DeleteAttributeRule(self._parent.path, rule_name)
+        
+    def delete_attribute_rules(self, rule_names: Sequence[str]) -> None:
+        DeleteAttributeRule(self._parent.path, rule_names)
+        
+    def disable_attribute_rule(self, rule_name: str) -> None:
+        DisableAttributeRules(self._parent.path, rule_name)
+        
+    def disable_attribute_rules(self, rule_names: Sequence[str]) -> None:
+        DisableAttributeRules(self._parent.path, rule_names)
+        
+    def enable_attribute_rule(self, rule_name: str) -> None:
+        EnableAttributeRules(self, rule_name)
+        
+    def enable_attribute_rules(self, rule_names: Sequence[str]) -> None:
+        EnableAttributeRules(self, rule_names)
+    
+    def __iter__(self) -> Iterator[AttributeRule]:
+        return iter(self._rules.values())
+    
+    def __getitem__(self, rule_name: str) -> AttributeRule:
+        return self._rules[rule_name]
+    
+    def __setitem__(self, rule_name: str, rule: AttributeRule) -> None:
+        _current_rule = self.get(rule_name)
+        rule['name'] = rule_name
+        
+        # Add a new rule
+        if _current_rule is None:
+            rule['name'] = rule_name
+            self.add_attribute_rule(**to_rule_add(rule))
+            return
+        
+        # Enable/Disable
+        if rule['isEnabled'] and not _current_rule['isEnabled']:
+            self.enable_attribute_rule(rule_name)
+        elif not rule['isEnabled'] and _current_rule['isEnabled']:
+            self.disable_attribute_rule(rule_name)
+        
+        # Update/Alter
+        elif not all(rule.get(k) == _current_rule.get(k) for k in _current_rule):
+            self.alter_attribute_rule(**to_rule_alter(rule))
+        
+    def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
+        return self._rules.get(rule_name, default)
+
 if __name__ == '__main__':
     pass
