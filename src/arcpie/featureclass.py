@@ -1740,12 +1740,11 @@ class AttributeRuleManager:
         out_dir = Path(out_dir)
         for rule_name, rule in self.rules.items():
             rule_name = rule_name.replace('/', '-') # Arc allows / in rulenames
-            _script: str = rule['scriptExpression']
-            _cfg = {k:v for k,v in rule.items() if k not in ('scriptExpression',)}
+            _script: str = str(rule.pop('scriptExpression', '')) # TypedDict has bugged pop typing
             out_file = out_dir / self._parent.name / rule_name
             out_file.parent.mkdir(exist_ok=True, parents=True)
             out_file.with_suffix('.js').write_text(_script)
-            out_file.with_suffix('.cfg').write_text(json.dumps(_cfg, indent=2))
+            out_file.with_suffix('.cfg').write_text(json.dumps(rule, indent=2))
         return
     
     def import_rules(self, src_dir: Path|str, *, strict: bool=False, disable: bool=False) -> None:
@@ -1787,7 +1786,8 @@ class AttributeRuleManager:
         except Exception as e:
             # Revert the import if an Exception is rasied
             for rule_name, rule in _old_rules.items():
-                self[rule_name] = rule
+                if rule_name in _imported_rule_names:
+                    self[rule_name] = rule
             
             # Remove rules
             if (to_remove := set(_old_rules).difference(self.names)):
@@ -1813,6 +1813,7 @@ class AttributeRuleManager:
     def add_attribute_rule(self, **rule: Unpack[AddRuleOpts]) -> None:
         
         # The AddAttributeRule function requires subtype codes to be converted to names
+        # Since AlterAttributeRule does not accept subtypes
         _subtypes: list[str] = []
         for subtype in rule.get('subtype', []):
             if int(subtype) in self.parent.subtypes:
