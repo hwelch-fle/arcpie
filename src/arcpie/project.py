@@ -21,7 +21,7 @@ from typing import (
 from functools import cached_property
 import json
 
-from arcpy.mp import ArcGISProject
+from arcpy.mp import ArcGISProject, LayerFile
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder
 from arcpy.cim.CIMVectorLayers import (
     CIMAnnotationLayer,
@@ -100,10 +100,15 @@ class MappingWrapper(Generic[_T]):
     
     @property
     def cim(self) -> CIMDefinition | None:
-        return self._obj.getDefinition('V3')  #type: ignore
+        try:
+            return self._obj.getDefinition('V3')  #type: ignore
+        except json.JSONDecodeError:
+            return None
+        
     @property
-    def cim_dict(self) -> dict[str, Any]:
-        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
+    def cim_dict(self) -> dict[str, Any] | None:
+        if _cim := self.cim:
+            return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
     
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._obj, attr)
@@ -130,13 +135,15 @@ class Layer(MappingWrapper[_Layer], _Layer):
         return self._obj.symbology
     
     @property
-    def lyrx(self) -> dict[str, Any]:
+    def lyrx(self) -> dict[str, Any] | None:
         """Get a dictionary representation of the layer that can be saved to an lyrx file using `json.dumps`
         
         Note:
             GroupLayer objects will return a lyrx template with all sub-layers included
         """
         _def = self.cim_dict
+        if _def is None:
+            return None
         _lyrx: dict[str, Any] = { # Base required keys for lyrx file
             'type': 'CIMLayerDocument',
             'layers': [self.URI],
@@ -145,8 +152,8 @@ class Layer(MappingWrapper[_Layer], _Layer):
         
         # Handle Group Layers
         if self.isGroupLayer:
-            _child_tables: list[str] = [uri for uri in self.cim_dict.get('tables', [])]
-            _child_layers: list[str] = [uri for uri in self.cim_dict.get('layers', [])]
+            _child_tables: list[str] = [uri for uri in _def.get('tables', [])]
+            _child_layers: list[str] = [uri for uri in _def.get('layers', [])]
             if self.parent and isinstance(self.parent, Map) and _child_tables:
                 _lyrx['tableDefinitions'] = [self.parent.tables.get(uri).lyrx for uri in _child_tables]
                 _lyrx['layerDefinitions'] = [_def] + [self.parent.layers.get(uri).lyrx for uri in _child_layers]
@@ -156,6 +163,36 @@ class Layer(MappingWrapper[_Layer], _Layer):
     @property
     def cim(self) -> CIMLayerType: # pyright: ignore[reportIncompatibleMethodOverride]
         return super().cim # pyright: ignore[reportReturnType]
+    
+    def export_lyrx(self, out_dir: Path|str) -> None:
+        """Export the layer to a lyrx file in the target directory
+        
+        Args:
+            out_dir (Path|str): The location to export the mapx to
+        """
+        out_dir = Path(out_dir)
+        target = (out_dir / self.longName)
+        # Make Containing directory for grouped layers
+        target.parent.mkdir(exist_ok=True, parents=True)
+        target.with_suffix('.lyrx').write_text(json.dumps(self.lyrx))
+    
+    def import_lyrx(self, lyrx: Path|str) -> None:
+        """Import the layer state from an lyrx file
+        
+        Args:
+            lyrx (Path|str): The lyrx file to update this layer with
+        """
+        _lyrx = LayerFile(str(lyrx))
+        _lyrx_layers = {l.name: l for l in _lyrx.listLayers()}
+        for layer in ([self] + self.listLayers() if self.isGroupLayer else [self]):
+            _lyrx_layer = _lyrx_layers.get(layer.name)
+            if not _lyrx_layer:
+                print(f'{self.name} not found in {str(lyrx)}')
+                continue
+            # Update Connection
+            _lyrx_layer.updateConnectionProperties(None, layer.connectionProperties) # type: ignore
+            _lyrx_layer_cim = _lyrx_layer.getDefinition('V3')
+            self.setDefinition(_lyrx_layer_cim)
     
 class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
 
@@ -319,6 +356,37 @@ class Map(_Map, MappingWrapper[_Map]):
     @property
     def cim_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
+    
+    def export_mapx(self, out_dir: Path|str) -> None:
+        """Export the map definitions to a mapx file in the target directory
+        
+        Args:
+            out_dir (Path|str): The location to export the mapx to
+        """
+        out_dir = Path(out_dir)
+        (out_dir / self.name).write_text(json.dumps(self.mapx))
+    
+    def export_assoc_lyrx(self, out_dir: Path|str) -> None:
+        """Export all child layers to lyrx files the target directory
+        
+        Args:
+            out_dir (Path|str): The location to export the lyrx files to
+        """
+        out_dir = Path(out_dir)
+        for layer in self.layers:
+            layer.export_lyrx(out_dir)
+    
+    def import_assoc_lyrx(self, lyrx_dir: Path|str) -> None:
+        lyrx_dir = Path(lyrx_dir)
+        for lyrx_path in lyrx_dir.rglob('*.lyrx'):
+            _lyrx_name = str(lyrx_path.relative_to(lyrx_dir).with_suffix(''))
+            if _lyrx_name in self.layers:
+                self.layers[_lyrx_name].import_lyrx(lyrx_path)
+            elif _lyrx_name in self.tables:
+                pass # Not implemented yet
+    
+    def import_mapx(self, mapx: Path|str) -> None:
+        raise NotImplementedError()
     
 class Layout(MappingWrapper[_Layout], _Layout):
     
