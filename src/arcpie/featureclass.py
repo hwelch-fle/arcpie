@@ -8,6 +8,8 @@ from string import ascii_letters, digits
 
 from functools import reduce
 import json
+from pprint import pformat
+from tempfile import TemporaryDirectory
 
 from collections.abc import (
     Iterable,
@@ -57,6 +59,7 @@ from ._types import (
     convert_dtypes,
     to_rule_add,
     to_rule_alter,
+    convert_rule,
 )
 
 from arcpy import (
@@ -1715,6 +1718,10 @@ class AttributeRuleManager:
         return list(self.rules.keys())
     
     @property
+    def parent(self) -> Table|FeatureClass[Any]:
+        return self._parent 
+    
+    @property
     def rules(self) -> dict[str, AttributeRule]:
         return {
             rule['name']: AttributeRule(rule) 
@@ -1752,20 +1759,27 @@ class AttributeRuleManager:
         Note:
             the `disable` option will be ignored if strict is not set
         """
+        # Ensure that only the directory for the parent FC is accessed
+        src_dir = Path(src_dir)
+        if src_dir.stem != self.parent.name:
+            src_dir = src_dir / self.parent.name
+            
         _old_rules = {k: v.copy() for k,v in self.rules.items()}
+        _imported_rule_names: set[str] = set()
+        rule_config: AttributeRule = {'name': 'UNINITIALIZED'} # type: ignore
         try:
-            _rule_names: set[str] = set()
-            for cfg in Path(src_dir).glob('*.cfg'):
+            for cfg in src_dir.glob('*.cfg'):
                 # Grab base config and attach script sidecar
-                rule: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
+                rule_config: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
                 rule_script = cfg.with_suffix('.js').read_text(encoding='utf-8')
+                rule = rule_config.copy()
                 rule['scriptExpression'] = rule_script
 
                 # Let the __setitem__ logic handle the rule (alter/add)
                 self[rule['name']] = rule
-                _rule_names.add(rule['name'])
+                _imported_rule_names.add(rule['name'])
 
-            if strict and (to_remove := set(self.names).difference(_rule_names)):
+            if strict and (to_remove := set(self.names).difference(_imported_rule_names)):
                 if disable:
                     self.disable_attribute_rules(list(to_remove))
                 else:
@@ -1779,8 +1793,10 @@ class AttributeRuleManager:
             if (to_remove := set(_old_rules).difference(self.names)):
                 self.delete_attribute_rules(list(to_remove))
             
-            e.add_note('Transaction reverted')
-            raise # Raise the Exception
+            e.add_note(f"{rule_config['name']} failed to import")
+            e.add_note(f'Config: {pformat(convert_rule(rule_config))}')
+            e.add_note(f'Transaction reverted for {_imported_rule_names} in {self.parent.name}')
+            raise e # Raise the Exception
     
     def sync(self, target: FeatureClass[Any]|Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
@@ -1789,29 +1805,21 @@ class AttributeRuleManager:
         Args:
             target (FeatureClass|Table): The target ruleset to overwrite the current rules with
         """
-        # Update/Add rules
-        new_rules = target.attribute_rules
-        _old_rules = {k: v.copy() for k, v in self.rules.items()}
-        try:
-            for rule in new_rules:
-                self[rule['name']] = rule
-                
-            # Remove rules
-            if (to_remove := set(self.names).difference(new_rules.names)):
-                self.delete_attribute_rules(list(to_remove))
-        except Exception as e:
-            # Revert the sync if an Exception is rasied
-            for rule_name, rule in _old_rules.items():
-                self[rule_name] = rule
-            
-            # Remove rules
-            if (to_remove := set(_old_rules).difference(self.names)):
-                self.delete_attribute_rules(list(to_remove))
-            
-            e.add_note('Transaction reverted')
-            raise # Raise the Exception
+        # Use existing import functionality
+        with TemporaryDirectory() as temp:
+            target.attribute_rules.export_rules(temp)
+            self.import_rules(temp)
     
     def add_attribute_rule(self, **rule: Unpack[AddRuleOpts]) -> None:
+        
+        # The AddAttributeRule function requires subtype codes to be converted to names
+        _subtypes: list[str] = []
+        for subtype in rule.get('subtype', []):
+            if int(subtype) in self.parent.subtypes:
+                _subtypes.append(self.parent.subtypes[int(subtype)]['Name'])
+        if _subtypes:
+            rule['subtype'] = _subtypes
+        
         AddAttributeRule(self._parent.path, **rule)
     
     def alter_attribute_rule(self, evaluation_order: int | None=None, **rule: Unpack[AlterRuleOpts]) -> None:
@@ -1819,7 +1827,7 @@ class AttributeRuleManager:
             ReorderAttributeRule(self._parent.path, rule['name'], evaluation_order)
         if rule:
             AlterAttributeRule(self._parent.path, **rule)
-        
+    
     def delete_attribute_rule(self, rule_name: str) -> None:
         DeleteAttributeRule(self._parent.path, rule_name)
         
@@ -1862,7 +1870,12 @@ class AttributeRuleManager:
         
         # Update/Alter
         elif not all(rule.get(k) == _current_rule.get(k) for k in _current_rule):
-            self.alter_attribute_rule(**to_rule_alter(rule))
+            # Subtype change requires a re-build
+            if set(rule['subtypeCodes']) != set(self[rule_name]['subtypeCodes']):
+                self.delete_attribute_rule(rule_name)
+                self.add_attribute_rule(**to_rule_add(rule))
+            else:
+                self.alter_attribute_rule(evaluation_order=rule.get('evaluationOrder'), **to_rule_alter(rule))
         
     def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
         return self.rules.get(rule_name, default)
