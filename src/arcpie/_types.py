@@ -355,27 +355,41 @@ def convert_rule(rule: AttributeRule) -> dict[str, Any]:
         'triggeringEvents': 'triggering_events',
         'triggeringFields': 'triggering_fields',
     }
-    mapped_rule: dict[str, Any] = {}
-    for k, v in rule:
+    _converted: dict[str, Any] = {}
+    _converted['triggering_events'] = [
+        e.removeprefix('esriARTE').upper()
+        for e in rule['triggeringEvents']
+    ]
+    _converted['type'] = rule['type'].removeprefix('esriART').upper()
+    _converted['exclude_from_client_evaluation'] = (
+        'EXCLUDE' 
+        if rule['excludeFromClientEvaluation'] 
+        else 'INCLUDE'
+    )
+    _converted['batch'] = (
+        'BATCH' 
+        if rule['batch'] 
+        else 'NOT_BATCH'
+    )
+    _converted['is_editable'] = (
+        'EDITABLE' 
+        if rule['userEditable'] 
+        else 'NONEDITABLE'
+    )
+    _converted['subtype'] = [s for s in rule['subtypeCodes']]
+    for k in rule:
+        _conv_key = attr_map.get(k, k)
+        # -1 is a flag for None that needs to be converted
+        if isinstance(rule[k], int) and rule[k] < 0:
+            rule[k] = None
         
-        # Map incompatible values
-        if k == 'triggeringEvents':
-            v = v.removeprefix('esriARTE').upper()
-        elif k == 'type':
-            v = v.removeprefix('esriART').upper()
-        elif k == 'excludeFromClientEvaluation':
-            v = 'EXCLUDE' if v else 'INCLUDE'
-        elif k == 'batch':
-            v = 'BATCH' if v else 'NOT_BATCH'
-        elif k == 'userEditable':
-            v = 'EDITABLE' if v else 'NONEDITABLE'
+        # Skip manually converted values
+        if _conv_key in _converted:
+            continue
         
-        # Map Names
-        if k in attr_map:
-            mapped_rule[k] = v
-        else:
-            mapped_rule[k] = v
-    return mapped_rule
+        _converted[_conv_key] = rule[k]
+    
+    return _converted
 
 def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AlterAttributeRule"""
@@ -384,7 +398,7 @@ def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
         *AlterRuleOpts.__optional_keys__,
         *AlterRuleOpts.__required_keys__
     }
-    return AlterRuleOpts(**{k: v for k, v in _rule if k in _keys})  # pyright: ignore[reportArgumentType]
+    return AlterRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
 
 def to_rule_add(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
@@ -393,7 +407,7 @@ def to_rule_add(rule: AttributeRule) -> AlterRuleOpts:
         *AddRuleOpts.__optional_keys__,
         *AddRuleOpts.__required_keys__
     } # Linter does not understand this _keys check
-    return AddRuleOpts(**{k: v for k, v in _rule if k in _keys})  # pyright: ignore[reportArgumentType]
+    return AddRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
 
 # Typed passthough options for Attribute Rule functions
 class AlterRuleOpts(TypedDict, total=False):
@@ -418,7 +432,7 @@ class AddRuleOpts(TypedDict, total=False):
     error_number: int
     error_message: str
     description: str
-    subtype: int
+    subtype: str | list[str]
     field: str
     exclude_from_client_evaluation: Literal['EXCLUDE', 'INCLUDE']
     batch: Literal['BATCH', 'NOT_BATCH']
