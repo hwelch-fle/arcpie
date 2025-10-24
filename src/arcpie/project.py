@@ -122,7 +122,7 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
     @property
     def cim_dict(self) -> dict[str, Any] | None:
         if _cim := self.cim:
-            return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
+            return json.loads(json.dumps(_cim, cls=CimJsonEncoder))
     
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._obj, attr)
