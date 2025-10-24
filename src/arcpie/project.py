@@ -811,6 +811,8 @@ class Project:
         if not isinstance(_imported, _Layout):
             self.aprx.deleteItem(_imported)
             raise ValueError(f'{pagx} is not a valid pagx file!')
+        
+        self.refresh('layouts')
         return Layout(_imported, parent=self)
     
     def export_pagx(self, target_dir: Path|str) -> None:
@@ -838,6 +840,8 @@ class Project:
         if not isinstance(_imported, _Map):
             self.aprx.deleteItem(_imported)
             raise ValueError(f'{mapx} is not a valid mapx file!')
+        
+        self.refresh('maps')
         return Map(_imported, parent=self)
     
     def export_mapx(self, target_dir: Path|str) -> None:
@@ -877,11 +881,13 @@ class Project:
                 continue
             m.import_assoc_lyrx(map_dir)
         
-    def refresh(self, *, managers: list[str]|None=None) -> None:
+        self.refresh('layers')
+        
+    def refresh(self, *managers: str) -> None:
         """Clear cached object managers
         
         Args:
-            managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
+            *managers (*str): Optionally limit cache clearing to certain managers (attribute name)
         """
         for prop in list(self.__dict__):
             if prop.startswith('_') or managers and prop not in managers:
