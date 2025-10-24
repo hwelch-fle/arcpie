@@ -105,6 +105,11 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
         return getattr(self._obj, 'getDefinition')('V3') or CIMDefinition() # pyright: ignore[reportReturnType]
 
     @property
+    def name(self) -> str:
+        """Get the longName or name of the object. Use id for any object without a name attribute"""
+        return getattr(self._obj, 'longName', None) or getattr(self._obj, 'name', None) or str(id(self._obj))
+
+    @property
     def uri(self) -> str:
         """Get the URI for the object"""
         try:
