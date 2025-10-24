@@ -726,17 +726,17 @@ class Project:
         """Get the base ArcGISProject for the Project"""
         return ArcGISProject(self._path)
     
-    @property
+    @cached_property
     def maps(self) -> MapManager:
         """Get a MapManager for the Project maps"""
         return MapManager(Map(m, self) for m in self.aprx.listMaps())
     
-    @property
+    @cached_property
     def layouts(self) -> LayoutManager:
         """Get a LayoutManager for the Project layouts"""
         return LayoutManager(Layout(l, self) for l in self.aprx.listLayouts())
     
-    @property
+    @cached_property
     def reports(self) -> ReportManager:
         """Get a ReportManager for the Project reports"""
         return ReportManager(Report(r, self) for r in self.aprx.listReports())
@@ -876,4 +876,14 @@ class Project:
                 print(f'Map {m.name} does not have a valid source in the source directory, skipping')
                 continue
             m.import_assoc_lyrx(map_dir)
-            
+        
+    def refresh(self, *, managers: list[str]|None=None) -> None:
+        """Clear cached object managers
+        
+        Args:
+            managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
+        """
+        for prop in list(self.__dict__):
+            if prop.startswith('_') or managers and prop not in managers:
+                continue # Skip private instance attributes and non-requested
+            self.__dict__.pop(prop, None)
