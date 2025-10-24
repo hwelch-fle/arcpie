@@ -346,12 +346,12 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     @property
     def layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the Map"""
-        return LayerManager(Layer(l, self) for l in self.listLayers() or [])
+        return LayerManager(Layer(l, self) for l in self.listLayers() if not l.isBroken or [])
 
     @property
     def tables(self) -> TableManager:
         """Get a TableManager for all tables in the Map"""
-        return TableManager(Table(t, self) for t in self.listTables() or [])
+        return TableManager(Table(t, self) for t in self.listTables() if not t.isBroken or [])
 
     @property
     def bookmarks(self) -> BookmarkManager:
