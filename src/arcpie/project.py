@@ -425,7 +425,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
             if _lyrx_name in self.layers:
                 self.layers[_lyrx_name].import_lyrx(lyrx_path)
             elif _lyrx_name in self.tables:
-                pass # Not implemented yet
+                self.tables[_lyrx_name].import_lyrx(lyrx_path)
     
     def import_mapx(self, mapx: Path|str) -> None:
         raise NotImplementedError()
