@@ -91,12 +91,23 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
         return self._parent
     
     @property
-    def cim(self) -> CIMDefinition | None:
+    def cim(self) -> _CIMType:
+        return getattr(self._obj, 'getDefinition')('V3') or CIMDefinition() # pyright: ignore[reportReturnType]
+
+    @property
+    def uri(self) -> str:
+        """Get the URI for the object"""
         try:
-            return self._obj.getDefinition('V3')  #type: ignore
-        except json.JSONDecodeError:
-            return None
-        
+            return getattr(self._obj, 'URI')
+        except AttributeError:
+            # URI raises an AttributeError for some layer types, so we have to 
+            # dig a bit deeper to grab it from the raw _arc_object
+            
+            # Some web layers have no accessible CIM at all
+            _arc_object = getattr(self._obj, '_arc_object')
+            _cim_json = getattr(_arc_object, 'GetCimJSONString').__call__() or r"{uRI: UNKNOWN}"
+            return json.loads(_cim_json)['uRI']
+    
     @property
     def cim_dict(self) -> dict[str, Any] | None:
         if _cim := self.cim:
