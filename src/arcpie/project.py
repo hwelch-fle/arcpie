@@ -177,8 +177,8 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         return _lyrx
 
     @property
-    def cim(self) -> CIMLayerType: # pyright: ignore[reportIncompatibleMethodOverride]
-        return super().cim # pyright: ignore[reportReturnType]
+    def cim(self) -> CIMBaseLayer:
+        return super().cim
     
     def export_lyrx(self, out_dir: Path|str) -> None:
         """Export the layer to a lyrx file in the target directory
@@ -366,8 +366,8 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
             return json.loads(Path(tmp.name).read_text(encoding='utf-8'))
     
     @property
-    def cim(self) -> CIMMapDocument: # pyright: ignore[reportIncompatibleMethodOverride]
-        return self.getDefinition('V3')  # pyright: ignore[reportReturnType]
+    def cim(self) -> CIMMapDocument:
+        return super().cim
     
     @property
     def cim_dict(self) -> dict[str, Any]:
