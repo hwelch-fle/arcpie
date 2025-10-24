@@ -399,6 +399,16 @@ class Layout(MappingWrapper[_Layout], _Layout):
             return MapSeries(self.mapSeries, self)
         return BookmarkMapSeries(self.mapSeries, self)
     
+    @property
+    def pagx(self) -> dict[str, Any]:
+        """Access the raw CIM dictionary of the layout
+        
+        Returns:
+            (dict[str, Any]): A dictionary representation of the pagx json
+        """
+        with NamedTemporaryFile() as tmp:
+            return json.loads(Path(self.exportToPAGX(str(tmp))).read_text())
+    
     def to_pdf(self, **settings: Unpack[PDFSetting]) -> bytes:
         """Get the bytes for a pdf export of the Layout
         
@@ -445,7 +455,39 @@ class Table(MappingWrapper[_Table], _Table):
         }
         return _lyrx
 
-class Report(MappingWrapper[_Report], _Report): ...
+    def export_lyrx(self, out_dir: Path|str) -> None:
+        """Export the layer to a lyrx file in the target directory
+        
+        Args:
+            out_dir (Path|str): The location to export the mapx to
+        """
+        out_dir = Path(out_dir)
+        target = (out_dir / self.longName)
+        # Make Containing directory for grouped layers
+        target.parent.mkdir(exist_ok=True, parents=True)
+        target.with_suffix('.lyrx').write_text(json.dumps(self.lyrx))
+    
+    def import_lyrx(self, lyrx: Path|str) -> None:
+        """Import the table state from an lyrx file
+        
+        Args:
+            lyrx (Path|str): The lyrx file to update this table with
+            
+        Note:
+            CIM changes require the APRX to be saved to take effect. If you are accessing this
+            layer via a Project, use `project.save()` after importing the layerfile
+        """
+        _lyrx = LayerFile(str(lyrx))
+        _lyrx_layers = {t.name: t for t in _lyrx.listTables()}
+        for table in [self]:
+            _lyrx_table = _lyrx_layers.get(table.name)
+            if not _lyrx_table:
+                print(f'{self.name} not found in {str(lyrx)}')
+                continue
+            # Update Connection
+            _lyrx_table.updateConnectionProperties(None, table.connectionProperties) # type: ignore
+            _lyrx_layer_cim = _lyrx_table.getDefinition('V3')
+            self.setDefinition(_lyrx_layer_cim)
 
 # Unified typevar for valid wrapped mapping objects
 _MappingObject = TypeVar(
