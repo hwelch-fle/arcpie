@@ -197,6 +197,10 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         
         Args:
             lyrx (Path|str): The lyrx file to update this layer with
+            
+        Note:
+            CIM changes require the APRX to be saved to take effect. If you are accessing this
+            layer via a Project, use `project.save()` after importing the layerfile
         """
         _lyrx = LayerFile(str(lyrx))
         _lyrx_layers = {l.name: l for l in _lyrx.listLayers()}
@@ -458,7 +462,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
             **settings (PDFSetting): Optional settings for the export (default: `PDFDefault`)
         
         Returns:
-            (BufferedReader): Byte stream of the printed PDF
+            (bytes): Raw bytes of the PDF for use in a write operation or stream
         
         Example:
             ```python
