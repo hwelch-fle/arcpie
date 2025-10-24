@@ -4,7 +4,6 @@ from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
 from collections.abc import (
-    Sequence,
     Iterator,
     Iterable,
 )
