@@ -162,7 +162,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
             return None
         _lyrx: dict[str, Any] = { # Base required keys for lyrx file
             'type': 'CIMLayerDocument',
-            'layers': [self.URI],
+            'layers': [self.uri],
             'layerDefinitions': [_def],
         }
         
@@ -466,7 +466,7 @@ class Table(MappingWrapper[_Table], _Table):
         _def = self.cim_dict
         _lyrx: dict[str, Any] = { # Base required keys for lyrx file
             'type': 'CIMLayerDocument',
-            'tables': [self.URI],
+            'tables': [self.uri],
             'tableDefinitions': [_def],
         }
         return _lyrx
@@ -528,7 +528,7 @@ def name_of(o: Any, skip_uri: bool=False, uri_only: bool=False) -> str:
         If a URI is requested and no `URI` attribute is available in object, 
         `'obj.name: NO URI(id(obj))'` will be returned, e.g. `'my_bookmark: NO URI(1239012093)'`
     """
-    _uri: str|None = getattr(o, 'URI', None) if not skip_uri else None
+    _uri: str|None = o.uri if not skip_uri else None
     _long_name: str|None = getattr(o, 'longName', None) # longName will identify Grouped Layers
     _name: str|None = getattr(o, 'name', None)
     _id: str = str(id(o)) # Fallback to a locally unique id (should never happen)
