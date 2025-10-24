@@ -637,8 +637,26 @@ class Project:
         """Get a TableManager for all tables in the project with broken datasources"""
         return TableManager(Table(t, self) for t in self.aprx.listBrokenDataSources() if isinstance(t, _Table))
     
-    def refresh(self, *, managers: Sequence[str]|None=None) -> None:
-        """Clear cached object managers
+    @overload
+    def __getitem__(self, name: str) -> Map | Layout | Report: ...
+    @overload
+    def __getitem__(self, name: Wildcard) -> list[Map] | list[Layout] | list[Report]: ...
+    def __getitem__(self, name: str | Wildcard) -> Any | list[Any]:
+        """Resolve the name by looking in Maps, then Layouts, then Reports"""
+        _obj = self.maps.get(name, None) or self.layouts.get(name, None) or self.reports.get(name, None)
+        if _obj is None:
+            raise KeyError(f'{name} not found in {self.name}')
+        return _obj
+    
+    @overload
+    def get(self, name: str, default: _Default) -> Map | Layout | Report | _Default: ...
+    @overload
+    def get(self, name: Wildcard, default: _Default) -> list[Map] | list[Layout] | list[Report] | _Default: ...
+    def get(self, name: str | Wildcard, default: _Default=None) -> Any | _Default:
+        try:
+            return self[name]
+        except KeyError:
+            return default
         
         Args:
             managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
