@@ -206,7 +206,11 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
                 print(f'{self.name} not found in {str(lyrx)}')
                 continue
             # Update Connection
-            _lyrx_layer.updateConnectionProperties(None, layer.connectionProperties) # type: ignore
+            try:
+                _lyrx_layer.updateConnectionProperties(None, layer.connectionProperties) # type: ignore
+            except AttributeError:
+                print(f'Skipping {layer}...')
+                continue
             _lyrx_layer_cim = _lyrx_layer.getDefinition('V3')
             self.setDefinition(_lyrx_layer_cim)
     
