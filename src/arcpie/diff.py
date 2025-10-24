@@ -76,17 +76,17 @@ def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
     """
     _diffs: dict[str, Diff] = {}
     for source_map in source.maps:
-        map_name = source_map.name
-        if (target_map := target.maps.get(source_map.name, None)) is not None:
+        map_name = source_map.unique_name
+        if (target_map := target.maps.get(source_map.unique_name, None)) is not None:
             _diffs.setdefault(map_name, {})
             _diffs[map_name]['added'] = list(set(target_map.layers.names) - set(source_map.layers.names))
             _diffs[map_name]['removed'] = list(set(source_map.layers.names) - set(target_map.layers.names))
             _diffs[map_name]['updated'] = [
-                l.name for l in source_map.layers
+                l.unique_name for l in source_map.layers
                 if hasattr(l, 'name') 
-                and l.name in target_map.layers.names
+                and l.unique_name in target_map.layers.names
                 and (source_cim := l.cim_dict)
-                and (target_cim := target_map.layers[l.name].cim_dict)
+                and (target_cim := target_map.layers[l.unique_name].cim_dict)
                 and any(
                     str(source_cim.get(k, 'Source')) != str(target_cim.get(k, 'Target'))
                     for k in ['renderer', 'labelClasses'] # Only compare symbology and labels
@@ -106,17 +106,17 @@ def table_diff(source: Project, target: Project) -> dict[str, Diff]:
     """
     _diffs: dict[str, Diff] = {}
     for source_map in source.maps:
-        map_name = source_map.name
-        if (target_map := target.maps.get(source_map.name, None)) is not None:
+        map_name = source_map.unique_name
+        if (target_map := target.maps.get(source_map.unique_name, None)) is not None:
             _diffs.setdefault(map_name, {})
             _diffs[map_name]['added'] = list(set(target_map.tables.names) - set(source_map.tables.names))
             _diffs[map_name]['removed'] = list(set(source_map.tables.names) - set(target_map.tables.names))
             _diffs[map_name]['updated'] = [
-                t.name for t in source_map.tables
+                t.unique_name for t in source_map.tables
                 if hasattr(t, 'name') 
-                and t.name in target_map.tables.names
+                and t.unique_name in target_map.tables.names
                 and (source_cim := t.cim_dict)
-                and (target_cim := target_map.tables[t.name].cim_dict)
+                and (target_cim := target_map.tables[t.unique_name].cim_dict)
                 and any(
                     str(source_cim.get(k, 'Source')) != str(target_cim.get(k, 'Target'))
                     for k in ['displayField'] # Only compare display field

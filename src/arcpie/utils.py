@@ -134,7 +134,7 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int=4, sort:
     """
     out_dir = Path(out_dir)
     for map in project.maps:
-        map_dir = out_dir / map.name
+        map_dir = out_dir / map.unique_name
         for layer in map.layers:
             _lyrx = getattr(layer, 'lyrx', None)
             if _lyrx is None:
@@ -162,7 +162,7 @@ def export_project_maps(project: Project, out_dir: Path|str, *, indent: int=4, s
     """
     out_dir = Path(out_dir)
     for map in project.maps:
-        map_dir = out_dir / rf'{map.name}'
+        map_dir = out_dir / rf'{map.unique_name}'
         out_file = map_dir.with_suffix(f'{map_dir.suffix}.mapx') # handle '.' in map name
         out_file.parent.mkdir(parents=True, exist_ok=True)
         out_file.write_text(json.dumps(map.mapx, indent=indent, sort_keys=sort), encoding='utf-8')

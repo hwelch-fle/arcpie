@@ -105,7 +105,7 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
         return getattr(self._obj, 'getDefinition')('V3') or CIMDefinition() # pyright: ignore[reportReturnType]
 
     @property
-    def name(self) -> str:
+    def unique_name(self) -> str:
         """Get the longName or name of the object. Use id for any object without a name attribute"""
         return getattr(self._obj, 'longName', None) or getattr(self._obj, 'name', None) or str(id(self._obj))
 
@@ -208,10 +208,10 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         """
         _lyrx = LayerFile(str(lyrx))
         _lyrx_layers = {l.name: l for l in _lyrx.listLayers()}
-        for layer in ([self] + self.listLayers() if self.isGroupLayer else [self]):
-            _lyrx_layer = _lyrx_layers.get(layer.name)
+        for layer in ([self] + [Layer(l, self.parent) for l in self.listLayers()] if self.isGroupLayer else [self]):
+            _lyrx_layer = _lyrx_layers.get(layer.unique_name)
             if not _lyrx_layer:
-                print(f'{self.name} not found in {str(lyrx)}')
+                print(f'{self.unique_name} not found in {str(lyrx)}')
                 continue
             # Update Connection
             try:
@@ -346,27 +346,27 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         return self.pageCount
 
     def __repr__(self) -> str:
-        return f'MapSeries<{self.layer.name} @ {self.current_page_name}>'
+        return f'MapSeries<{self.layer.unique_name} @ {self.current_page_name}>'
 
 class ElevationSurface(MappingWrapper[_ElevationSurface, CIMElevationSurfaceLayer], _ElevationSurface): ...
 
 class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
-    @property
+    @cached_property
     def layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the Map"""
         return LayerManager(Layer(l, self) for l in self.listLayers() if not l.isBroken or [])
 
-    @property
+    @cached_property
     def tables(self) -> TableManager:
         """Get a TableManager for all tables in the Map"""
         return TableManager(Table(t, self) for t in self.listTables() if not t.isBroken or [])
 
-    @property
+    @cached_property
     def bookmarks(self) -> BookmarkManager:
         """Get a BookmarkManager for all bookmarks in the Map"""
         return BookmarkManager(Bookmark(b, self) for b in self.listBookmarks() or [])
     
-    @property
+    @cached_property
     def elevation_surfaces(self) -> ElevationSurfaceManager:
         """Get an ElevationSurfaceManager for all elevation surfaces in the Map"""
         return ElevationSurfaceManager(ElevationSurface(es, self) for es in self.listElevationSurfaces() or [])
@@ -392,7 +392,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     def __getitem__(self, name: str | Wildcard) -> Any:
         _obj = self.layers.get(name, None) or self.tables.get(name, None)
         if _obj is None:
-            raise KeyError(f'{name} not found in map {self.name}')
+            raise KeyError(f'{name} not found in map {self.unique_name}')
         return _obj
 
     @overload
@@ -412,7 +412,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
             out_dir (Path|str): The location to export the mapx to
         """
         out_dir = Path(out_dir)
-        (out_dir / self.name).write_text(json.dumps(self.mapx))
+        (out_dir / self.unique_name).write_text(json.dumps(self.mapx))
     
     def export_assoc_lyrx(self, out_dir: Path|str, *, skip_groups: bool=False, skip_grouped: bool=False) -> None:
         """Export all child layers to lyrx files the target directory
@@ -427,13 +427,13 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
             if layer.isGroupLayer and skip_groups:
                 continue
             try:
-                layer.export_lyrx(out_dir)
+                layer.export_lyrx(out_dir / self.unique_name)
             except json.JSONDecodeError as e:
                 print(f'Failed to export layer: {layer}: {e}')
         
         for table in self.tables:
             try:
-                table.export_lyrx(out_dir)
+                table.export_lyrx(out_dir / self.unique_name)
             except json.JSONDecodeError as e:
                 print(f'Failed to export table: {table}: {e}')
     
@@ -550,9 +550,9 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
         _lyrx = LayerFile(str(lyrx))
         _lyrx_layers = {t.name: t for t in _lyrx.listTables()}
         for table in [self]:
-            _lyrx_table = _lyrx_layers.get(table.name)
+            _lyrx_table = _lyrx_layers.get(table.unique_name)
             if not _lyrx_table:
-                print(f'{self.name} not found in {str(lyrx)}')
+                print(f'{self.unique_name} not found in {str(lyrx)}')
                 continue
             # Update Connection
             _lyrx_table.updateConnectionProperties(None, table.connectionProperties) # type: ignore
@@ -612,7 +612,7 @@ class Manager(Generic[_MappingObject]):
     @property
     def names(self) -> list[str]:
         """Get the names of all managed objects (skips URIs)"""
-        return [o.name for o in self.objects]
+        return [o.unique_name for o in self.objects]
     
     @property
     def uris(self) -> list[str]:
@@ -751,6 +751,28 @@ class Project:
         """Get a TableManager for all tables in the project with broken datasources"""
         return TableManager(Table(t, self) for t in self.aprx.listBrokenDataSources() if isinstance(t, _Table))
     
+    @property
+    def tree(self) -> dict[str, Any]:
+        return {
+            repr(self) : 
+                {
+                    'maps': {
+                        repr(m): 
+                            {
+                                'tables': m.tables.names,
+                                'layers': m.layers.names,
+                            }
+                        for m in self.maps
+                    },
+                    'layouts': self.layouts.names,
+                    'reports': self.reports.names,
+                    'broken': {
+                        'layers': self.broken_layers.names,
+                        'tables': self.broken_layers.names,
+                    }
+                }
+        }
+    
     @overload
     def __getitem__(self, name: str) -> Map | Layout | Report: ...
     @overload
@@ -820,7 +842,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for layout in self.layouts:
-            (target_dir / layout.name).with_suffix('.pagx').write_text(json.dumps(layout.pagx))
+            (target_dir / layout.unique_name).with_suffix('.pagx').write_text(json.dumps(layout.pagx))
     
     def import_mapx(self, mapx: Path|str) -> Map:
         """Import a mapx file into this project
@@ -849,7 +871,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for m in self.maps:
-            (target_dir / m.name).with_suffix('.mapx').write_text(json.dumps(m.mapx))
+            (target_dir / m.unique_name).with_suffix('.mapx').write_text(json.dumps(m.mapx))
     
     def export_layers(self, target_dir: Path|str, *, skip_groups: bool = False, skip_grouped: bool = False) -> None:
         """Export all layers in the project to a structured directory of layerfiles
@@ -861,7 +883,7 @@ class Project:
         """
         target_dir = Path(target_dir)
         for m in self.maps:
-            m.export_assoc_lyrx(target_dir, skip_groups=skip_groups, skip_grouped=skip_grouped)
+            m.export_assoc_lyrx(target_dir / self.name, skip_groups=skip_groups, skip_grouped=skip_grouped)
     
     def import_layers(self, src_dir: Path|str) -> None:
         """Import a structured directory of layerfiles generated with `export_layers`
@@ -875,9 +897,9 @@ class Project:
         """
         src_dir = Path(src_dir)
         for m in self.maps:
-            map_dir = src_dir / m.name
+            map_dir = src_dir / m.unique_name
             if not map_dir.exists():
-                print(f'Map {m.name} does not have a valid source in the source directory, skipping')
+                print(f'Map {m.unique_name} does not have a valid source in the source directory, skipping')
                 continue
             m.import_assoc_lyrx(map_dir)
         
