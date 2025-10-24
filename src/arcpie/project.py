@@ -74,6 +74,17 @@ class Wildcard(UserString):
     pass
 
 class MappingWrapper(Generic[_MapType, _CIMType]):
+    """Internal wrapper class for wrapping existing objects with new functionality
+    
+    Usage:
+        ```python
+        >>> MappingWraper[mp.<type>, cim.<type>](mp.<type>)
+        ```
+    
+    Note:
+        All 
+    """
+    def __init__(self, obj: _MapType, parent: _MappingObject|Project|None=None) -> None:
         self._obj = obj
         self._parent = parent
             
