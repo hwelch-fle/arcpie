@@ -380,6 +380,26 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     def cim_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
     
+    @overload
+    def __getitem__(self, name: str) -> Layer | Table: ...
+    @overload
+    def __getitem__(self, name: Wildcard) -> list[Layer] | list[Table]: ...
+    def __getitem__(self, name: str | Wildcard) -> Any:
+        _obj = self.layers.get(name, None) or self.tables.get(name, None)
+        if _obj is None:
+            raise KeyError(f'{name} not found in map {self.name}')
+        return _obj
+
+    @overload
+    def get(self, name: str, default: _Default) -> Layer | Table | _Default: ...
+    @overload
+    def get(self, name: Wildcard, default: _Default) -> list[Layer] | list[Table] | _Default: ...
+    def get(self, name: str | Wildcard, default: _Default=None) -> Any | _Default:
+        try:
+            return self[name]
+        except KeyError:
+            return default
+    
     def export_mapx(self, out_dir: Path|str) -> None:
         """Export the map definitions to a mapx file in the target directory
         
