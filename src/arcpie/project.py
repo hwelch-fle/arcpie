@@ -678,11 +678,88 @@ class Project:
         path = Path(path)
         self.aprx.saveACopy(str(path.with_suffix('.aprx')))
         return Project(path)
+    
+    def import_pagx(self, pagx: Path|str, *, reuse_existing_maps: bool=True) -> Layout:
+        """Import a pagx file into this project
         
         Args:
-            managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
+            pagx (Path|str): The path to the pagx document
+            
+        Returns:
+            (Layout): A Layout parented to this project
         """
-        for prop in list(self.__dict__):
-            if prop.startswith('_') or managers and prop not in managers:
-                continue # Skip private instance attributes and non-requested
-            self.__dict__.pop(prop, None)
+        pagx = Path(pagx)
+        if not pagx.suffix == '.pagx':
+            raise ValueError(f'{pagx} is not a pagx file!')
+        
+        _imported = self.aprx.importDocument(str(pagx), reuse_existing_maps=reuse_existing_maps)
+        # Ensure that the imported document is a Layout
+        if not isinstance(_imported, _Layout):
+            self.aprx.deleteItem(_imported)
+            raise ValueError(f'{pagx} is not a valid pagx file!')
+        return Layout(_imported, parent=self)
+    
+    def export_pagx(self, target_dir: Path|str) -> None:
+        """Export all layouts to a directory"""
+        target_dir = Path(target_dir)
+        target_dir.mkdir(exist_ok=True, parents=True)
+        for layout in self.layouts:
+            (target_dir / layout.name).with_suffix('.pagx').write_text(json.dumps(layout.pagx))
+    
+    def import_mapx(self, mapx: Path|str) -> Map:
+        """Import a mapx file into this project
+        
+        Args:
+            mapx (Path|str): The path to the mapx document
+            
+        Returns:
+            (Map): A Map parented to this project
+        """
+        mapx = Path(mapx)
+        if not mapx.suffix == '.mapx':
+            raise ValueError(f'{mapx} is not a mapx file!')
+        
+        _imported = self.aprx.importDocument(str(mapx))
+        # Ensure that the imported document is a Map
+        if not isinstance(_imported, _Map):
+            self.aprx.deleteItem(_imported)
+            raise ValueError(f'{mapx} is not a valid mapx file!')
+        return Map(_imported, parent=self)
+    
+    def export_mapx(self, target_dir: Path|str) -> None:
+        """Export all maps to a directory"""
+        target_dir = Path(target_dir)
+        target_dir.mkdir(exist_ok=True, parents=True)
+        for m in self.maps:
+            (target_dir / m.name).with_suffix('.mapx').write_text(json.dumps(m.mapx))
+    
+    def export_layers(self, target_dir: Path|str, *, skip_groups: bool = False, skip_grouped: bool = False) -> None:
+        """Export all layers in the project to a structured directory of layerfiles
+        
+        Args:
+            target_dir (Path|str): The target directory to export the layerfiles to
+            skip_groups (bool): Skip group layerfiles and export each layer individually in a group subdirectory (default: False)
+            skip_grouped (bool): Inverse of skip groups and instead only exports the group lyrx, skipping the individual layers (default: False)
+        """
+        target_dir = Path(target_dir)
+        for m in self.maps:
+            m.export_assoc_lyrx(target_dir, skip_groups=skip_groups, skip_grouped=skip_grouped)
+    
+    def import_layers(self, src_dir: Path|str) -> None:
+        """Import a structured directory of layerfiles generated with `export_layers`
+        
+        Args:
+            src_dir (Path|str): A directory containing layer files in map directories and group directories
+
+        Note:
+            CIM changes require the APRX to be saved to take effect. If you are accessing this
+            layer via a Project, use `project.save()` after importing the layerfile
+        """
+        src_dir = Path(src_dir)
+        for m in self.maps:
+            map_dir = src_dir / m.name
+            if not map_dir.exists():
+                print(f'Map {m.name} does not have a valid source in the source directory, skipping')
+                continue
+            m.import_assoc_lyrx(map_dir)
+            
