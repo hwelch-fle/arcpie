@@ -23,26 +23,19 @@ import json
 
 from arcpy.mp import ArcGISProject, LayerFile
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder
-from arcpy.cim.CIMVectorLayers import (
-    CIMAnnotationLayer,
-    CIMFeatureLayer,
-    CIMVectorTileLayer,
-)
-from arcpy.cim.CIMServiceLayers import (
-    CIMTiledServiceLayer,
-)
-from arcpy.cim.CIMLayer import (
-    CIMGraphicsLayer,
-    CIMGroupLayer,
-)
-from arcpy.cim import CIMStandaloneTable
-from arcpy.cim import CIMMapDocument
-from arcpy.cim.CIMCore import CIMDefinition
 
-# Common layer CIM types 
-CIMLayerType = (
-    CIMFeatureLayer | CIMVectorTileLayer | CIMAnnotationLayer | 
-    CIMTiledServiceLayer | CIMGraphicsLayer | CIMGroupLayer
+from arcpy.cim import CIMStandaloneTable
+from arcpy.cim import (
+    CIMDefinition,
+    CIMMapDocument, 
+    CIMBookmark,
+    CIMBookmarkMapSeries, 
+    CIMMapSeries,
+    CIMStandaloneTable,
+    CIMBaseLayer,
+    CIMLayout,
+    CIMElevationSurfaceLayer,
+    CIMReport,
 )
 
 # Shadow all _mp types with interface Wrappers
@@ -70,7 +63,8 @@ from arcpie.featureclass import (
     Table as DataTable, # Alias Table to prevent conflict with Mapping Table
 )
 
-_T = TypeVar('_T')
+_MapType = TypeVar('_MapType')
+_CIMType = TypeVar('_CIMType')
 _Default = TypeVar('_Default')
 
 # String Wrapper to make wildcards clear
@@ -79,9 +73,7 @@ class Wildcard(UserString):
     """Clarify that the string passed to a Manager index is a wildcard so the type checker knows you're getting a Sequence back"""
     pass
 
-class MappingWrapper(Generic[_T]):
-    """Internal wrapper class for wrapping existing objects with new functionality"""
-    def __init__(self, obj: _T, parent: _MappingObject|Project|None=None) -> None:
+class MappingWrapper(Generic[_MapType, _CIMType]):
         self._obj = obj
         self._parent = parent
             
@@ -123,7 +115,9 @@ class MappingWrapper(Generic[_T]):
             return super().__eq__(other)
 
 # Wrappers around existing Mapping Objects to allow extensible functionality 
-class Layer(MappingWrapper[_Layer], _Layer):
+class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
+    """mp.Layer wrapper"""
+    
     @property
     def feature_class(self) -> FeatureClass[Any]:
         """Get a `arcpie.FeatureClass` object that is initialized using the layer and its current state"""
@@ -194,9 +188,9 @@ class Layer(MappingWrapper[_Layer], _Layer):
             _lyrx_layer_cim = _lyrx_layer.getDefinition('V3')
             self.setDefinition(_lyrx_layer_cim)
     
-class Bookmark(MappingWrapper[_Bookmark], _Bookmark): ...
+class Bookmark(MappingWrapper[_Bookmark, CIMBookmark], _Bookmark): ...
 
-class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries], _BookmarkMapSeries):
+class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries, CIMBookmarkMapSeries], _BookmarkMapSeries):
     """Wrapper around an arcpy.mp BookmarkMapSeries object that provides an ergonomic interface"""
     
     def __iter__(self) -> Iterator[BookmarkMapSeries]:
@@ -322,7 +316,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
 
 class ElevationSurface(MappingWrapper[_ElevationSurface], _ElevationSurface): ...
 
-class Map(_Map, MappingWrapper[_Map]):
+class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     @property
     def layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the Map"""
