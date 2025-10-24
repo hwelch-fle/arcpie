@@ -657,6 +657,27 @@ class Project:
             return self[name]
         except KeyError:
             return default
+    
+    def save(self) -> None:
+        """Save this project"""
+        self.aprx.save()
+    
+    def save_as(self, path: Path|str) -> Project:
+        """Saves the project under a new name
+        
+        Args:
+            path (Path|str): The filepath of the new aprx
+        
+        Returns:
+            (Project): A Project representing the new project file
+        
+        Note:
+            Saving a Project as a new project will not update this instance, and instead returns a new
+            Project instance targeted at the new file
+        """
+        path = Path(path)
+        self.aprx.saveACopy(str(path.with_suffix('.aprx')))
+        return Project(path)
         
         Args:
             managers (Sequence[str]|None): Optionally limit cache clearing to certain managers (attribute name)
