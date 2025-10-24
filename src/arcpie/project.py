@@ -128,9 +128,9 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
         return getattr(self._obj, attr)
 
     def __repr__(self) -> str:
-        return f"{self._obj.__class__.__name__}({name_of(self._obj, skip_uri=True)})"
+        return f"{self._obj.__class__.__name__}({name_of(self, skip_uri=True)})"
     
-    def __eq__(self, other: MappingWrapper[Any] | object) -> bool:
+    def __eq__(self, other: MappingWrapper[Any, Any] | Any) -> bool:
         if hasattr(other, '_obj'):
             return self._obj is getattr(other, '_obj', None)
         else:
