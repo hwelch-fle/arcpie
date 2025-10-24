@@ -391,10 +391,23 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         
         Args:
             out_dir (Path|str): The location to export the lyrx files to
+            skip_groups (bool): Skip group layerfiles and export each layer individually in a group subdirectory (default: False)
+            skip_grouped (bool): Inverse of skip groups and instead only exports the group lyrx, skipping the individual layers (default: False)
         """
         out_dir = Path(out_dir)
         for layer in self.layers:
-            layer.export_lyrx(out_dir)
+            if layer.isGroupLayer and skip_groups:
+                continue
+            try:
+                layer.export_lyrx(out_dir)
+            except json.JSONDecodeError as e:
+                print(f'Failed to export layer: {layer}: {e}')
+        
+        for table in self.tables:
+            try:
+                table.export_lyrx(out_dir)
+            except json.JSONDecodeError as e:
+                print(f'Failed to export table: {table}: {e}')
     
     def import_assoc_lyrx(self, lyrx_dir: Path|str) -> None:
         lyrx_dir = Path(lyrx_dir)
