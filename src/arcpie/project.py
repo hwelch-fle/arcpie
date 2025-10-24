@@ -237,7 +237,7 @@ class BookmarkMapSeries(MappingWrapper[_BookmarkMapSeries, CIMBookmarkMapSeries]
     def __len__(self) -> int:
         return len(self.bookmarks)
 
-class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
+class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
     """Wrapper around an arcpy.mp MapSeries object that provides an ergonomic interface"""
     @property
     def layer(self) -> Layer:
@@ -336,7 +336,7 @@ class MapSeries(MappingWrapper[_MapSeries], _MapSeries):
     def __repr__(self) -> str:
         return f'MapSeries<{self.layer.name} @ {self.current_page_name}>'
 
-class ElevationSurface(MappingWrapper[_ElevationSurface], _ElevationSurface): ...
+class ElevationSurface(MappingWrapper[_ElevationSurface, CIMElevationSurfaceLayer], _ElevationSurface): ...
 
 class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     @property
@@ -382,7 +382,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         out_dir = Path(out_dir)
         (out_dir / self.name).write_text(json.dumps(self.mapx))
     
-    def export_assoc_lyrx(self, out_dir: Path|str) -> None:
+    def export_assoc_lyrx(self, out_dir: Path|str, *, skip_groups: bool=False, skip_grouped: bool=False) -> None:
         """Export all child layers to lyrx files the target directory
         
         Args:
@@ -404,7 +404,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     def import_mapx(self, mapx: Path|str) -> None:
         raise NotImplementedError()
     
-class Layout(MappingWrapper[_Layout], _Layout):
+class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
     
     @property
     def mapseries(self) -> MapSeries | BookmarkMapSeries| None:
@@ -451,7 +451,7 @@ class Layout(MappingWrapper[_Layout], _Layout):
             pdf = self.exportToPDF(tmp.name, **_settings)
             return Path(pdf).read_bytes()
 
-class Table(MappingWrapper[_Table], _Table):
+class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
     @property
     def table(self) -> DataTable:
         """Get an `arcpie.Table` object from the TableLayer"""
@@ -505,6 +505,8 @@ class Table(MappingWrapper[_Table], _Table):
             _lyrx_layer_cim = _lyrx_table.getDefinition('V3')
             self.setDefinition(_lyrx_layer_cim)
 
+class Report(MappingWrapper[_Report, CIMReport], _Report): ...
+
 # Unified typevar for valid wrapped mapping objects
 _MappingObject = TypeVar(
     '_MappingObject', 
@@ -519,7 +521,7 @@ _MappingObject = TypeVar(
     Report,
 )
 
-def name_of(o: Any, skip_uri: bool=False, uri_only: bool=False) -> str:
+def name_of(o: MappingWrapper[Any, Any], skip_uri: bool=False, uri_only: bool=False) -> str:
     """Handle the naming hierarchy of mapping objects URI -> longName -> name
     
     Allow setting flags to get specific names
