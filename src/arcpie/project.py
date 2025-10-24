@@ -602,37 +602,37 @@ class Project:
     def __repr__(self) -> str:
         return f"Project({Path(self.aprx.filePath).stem}.aprx)"
     
-    @cached_property
+    @property
     def name(self) -> str:
         """Get the file name of the wrapped aprx minus the file extension"""
         return Path(self.aprx.filePath).stem
     
-    @cached_property
+    @property
     def aprx(self) -> ArcGISProject:
         """Get the base ArcGISProject for the Project"""
         return ArcGISProject(self._path)
     
-    @cached_property
+    @property
     def maps(self) -> MapManager:
         """Get a MapManager for the Project maps"""
         return MapManager(Map(m, self) for m in self.aprx.listMaps())
     
-    @cached_property
+    @property
     def layouts(self) -> LayoutManager:
         """Get a LayoutManager for the Project layouts"""
         return LayoutManager(Layout(l, self) for l in self.aprx.listLayouts())
     
-    @cached_property
+    @property
     def reports(self) -> ReportManager:
         """Get a ReportManager for the Project reports"""
         return ReportManager(Report(r, self) for r in self.aprx.listReports())
     
-    @cached_property
+    @property
     def broken_layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the project with broken datasources"""
         return LayerManager(Layer(l, self) for l in self.aprx.listBrokenDataSources() if isinstance(l, _Layer))
     
-    @cached_property
+    @property
     def broken_tables(self) -> TableManager:
         """Get a TableManager for all tables in the project with broken datasources"""
         return TableManager(Table(t, self) for t in self.aprx.listBrokenDataSources() if isinstance(t, _Table))
