@@ -410,6 +410,15 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
                 print(f'Failed to export table: {table}: {e}')
     
     def import_assoc_lyrx(self, lyrx_dir: Path|str) -> None:
+        """Imports lyrx files that were exported using the `export_assoc_lyrx` method
+        
+        Args:
+            lyrx_dir (Path|str): The directory containing the previously exported lyrx files
+        
+        Note:
+            CIM changes require the APRX to be saved to take effect. If you are accessing this
+            layer via a Project, use `project.save()` after importing the layerfile
+        """
         lyrx_dir = Path(lyrx_dir)
         for lyrx_path in lyrx_dir.rglob('*.lyrx'):
             _lyrx_name = str(lyrx_path.relative_to(lyrx_dir).with_suffix(''))
