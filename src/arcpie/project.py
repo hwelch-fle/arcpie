@@ -498,7 +498,7 @@ class Manager(Generic[_MappingObject]):
     @property
     def names(self) -> list[str]:
         """Get the names of all managed objects (skips URIs)"""
-        return [name_of(o, skip_uri=True) for o in self.objects]
+        return [o.name for o in self.objects]
     
     @property
     def uris(self) -> list[str]:
@@ -507,7 +507,7 @@ class Manager(Generic[_MappingObject]):
         Note:
             Default to a Python id() call if no URI is present
         """
-        return [name_of(o, uri_only=True) for o in self.objects]
+        return [o.uri for o in self.objects]
     
     @overload
     def __getitem__(self, name: str) -> _MappingObject: ...
