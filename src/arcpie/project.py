@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
+from io import BytesIO
 from tempfile import NamedTemporaryFile
 from collections.abc import (
     Iterator,
@@ -22,6 +23,7 @@ import json
 
 from arcpy.mp import ArcGISProject, LayerFile
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder
+from arcpy._symbology import Symbology
 
 from arcpy.cim import CIMStandaloneTable
 from arcpy.cim import (
@@ -62,8 +64,8 @@ from arcpie.featureclass import (
     Table as DataTable, # Alias Table to prevent conflict with Mapping Table
 )
 
-_MapType = TypeVar('_MapType')
-_CIMType = TypeVar('_CIMType')
+_MapType = TypeVar('_MapType', _Map, _Layout, _Layer, _Table, _Report, _MapSeries, _BookmarkMapSeries, _Bookmark, _ElevationSurface)
+_CIMType = TypeVar('_CIMType', CIMDefinition, Any)
 _Default = TypeVar('_Default')
 
 # String Wrapper to make wildcards clear
@@ -102,7 +104,11 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
     
     @property
     def cim(self) -> _CIMType:
-        return getattr(self._obj, 'getDefinition')('V3') or CIMDefinition() # pyright: ignore[reportReturnType]
+        try:
+            return getattr(self._obj, 'getDefinition')('V3')
+        except json.JSONDecodeError:
+            print(f'Invalid layer definition found')
+            return CIMDefinition(name='INVALID CIM') # pyright: ignore[reportReturnType]
 
     @property
     def unique_name(self) -> str:
@@ -111,17 +117,11 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
 
     @property
     def uri(self) -> str:
-        """Get the URI for the object"""
-        try:
-            return getattr(self._obj, 'URI')
-        except AttributeError:
-            # URI raises an AttributeError for some layer types, so we have to 
-            # dig a bit deeper to grab it from the raw _arc_object
-            
-            # Some web layers have no accessible CIM at all
-            _arc_object = getattr(self._obj, '_arc_object')
-            _cim_json = getattr(_arc_object, 'GetCimJSONString').__call__() or r"{uRI: UNKNOWN}"
-            return json.loads(_cim_json)['uRI']
+        """Get the URI for the object or the id with `:NO_URI` at the end"""
+        _uri = getattr(self._obj, 'URI', None)
+        if _uri is None:
+            _uri = json.loads(self._obj._arc_object.GetCimJSONString())['uRI'] # type: ignore
+        return _uri
     
     @property
     def cim_dict(self) -> dict[str, Any] | None:
@@ -150,7 +150,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         return FeatureClass[Any].from_layer(self)
     
     @property
-    def symbology(self) -> Any:
+    def symbology(self) -> Symbology:
         """Get the base symbology object for the layer"""
         return self._obj.symbology
     
@@ -171,13 +171,15 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         }
         
         # Handle Group Layers
-        if self.isGroupLayer:
-            _child_tables: list[str] = [uri for uri in _def.get('tables', [])]
-            _child_layers: list[str] = [uri for uri in _def.get('layers', [])]
-            if self.parent and isinstance(self.parent, Map) and _child_tables:
-                _lyrx['tableDefinitions'] = [self.parent.tables.get(uri).lyrx for uri in _child_tables]
-                _lyrx['layerDefinitions'] = [_def] + [self.parent.layers.get(uri).lyrx for uri in _child_layers]
-                
+        if self.isGroupLayer and self.parent and isinstance(self.parent, Map):
+            if _child_tables := [uri for uri in _def.get('tables', [])]:
+                _child_tables: list[str]
+                _table_uris = set(_child_tables) & set(self.parent.tables.uris) # Skip dead nodes
+                _lyrx['tableDefinitions'] = [self.parent.tables[uri].cim_dict for uri in _table_uris]
+            if _child_layers := [uri for uri in _def.get('layers', [])]:
+                _child_layers: list[str]
+                _layer_uris = set(_child_layers) & set(self.parent.layers.uris) # Skip dead nodes
+                _lyrx['layerDefinitions'] = [_def] + [self.parent.layers[uri].cim_dict for uri in _layer_uris]
         return _lyrx
 
     @property
@@ -208,19 +210,19 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         """
         _lyrx = LayerFile(str(lyrx))
         _lyrx_layers = {l.name: l for l in _lyrx.listLayers()}
-        for layer in ([self] + [Layer(l, self.parent) for l in self.listLayers()] if self.isGroupLayer else [self]):
-            _lyrx_layer = _lyrx_layers.get(layer.unique_name)
-            if not _lyrx_layer:
-                print(f'{self.unique_name} not found in {str(lyrx)}')
-                continue
+        if not (_lyrx_layer := _lyrx_layers.get(self.name)):
+            print(f'{self.name} not found in {str(lyrx)}')
+        else:
             # Update Connection
+            _lyrx_layer = Layer(_lyrx_layer)
+            _lyrx_cim_dict = _lyrx_layer.cim_dict or {}
+            _lyrx_layer_cim = _lyrx_layer.cim
+            if _lyrx_cim_dict.get('featureTable') and _lyrx_cim_dict['featureTable'].get('dataConnection'):
+                _lyrx_layer_cim.featureTable.dataConnection = self.cim.featureTable.dataConnection # type: ignore (this is how CIM works)
             try:
-                _lyrx_layer.updateConnectionProperties(None, layer.connectionProperties) # type: ignore
+                self.setDefinition(_lyrx_layer_cim) # pyright: ignore[reportArgumentType]
             except AttributeError:
-                print(f'Skipping {layer}...')
-                continue
-            _lyrx_layer_cim = _lyrx_layer.getDefinition('V3')
-            self.setDefinition(_lyrx_layer_cim)
+                print(f'Failed to update CIM for {self.__class__.__name__}{self.name}')
     
 class Bookmark(MappingWrapper[_Bookmark, CIMBookmark], _Bookmark): ...
 
@@ -303,7 +305,7 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         """Get the name of the active mapseries page"""
         return self.page_values.get(self.page_field, 'No Page')
     
-    def to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> bytes:
+    def to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> BytesIO:
         """Export the MapSeries to a PDF, See Layer.to_pdf for more info
         
         Args:
@@ -319,11 +321,11 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         _settings = MapseriesPDFDefault.copy()
         _settings.update(settings)
         with NamedTemporaryFile() as tmp:
-            return Path(self.exportToPDF(tmp.name, **_settings)).read_bytes()
+            return BytesIO(Path(self.exportToPDF(tmp.name, **_settings)).open('rb').read())
     
     def __iter__(self) -> Iterator[MapSeries]:
         _orig_page = self.currentPageNumber
-        for page in range(1, self.pageCount):
+        for page in range(1, self.pageCount+1):
             self.currentPageNumber = page
             yield self
         if _orig_page:
@@ -354,12 +356,12 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     @cached_property
     def layers(self) -> LayerManager:
         """Get a LayerManager for all layers in the Map"""
-        return LayerManager(Layer(l, self) for l in self.listLayers() if not l.isBroken or [])
+        return LayerManager(Layer(l, self) for l in self.listLayers() or [])
 
     @cached_property
     def tables(self) -> TableManager:
         """Get a TableManager for all tables in the Map"""
-        return TableManager(Table(t, self) for t in self.listTables() if not t.isBroken or [])
+        return TableManager(Table(t, self) for t in self.listTables() or [])
 
     @cached_property
     def bookmarks(self) -> BookmarkManager:
@@ -437,7 +439,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
             except json.JSONDecodeError as e:
                 print(f'Failed to export table: {table}: {e}')
     
-    def import_assoc_lyrx(self, lyrx_dir: Path|str) -> None:
+    def import_assoc_lyrx(self, lyrx_dir: Path|str, *, skip_groups: bool=False) -> None:
         """Imports lyrx files that were exported using the `export_assoc_lyrx` method
         
         Args:
@@ -479,7 +481,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
         with NamedTemporaryFile() as tmp:
             return json.loads(Path(self.exportToPAGX(str(tmp))).read_text())
     
-    def to_pdf(self, **settings: Unpack[PDFSetting]) -> bytes:
+    def to_pdf(self, **settings: Unpack[PDFSetting]) -> BytesIO:
         """Get the bytes for a pdf export of the Layout
         
         Args:
@@ -503,7 +505,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
                 if val := settings.get(arg):
                     _settings[arg] = val
             pdf = self.exportToPDF(tmp.name, **_settings)
-            return Path(pdf).read_bytes()
+            return BytesIO(Path(pdf).open('rb').read())
 
 class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
     @property
@@ -548,11 +550,11 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
             layer via a Project, use `project.save()` after importing the layerfile
         """
         _lyrx = LayerFile(str(lyrx))
-        _lyrx_layers = {t.name: t for t in _lyrx.listTables()}
+        _lyrx_layers = {t.longName: t for t in _lyrx.listTables()}
         for table in [self]:
-            _lyrx_table = _lyrx_layers.get(table.unique_name)
+            _lyrx_table = _lyrx_layers.get(table.longName)
             if not _lyrx_table:
-                print(f'{self.unique_name} not found in {str(lyrx)}')
+                print(f'{self.longName} not found in {str(lyrx)}')
                 continue
             # Update Connection
             _lyrx_table.updateConnectionProperties(None, table.connectionProperties) # type: ignore
@@ -589,7 +591,7 @@ def name_of(o: MappingWrapper[Any, Any], skip_uri: bool=False, uri_only: bool=Fa
     _name: str|None = getattr(o, 'name', None)
     _id: str = str(id(o)) # Fallback to a locally unique id (should never happen)
     if uri_only:
-        return _uri or f"{_name}: NO URI({id(o)})"
+        return _uri or f"{id(o)}:NO_URI"
     return _uri or _long_name or _name or _id
 
 class Manager(Generic[_MappingObject]):
@@ -600,7 +602,7 @@ class Manager(Generic[_MappingObject]):
     
     def __init__(self, objs: Iterable[_MappingObject]) -> None:
         self._objects: dict[str, _MappingObject] = {
-            name_of(o): o 
+            o.uri: o
             for o in objs
         }
         
@@ -641,16 +643,16 @@ class Manager(Generic[_MappingObject]):
         match name:
             case int() | slice():
                 return self.objects[name] # Will raise IndexError
-            case re.Pattern():
-                return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
-            case Wildcard():
-                return [o for o in self.objects if all(part in name_of(o, skip_uri=True) for part in name.split('*'))]
             case str(name) if name in self._objects:
                 return self._objects[name]
             case str(name) if name in self.names:
                 for o in self.objects:
-                    if name_of(o, skip_uri=True) == name:
+                    if o.unique_name == name:
                         return o
+            case re.Pattern():
+                return [o for o in self.objects if name.match(name_of(o, skip_uri=True))]
+            case Wildcard():
+                return [o for o in self.objects if all(part in name_of(o, skip_uri=True) for part in name.split('*'))]
             case _ :
                 pass # Fallthrough to raise a KeyError
             
