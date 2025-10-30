@@ -6,7 +6,6 @@ from types import MappingProxyType
 from arcpy import Parameter
 from arcpie.featureclass import FeatureClass
 from arcpie.project import Layer, Project, Table
-from arcpie.utils import print
 from abc import ABC
 from collections.abc import Callable
 from typing import Any, overload, SupportsIndex
@@ -165,8 +164,3 @@ def toolify(toolbox: type[ToolboxABC]):
         
         return _execute
     return _builder
-
-@toolify(ToolboxABC.tools)
-def add_nums(i: int, j: int) -> None:
-    """Add two numbers"""
-    print(i+j)
