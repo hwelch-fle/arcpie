@@ -2,11 +2,11 @@ from __future__ import annotations
 
 """Module for diffing ArcGIS objects"""
 
-from typing import Literal
+from typing import Literal, Any
 from arcpie.database import Dataset
 from arcpie.project import Project
 
-Diff = dict[Literal['added', 'removed', 'updated'], list[str]]
+Diff = dict[Literal['added', 'removed', 'updated'], list[str] | list[dict[str, Any]]]
 
 def feature_diff(source: Dataset, target: Dataset) -> Diff:
     """Get features that are added/removed from source/target
@@ -55,13 +55,16 @@ def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
             _source_fields = {f.baseName: f for f in source_fc.describe.fields}
             _target_fields = {f.baseName: f for f in target_fc.describe.fields}
             _diffs[fc_name]['updated'] = [
-                f for f in _source_fields
+                {f : changes} 
+                for f in _source_fields
                 if f in _target_fields
-                and not all(
-                    getattr(_source_fields[f], attr) == getattr(_target_fields[f], attr)
+                and (changes := {
+                    attr: f"{getattr(_source_fields[f], attr)} -> {getattr(_target_fields[f], attr)}"
                     for attr in _to_compare
-                )
+                    if getattr(_source_fields[f], attr) != getattr(_target_fields[f], attr)
+                })
             ]
+            
     return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
 
 def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
@@ -139,13 +142,38 @@ def attribute_rule_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     for fc_name, source_fc in source.feature_classes.items():
         if (target_fc := target.feature_classes.get(fc_name, None)) is not None:
             _diffs.setdefault(fc_name, {})
-            _diffs[fc_name]['added'] = [rule for rule in target_fc.attribute_rules if rule not in source_fc.attribute_rules]
-            _diffs[fc_name]['removed'] = [rule for rule in source_fc.attribute_rules if rule not in target_fc.attribute_rules]
+            _diffs[fc_name]['added'] = [rule for rule in target_fc.attribute_rules.names if rule not in source_fc.attribute_rules.names]
+            _diffs[fc_name]['removed'] = [rule for rule in source_fc.attribute_rules.names if rule not in target_fc.attribute_rules.names]
             _diffs[fc_name]['updated'] = [
                 rule_name
-                for rule_name, rule in source_fc.attribute_rules.items() 
-                if (t_rule := target_fc.attribute_rules.get(rule_name) )
+                for rule_name, rule in source_fc.attribute_rules.rules.items()
+                if rule and (t_rule := target_fc.attribute_rules.get(rule_name) )
                 and rule['scriptExpression'] != t_rule['scriptExpression']
             ]
     return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
         
+def domain_diff(source: Dataset, target: Dataset) -> Diff:
+    """Get a diff of rules for matching FeatureClasses in the dataset
+    
+    Args:
+        source (Dataset): The starting point of the delta
+        target (Dataset): The ending point of the delta
+        
+    Returns:
+        (Diff): A domain diff
+    """
+    _diff: Diff = {}
+    _to_check: list[str] = ['codedValues', 'description', 'domainType', 'mergePolicy', 'splitPolicy', 'type']
+    _diff['added'] = [d for d in target.domains if d not in source.domains]
+    _diff['removed'] = [d for d in source.domains if d not in target.domains]
+    _diff['updated'] = [
+        {name : changes}
+        for name, source_domain in source.domains.items()
+        if name in target.domains
+        and (changes := {
+            attr: f"{getattr(source_domain, attr, None)} -> {getattr(target.domains[name], attr, None)}"
+            for attr in _to_check
+            if str(getattr(source_domain, attr, None)) != str(getattr(target.domains[name], attr, None))
+        })
+    ]
+    return _diff
