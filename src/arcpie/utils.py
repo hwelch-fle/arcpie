@@ -1,10 +1,18 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
+import builtins
 from pathlib import Path
 import json
 
 from typing import (
     Any,
+    Literal,
+)
+
+from arcpy import (
+    AddMessage,
+    AddWarning,
+    AddError,
 )
 
 from .featureclass import (
@@ -53,7 +61,7 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
           _alpha.append(s)
           if _digit_chars:
              _digits.append(int(''.join(_digit_chars)))
-             _digit_chars = []
+             _digit_chars.clear()
     if _digit_chars:
        _digits.append(int(''.join(_digit_chars)))
     return tuple(_digits), tuple(_alpha)
@@ -77,6 +85,31 @@ def get_subtype_count(fc: Table | FeatureClass[Any], drop_empty: bool=False) -> 
             or drop_empty # Drop Empty counts?
         )
     }
+
+def print(*values: object,
+          sep: str = " ",
+          end: str = "\n",
+          file: Any = None,
+          flush: bool = False,
+          severity: Literal['INFO', 'WARNING', 'ERROR']|None = None) -> None:
+    """ Print a message to the ArcGIS Pro message queue and stdout
+    set severity to 'WARNING' or 'ERROR' to print to the ArcGIS Pro message queue with the appropriate severity
+    """
+
+    # Print the message to stdout
+    builtins.print(*values, sep=sep, end=end, file=file, flush=flush)
+    
+    end = "" if end == '\n' else end
+    message = f"{sep.join(map(str, values))}{end}"
+    # Print the message to the ArcGIS Pro message queue with the appropriate severity
+    match severity:
+        case "WARNING":
+            AddWarning(f"{message}")
+        case "ERROR":
+            AddError(f"{message}")
+        case _:
+            AddMessage(f"{message}")
+    return
 
 def get_subtype_counts(gdb: Dataset, *, drop_empty: bool=False) -> dict[str, dict[str, int]]:
     """Get a mapping of subtype counts for all featureclasses that have subtypes in the provided Dataset
