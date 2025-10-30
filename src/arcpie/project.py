@@ -710,7 +710,7 @@ class Project:
         Other Map has 56 layers
         ```
     """
-    def __init__(self, aprx_path: str|Path|Literal['CURRRENT']='CURRENT') -> None:
+    def __init__(self, aprx_path: str|Path|Literal['CURRENT']='CURRENT') -> None:
         self._path = str(aprx_path)
     
     def __repr__(self) -> str:
