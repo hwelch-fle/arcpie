@@ -15,6 +15,8 @@ from .featureclass import (
 
 from arcpy.da import (
     Walk,
+    ListDomains,
+    Domain,
 )
 
 class Dataset:
@@ -84,6 +86,45 @@ class Dataset:
     def tables(self) -> dict[str, Table]:
         """A mapping of table names to `Table` objects in the dataset root"""
         return self._tables or {}
+
+    @property
+    def domains(self) -> dict[str, Domain]:
+        # Domains only exist in the root dataset
+        # Defer to parent until the root is found
+        if self.parent:
+            return self.parent.domains
+        return {d.name: d for d in ListDomains(str(self.conn))}
+
+    @property
+    def unused_domains(self) -> dict[str, Domain]:
+        return {
+            name: domain 
+            for name, domain in self.domains.items() 
+            if not self.domain_usage(name)
+        }
+
+    def domain_usage(self, *domain_names: str) -> list[str]:
+        """A list of all Table/FeatureClass names using a specified domain"""
+        if not domain_names:
+            domain_names = tuple(self.domains.keys())
+        
+        if invalid := set(domain_names) - set(self.domains):
+            raise ValueError(f'{invalid} not found in {self.name} domains')
+        
+        _features: list[FeatureClass[Any] | Table] = [*self.tables.values(), *self.feature_classes.values()]
+        return [
+            o.name
+            for o in _features
+            if any(
+                f.domain == domain_name 
+                for f in o.describe.fields
+                for domain_name in domain_names
+            )
+        ]
+
+    def delete_domain(self, *domain_name: str) -> None:
+        """Delete a domain from the dataset"""
+        
 
     def walk(self) -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
