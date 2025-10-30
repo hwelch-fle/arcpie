@@ -397,7 +397,7 @@ class Table:
 
     @property
     def np_dtypes(self):
-        return self.search_cursor(self.fields)._dtype # pyright: ignore[reportPrivateUsage]
+        return self.search_cursor(*self.fields)._dtype # pyright: ignore[reportPrivateUsage]
 
     @property
     def py_types(self) -> dict[str, type]:
@@ -447,8 +447,7 @@ class Table:
 
     # Cursor Handlers
     
-    def search_cursor(self, field_names: FieldName | Sequence[FieldName],
-                      *,
+    def search_cursor(self, *field_names: FieldName,
                       search_options: SearchOptions|None=None, 
                       **overrides: Unpack[SearchOptions]) -> SearchCursor:
         """Get a `SearchCursor` for the `Table` or `FeatureClass`
@@ -493,15 +492,13 @@ class Table:
         """
         return SearchCursor(self.path, field_names, **self._resolve_search_options(search_options, overrides))
 
-    def insert_cursor(self, field_names: FieldName | Sequence[FieldName],
-                      *,
+    def insert_cursor(self, *field_names: FieldName,
                       insert_options: InsertOptions|None=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
-    def update_cursor(self, field_names: FieldName | Sequence[FieldName],
-                      *,
+    def update_cursor(self, *field_names: FieldName,
                       update_options: UpdateOptions|None=None, 
                       **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
@@ -557,7 +554,7 @@ class Table:
             group_key = {field : value for field, value in zip(group_fields, group)}
             where_clause = " AND ".join(f"{field} = {norm(value)}" for field, value in group_key.items())
             if '@' not in where_clause: # Handle valid clause (no tokens)
-                with self.search_cursor(return_fields, where_clause=where_clause) as group_cur:
+                with self.search_cursor(*return_fields, where_clause=where_clause) as group_cur:
                     yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
             else: # Handle token being passed by iterating a cursor and checking values directly
                 for row in filter(lambda row: all(row[k] == group_key[k] for k in group_key), self[set(_all_fields)]):
@@ -575,7 +572,7 @@ class Table:
         """
         clause = SQLClause(prefix=f'DISTINCT {format_query_list(distinct_fields)}', postfix=None)
         try:
-            yield from (value for value in self.search_cursor(distinct_fields, sql_clause=clause))
+            yield from (value for value in self.search_cursor(*distinct_fields, sql_clause=clause))
         except RuntimeError: # Fallback when DISTINCT is not available or fails with Token input
             yield from sorted(set(self.get_tuples(distinct_fields)))
 
@@ -591,7 +588,7 @@ class Table:
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
-        with self.search_cursor(field_names, **options) as cur:
+        with self.search_cursor(*field_names, **options) as cur:
             yield from as_dict(cur)
 
     def get_tuples(self, field_names: Sequence[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
@@ -601,7 +598,7 @@ class Table:
             field_names (str | Iterable[str]): The columns to iterate
             **options (SearchOptions): Additional parameters to pass to the SearchCursor
         """
-        with self.search_cursor(field_names, **options) as cur:
+        with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
     def insert_records(self, records: Iterator[RowRecord] | Sequence[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
@@ -646,7 +643,7 @@ class Table:
             raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
 
         new_ids: list[int] = []
-        with self.editor, self.insert_cursor(rec_fields) as cur:
+        with self.editor, self.insert_cursor(*rec_fields) as cur:
             for rec in filter(rec_filter, records):
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
@@ -670,7 +667,7 @@ class Table:
             
         unique: dict[int, tuple[Any]] = {}
         deleted: dict[int, int] = {}
-        with self.editor, self.update_cursor(['OID@'] + list(field_names)) as cur:
+        with self.editor, self.update_cursor('OID@', *field_names) as cur:
             for row in cur:
                 oid: int = row[0]
                 row = tuple(row[1:])
@@ -866,6 +863,12 @@ class Table:
         for fname in fieldnames:
             self.delete_field(fname)
     
+    def clear(self) -> None:
+        """Clear all records from the table"""
+        with self.editor, self.update_cursor(self.oid_field_name) as cur:
+            for _ in cur:
+                cur.deleteRow()
+    
     # Magic Methods
     
     if TYPE_CHECKING:
@@ -937,13 +940,13 @@ class Table:
                 with self.search_cursor(field) as cur:
                     yield from (val for val, in cur)
             case tuple():
-                with self.search_cursor(field) as cur:
+                with self.search_cursor(*field) as cur:
                     yield from (row for row in cur)
             case list():
-                with self.search_cursor(field) as cur:
+                with self.search_cursor(*field) as cur:
                     yield from (list(row) for row in cur)
             case set():
-                with self.search_cursor(list(field)) as cur:
+                with self.search_cursor(*field) as cur:
                     yield from (row for row in as_dict(cur))
             case None:
                 yield from () # This allows a side effect None to be used to get nothing
@@ -952,7 +955,7 @@ class Table:
             case wc if isinstance(wc, WhereClause):
                 if not wc.validate(self.fields):
                     raise KeyError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
-                with self.search_cursor(self.fields, where_clause=wc.where_clause) as cur:
+                with self.search_cursor(*self.fields, where_clause=wc.where_clause) as cur:
                     yield from (row for row in as_dict(cur))
             case func if callable(func):
                 yield from (row for row in self.filter(func))
@@ -1018,7 +1021,7 @@ class Table:
         Note:
             When a single field is specified using the `fields_as` context, values will be yielded
         """ 
-        with self.search_cursor(self.fields) as cur:
+        with self.search_cursor(*self.fields) as cur:
             if len(self.fields) == 1:
                 yield from (row for row, in cur)
             else:
@@ -1551,7 +1554,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
         """
         match field:
             case shape if isinstance(shape, Extent | GeometryType):
-                with self.search_cursor(self.fields, spatial_filter=shape) as cur:
+                with self.search_cursor(*self.fields, spatial_filter=shape) as cur:
                     yield from (row for row in as_dict(cur))
             case field if isinstance(field, str|list|tuple|set|Callable|WhereClause):
                 yield from super().__getitem__(field)
