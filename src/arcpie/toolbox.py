@@ -120,18 +120,14 @@ def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[st
             raise AttributeError(f'toolify: {arcpy_param.name} not found in wrapped function')
         _, constructor = types.get(arcpy_param.name, ('GPType', lambda p: p.valueAsText))
         converted_val = constructor(arcpy_param)
-        print(converted_val)
-        if fp.kind == fp.VAR_KEYWORD:
-            kwargs[fp.name] = converted_val
-        else:
-            args[fp.name] = converted_val
+        args[fp.name] = converted_val
     
     # Ensure that the function call is passed arguments in the correct order (assuming the type parameters have been moved)
-    return tuple(args[name] for name, p in func_params.items() if name in args and p.kind == p.POSITIONAL_ONLY), kwargs
+    return tuple(args[name] for name in func_params if name in args), kwargs
 
 from arcpie.utils import print
 ParameterTypeMap = dict[str, tuple[ParameterDatatype | list[ParameterDatatype] | Parameter, Callable[[Parameter], Any]]]
-def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: ParameterTypeMap|None=None):
+def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: ParameterTypeMap|None=None, debug: bool=False):
     """Convert a typed function into a tool for the specified Toolbox class
     
     Args:
@@ -140,6 +136,7 @@ def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: 
         params (ParameterTypeMap): A mapping of parameter names to Parameter types and a callable constructor 
             that converts the parameter to the expected value for the function parameter. You can also pass
             a fully formed arcpy.Parameter object as the first item in the tuple instead of a simple type
+        debug (bool): Print the converted arguments to the ArcGIS Pro message console (default: False)
     
     Usage:
         ```python
@@ -170,10 +167,12 @@ def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: 
         
         # Handle parameter converison
         def _passthrough_execution(self: ToolABC, parameters: Parameters | list[Parameter], messages: Any) -> None:
-            print(f'Executing toolified {func.__name__} via {self.label}')
+            if debug:
+                print(f'Executing toolified {func.__name__} via {self.label}')
             try:
                 args, kwargs = _read_params(parameters, sig_params, params or {})
-                print(f"Using *{args}, **{kwargs}")
+                if debug:
+                    print(f"Using *{args}, **{kwargs}")
                 _execute(*args, **kwargs)
             except Exception as e:
                 print(f'Something went wrong!: {e}', severity='ERROR')
