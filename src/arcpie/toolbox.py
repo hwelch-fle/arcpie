@@ -2,19 +2,22 @@ from __future__ import annotations
 from functools import wraps
 from pathlib import Path
 from types import MappingProxyType
+import inspect
 
 from arcpy import Parameter
 from arcpie.featureclass import FeatureClass
 from arcpie.project import Layer, Project, Table
+from arcpie._types import ParameterDatatype
 from abc import ABC
 from collections.abc import Callable
-from typing import Any, overload, SupportsIndex
+from typing import Any, Literal, TypeVar, overload, SupportsIndex
 
 class ToolboxABC(ABC):
-    tools: list[type[ToolABC]] = []
+    
     def __init__(self) -> None:
-        self.label: str = self.__class__.__name__
-        self.alias: str = self.__class__.__name__
+        self.label: str
+        self.alias: str
+        self.tools: list[type[ToolABC]]
 
 class ToolABC(ABC):
     _current_project: Project | None = None
@@ -38,9 +41,10 @@ class ToolABC(ABC):
     def isLicensed(self) -> bool: return True
     def updateParameters(self, parameters: Parameters | list[Parameter]) -> None: ...
     def updateMessages(self, parameters: Parameters | list[Parameter]) -> None: ...
-    def execute(self, parameters: Parameters | list[Parameter], messages: list[Any]) -> None: ...
+    def execute(self, parameters: Parameters | list[Parameter], messages: Any) -> None: ...
     def postExecute(self, parameters: Parameters | list[Parameter]) -> None: ...
-    
+
+_Default = TypeVar('_Default')
 class Parameters(list[Parameter]):
     """Wrap a list of parameters and override the index to allow indexing by name"""
     @overload
@@ -58,73 +62,97 @@ class Parameters(list[Parameter]):
                 return _matches.pop()
             raise KeyError(f'{key} is used for multiple parameters')
         return self[key]
+    
+    @overload
+    def get(self, key: SupportsIndex, default: _Default=None, /) -> Parameter | _Default: ...
+    @overload
+    def get(self, key: slice, default: _Default=None, /) -> list[Parameter] | _Default: ...
+    @overload
+    def get(self, key: str, default: _Default=None, /) -> Parameter | _Default: ...
+    def get(self, key: SupportsIndex|slice|str, default: _Default=None, /) -> Parameter | list[Parameter] | _Default:
+        try:
+            return self[key]
+        except KeyError:
+            return default
+
+    def __contains__(self, key: object) -> bool:
+        match key:
+            case str():
+                return any(p.name == key for p in self)
+            case Parameter():
+                return any(p == key for p in self)
+            case _:
+                return False
 
 # toolify wrapper
-
-# Mapping of Python types to arcpy.Parameter types
-_PARAMETER_TYPE_MAP: dict[type, str|list[str]] = {
-    int: 'GPLong',
-    str: 'GPString',
-    float: 'GPDouble',
-    FeatureClass: ['DEFeatureClass', 'GPFeatureLayer'],
-    Layer: 'GPFeatureLayer',
-    Table: 'DETable',
-    Project: 'DEWorkspace',
-    Path: 'DEFile',
-} # Add more as needed
-
-import inspect
-from functools import partial
-
 # NOTE: inspect.Parameter is much different from arcpy.Parameter, module level import used to keep them clear
-
-def _build_params(params: MappingProxyType[str, inspect.Parameter]) -> Parameters:
-    _parameters: Parameters = Parameters()
+def _build_params(params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> Parameters:
+    _parameters = Parameters()
     for name, param in params.items():
-        p = Parameter(
-            name=name,
-            displayName=name.replace('_', ' ').title(),
-            direction='Input',
-            parameterType='Required',
-            datatype=_PARAMETER_TYPE_MAP.get(param.annotation, 'GPType'),
-        )
-        if param.default:
+        
+        # Build a simple parameter if only type is given, otherwise use the provided Parameter object
+        param_type, _ = types.get(name, ('GPType', None))
+        if isinstance(param_type, Parameter):
+            # Ensure that the parameter name matches the arg name
+            param_type.name = name
+            p = param_type
+        
+        else:
+            p = Parameter(
+                name=name,
+                displayName=name.replace('_', ' ').title(),
+                direction='Input',
+                parameterType='Required',
+                datatype=param_type, # pyright: ignore[reportArgumentType]
+            )
             p.value = param.default
         _parameters.append(p)
-    return _parameters
+    
+    # Match parameter order to types order
+    return Parameters([_parameters[name] for name in types if name in _parameters] + [p for p in _parameters if p.name not in types])
 
-def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[str, inspect.Parameter]) -> tuple[tuple[Any], dict[str, Any]]:
-    args: list[Any] = []
+def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> tuple[tuple[Any], dict[str, Any]]:
+    args: dict[str, Any] = {}
     kwargs: dict[str, Any] = {}
-    for param in arcpy_params:
-        fp = func_params.get(param.name)
+    for arcpy_param in arcpy_params:
+        fp = func_params.get(arcpy_param.name)
         if not fp:
-            raise AttributeError(f'toolify: {param.name} not found in wrapped function')
-        if not fp.annotation:
-            raise AttributeError(f'toolify: Tools created with the toolify wrapper need valid type params!')
-        if param.datatype == 'GPFeatureLayer' and fp.annotation == FeatureClass:
-            v = FeatureClass[Any].from_layer(param.value)
-        else:
-            v = fp.annotation(param.value)
+            raise AttributeError(f'toolify: {arcpy_param.name} not found in wrapped function')
+        _, constructor = types.get(arcpy_param.name, ('GPType', lambda p: p.valueAsText))
+        converted_val = constructor(arcpy_param)
+        print(converted_val)
         if fp.kind == fp.VAR_KEYWORD:
-            kwargs[fp.name] = v
+            kwargs[fp.name] = converted_val
         else:
-            args.append(v)
-    return tuple(args), kwargs
-        
+            args[fp.name] = converted_val
+    
+    # Ensure that the function call is passed arguments in the correct order (assuming the type parameters have been moved)
+    return tuple(args[name] for name, p in func_params.items() if name in args and p.kind == p.POSITIONAL_ONLY), kwargs
 
-def toolify(toolbox: type[ToolboxABC]):
+from arcpie.utils import print
+ParameterTypeMap = dict[str, tuple[ParameterDatatype | list[ParameterDatatype] | Parameter, Callable[[Parameter], Any]]]
+def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: ParameterTypeMap|None=None):
     """Convert a typed function into a tool for the specified Toolbox class
     
     Args:
-        toolbox (type[ToolboxABC]): The toolbox to register the function to
+        *tool_registries (list[type[ToolABC]]): The tool registry lists to add this tool to
         name (str): The name of the tool
-        description (str): An optional description for the tool
+        params (ParameterTypeMap): A mapping of parameter names to Parameter types and a callable constructor 
+            that converts the parameter to the expected value for the function parameter. You can also pass
+            a fully formed arcpy.Parameter object as the first item in the tuple instead of a simple type
     
     Usage:
         ```python
-        >>> @toolify(Toolbox)
-        >>> def get_counts(feature_class: FeatureClass)
+        >>> @toolify(
+        >>>     TOOL_REGISTRY, 
+        >>>     name='PDF Exporter', 
+        >>>     params={
+        >>>         'project': ('DEFile', lambda p: Project(p.valueAsText)),
+        >>>         'outfile': ('DEFile', lambda p: Path(p.valueAsText))
+        >>>     }
+        >>> )
+        >>> def export_pdf(project: Project|str='CURRENT', outfile: Path|str='out.pdf') -> None:
+        >>>     ...
         ```
     """
     def _builder(func: Callable[..., Any]):
@@ -133,34 +161,43 @@ def toolify(toolbox: type[ToolboxABC]):
         def _execute(*args: Any, **kwargs: Any):
             return func(*args, **kwargs)
         
-        # Build the class and register it if it doesn't exist
-        _label = func.__name__.replace('_', ' ').title()
-        _description = func.__doc__
-        _class_name = _label.replace(' ', '')
-        
-        # Don't register the tool again
-        if _class_name in map(lambda t: t.__name__, toolbox.tools):
-            return _execute
-        
         # Build the tool class
-        _sig = inspect.signature(func)
-        _params = _sig.parameters
-        _tool_class: type[ToolABC] = __build_class__(
-            lambda: {'label': _label, 'description': _description}, 
-            _class_name, ToolABC
-        )
-        
-        # Override getParameterInfo using type annotations
-        # Override execute with a wrapper that converts arcpy params to python function call
-        setattr(_tool_class, 'getParameterInfo', partial(_build_params, _params))
+        _label = func.__name__.replace('_', ' ').title()
+        _description = func.__doc__ or 'No Description Provided'
+        _class_name = _label.replace(' ', '')
+        sig = inspect.signature(func)
+        sig_params = sig.parameters
         
         # Handle parameter converison
-        def _passthrough_execution(parameters: Parameters, messages: Any) -> None:
-            args, kwargs = _read_params(parameters, _params)
-            _execute(*args, **kwargs)
-        setattr(_tool_class, 'execute', _passthrough_execution)
+        def _passthrough_execution(self: ToolABC, parameters: Parameters | list[Parameter], messages: Any) -> None:
+            print(f'Executing toolified {func.__name__} via {self.label}')
+            try:
+                args, kwargs = _read_params(parameters, sig_params, params or {})
+                print(f"Using *{args}, **{kwargs}")
+                _execute(*args, **kwargs)
+            except Exception as e:
+                print(f'Something went wrong!: {e}', severity='ERROR')
         
-        toolbox.tools.append(_tool_class)
+        def _local_build_params(self: ToolABC) -> Parameters | list[Parameter]:
+            return _build_params(sig_params, params or {})
         
+        def _local_init(self: ToolABC) -> None:
+            self.label = name or _label
+            self.description = _description
+
+        _tool_class = type(
+            _class_name, 
+            (ToolABC, ),
+            {
+                '__init__': _local_init, 
+                'getParameterInfo':_local_build_params, 
+                'execute': _passthrough_execution
+            }
+        )
+
+        for registry in tool_registries:
+            if _tool_class.__name__ not in map(lambda c: c.__name__, registry):
+                registry.append(_tool_class)
+                globals()[_class_name] = _tool_class
         return _execute
     return _builder
