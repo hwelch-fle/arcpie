@@ -158,7 +158,6 @@ class Dataset:
         self._tables = {}
         for root, _, tbls in Walk(str(self.conn), datatype=['Table']):
             root = Path(root)
-            self._tables.update({tbl: Table(root / tbl) for tbl in tbls if tbl not in self})
             for tbl in tbls:
                 # Backlink Datasets to parent (Should never hit since tables are in root only)
                 if self.parent and tbl in self.parent:
