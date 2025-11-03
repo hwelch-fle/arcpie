@@ -208,3 +208,23 @@ class Dataset:
             
         for dataset in self.datasets.values():
             yield from dataset
+    
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
+           
+    def __repr__(self) -> str:
+        return (
+            "Dataset("
+            f"{self.name}, "
+            "{"
+            f"Features: {len(self.feature_classes)}, "
+            f"Tables: {len(self.tables)}, "
+            f"Datasets: {len(self.datasets)}"
+            "})"
+        )
+    
+    def __str__(self) -> str:
+        return self.__fspath__()
+    
+    def __fspath__(self) -> str:
+        return str(self.conn.resolve())
