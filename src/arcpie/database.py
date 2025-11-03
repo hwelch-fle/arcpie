@@ -177,7 +177,13 @@ class Dataset:
         ret = self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key)
         if not ret:
             raise KeyError(f'{key} is not a child of {self.conn.stem}')
-        return ret
+        
+    
+    def get(self, key: str, default: _Default=None) -> FeatureClass[Any] | Table | Dataset | _Default:
+        try:
+            return self[key]
+        except KeyError:
+            return default
     
     def __contains__(self, key: str) -> bool:
         try:
