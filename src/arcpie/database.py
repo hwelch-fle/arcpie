@@ -19,6 +19,9 @@ from arcpy.da import (
     Domain,
 )
 
+from arcpy.management import (
+    DeleteDomain, # pyright: ignore[reportUnknownVariableType]
+)
 class Dataset:
     """A Container for managing workspace connections.
     
@@ -122,9 +125,10 @@ class Dataset:
             )
         ]
 
-    def delete_domain(self, *domain_name: str) -> None:
+    def delete_domain(self, *domain_names: str) -> None:
         """Delete a domain from the dataset"""
-        
+        for domain_name in domain_names:
+            DeleteDomain(str(self.conn), domain_name)
 
     def walk(self) -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
