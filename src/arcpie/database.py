@@ -23,6 +23,8 @@ from arcpy.da import (
 
 from arcpy.management import (
     DeleteDomain, # pyright: ignore[reportUnknownVariableType]
+    CreateDomain, # pyright: ignore[reportUnknownVariableType]
+    AlterDomain,  # pyright: ignore[reportUnknownVariableType]
 )
 
 _Default = TypeVar('_Default')
@@ -105,7 +107,7 @@ class Dataset:
     @property
     def unused_domains(self) -> dict[str, Domain]:
         return {
-            name: domain 
+            name: domain
             for name, domain in self.domains.items() 
             if not self.domain_usage(name)
         }
@@ -113,7 +115,7 @@ class Dataset:
     def domain_usage(self, *domain_names: str) -> list[str]:
         """A list of all Table/FeatureClass names using a specified domain"""
         if not domain_names:
-            domain_names = tuple(self.domains.keys())
+            domain_names = tuple(self.domains)
         
         if invalid := set(domain_names) - set(self.domains):
             raise ValueError(f'{invalid} not found in {self.name} domains')
@@ -184,7 +186,6 @@ class Dataset:
         
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
-    
     def get(self, key: str, default: _Default=None) -> FeatureClass[Any] | Table | Dataset | _Default:
         try:
             return self[key]
@@ -227,3 +228,34 @@ class Dataset:
     
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
+
+class DomainManager:
+    def __init__(self, dataset: Dataset) -> None:
+        self._dataset = dataset
+        self._domains = dataset.domains
+        
+    @property
+    def dataset(self) -> Dataset:
+        return self._dataset
+    
+    @property
+    def domains(self) -> dict[str, Domain]:
+        if self.dataset.parent:
+            return self.dataset.parent.domains
+        return {d.name: d for d in ListDomains(str(self.dataset.conn))}
+    
+    def add_domain(self, domain: Domain) -> None:
+        """Add a domain to the parent dataset or the root dataset (gdb)"""
+        if self.dataset.parent is None:
+            _root = self.dataset.conn
+        else:
+            _root = self.dataset.parent.conn
+        CreateDomain(
+            in_workspace=str(_root), 
+            domain_name=domain.name,
+            domain_description=domain.description,
+            field_type=domain.type,
+            domain_type=domain.domainType,
+            split_policy=domain.splitPolicy,
+            merge_policy=domain.mergePolicy,
+        )
