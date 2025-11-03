@@ -1047,7 +1047,8 @@ class Table:
                 print(f'{i}/{count}')
             ```
         """
-        return sum(1 for _ in self['OID@'])
+        #return sum(1 for _ in self['OID@'])
+        return sum(1 for _ in self.search_cursor('OID@'))
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `Table or FeatureClass[Polygon]('path')`"""
