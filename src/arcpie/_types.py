@@ -446,7 +446,7 @@ ParameterDatatype = Literal[
     'DEAddressLocator',
     'DEArcInfoTable',
     'DECadastralFabric',
-    'DECadDrawingDataset	',
+    'DECadDrawingDataset',
     'DECatalogRoot',
     'DECoverage',
     'DECoverageFeatureClasses',
