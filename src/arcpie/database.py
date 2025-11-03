@@ -175,8 +175,15 @@ class Dataset:
     def __getitem__(self, key: str) -> FeatureClass[Any] | Table | Dataset:
         # Check top level
         ret = self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key)
-        if not ret:
-            raise KeyError(f'{key} is not a child of {self.conn.stem}')
+        if ret is not None:
+            return ret
+        
+        # Traverse tree
+        for ds in self.datasets.values():
+            if key in ds:
+                return ds[key]
+        
+        raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
     
     def get(self, key: str, default: _Default=None) -> FeatureClass[Any] | Table | Dataset | _Default:
@@ -198,3 +205,6 @@ class Dataset:
             
         for table in self.tables.values():
             yield table
+            
+        for dataset in self.datasets.values():
+            yield from dataset
