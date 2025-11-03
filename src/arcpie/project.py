@@ -413,8 +413,8 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         Args:
             out_dir (Path|str): The location to export the mapx to
         """
-        out_dir = Path(out_dir)
-        (out_dir / self.unique_name).with_suffix('.mapx').write_text(json.dumps(self.mapx, indent=2))
+        out_dir = Path(out_dir) / self.unique_name
+        out_dir.with_suffix(f'{out_dir.suffix}.mapx').write_text(json.dumps(self.mapx, indent=2))
     
     def export_assoc_lyrx(self, out_dir: Path|str, *, skip_groups: bool=False, skip_grouped: bool=False) -> None:
         """Export all child layers to lyrx files the target directory
