@@ -196,7 +196,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
         target = (out_dir / self.longName)
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
-        target.with_suffix('.lyrx').write_text(json.dumps(self.lyrx))
+        target.with_suffix(f'{target.suffix}.lyrx').write_text(json.dumps(self.lyrx, indent=2))
     
     def import_lyrx(self, lyrx: Path|str) -> None:
         """Import the layer state from an lyrx file
@@ -537,7 +537,7 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
         target = (out_dir / self.longName)
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
-        target.with_suffix('.lyrx').write_text(json.dumps(self.lyrx))
+        target.with_suffix(f'{target.suffix}.lyrx').write_text(json.dumps(self.lyrx, indent=2))
     
     def import_lyrx(self, lyrx: Path|str) -> None:
         """Import the table state from an lyrx file
