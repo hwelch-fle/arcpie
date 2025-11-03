@@ -453,6 +453,8 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         for lyrx_path in lyrx_dir.rglob('*.lyrx'):
             _lyrx_name = str(lyrx_path.relative_to(lyrx_dir).with_suffix(''))
             if _lyrx_name in self.layers:
+                if self.layers[_lyrx_name].isGroupLayer and skip_groups:
+                    continue
                 self.layers[_lyrx_name].import_lyrx(lyrx_path)
             elif _lyrx_name in self.tables:
                 self.tables[_lyrx_name].import_lyrx(lyrx_path)
@@ -531,10 +533,9 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
         """Export the layer to a lyrx file in the target directory
         
         Args:
-            out_dir (Path|str): The location to export the mapx to
+            out_dir (Path|str): The location to export the lyrx to
         """
-        out_dir = Path(out_dir)
-        target = (out_dir / self.longName)
+        target = Path(out_dir) / self.longName
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
         target.with_suffix(f'{target.suffix}.lyrx').write_text(json.dumps(self.lyrx, indent=2))
