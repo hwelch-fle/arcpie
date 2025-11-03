@@ -1,16 +1,18 @@
 from __future__ import annotations
 from functools import wraps
-from pathlib import Path
+import traceback
 from types import MappingProxyType
 import inspect
+from logging import Logger
+from datetime import datetime
+import time
 
 from arcpy import Parameter
-from arcpie.featureclass import FeatureClass
-from arcpie.project import Layer, Project, Table
+from arcpie.project import Project
 from arcpie._types import ParameterDatatype
 from abc import ABC
 from collections.abc import Callable
-from typing import Any, Literal, TypeVar, overload, SupportsIndex
+from typing import Any, TypeVar, overload, SupportsIndex
 
 class ToolboxABC(ABC):
     
@@ -127,7 +129,12 @@ def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[st
 
 from arcpie.utils import print
 ParameterTypeMap = dict[str, tuple[ParameterDatatype | list[ParameterDatatype] | Parameter, Callable[[Parameter], Any]]]
-def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: ParameterTypeMap|None=None, debug: bool=False):
+def toolify(*tool_registries: list[type[ToolABC]], 
+            name: str|None=None, 
+            params: ParameterTypeMap|None=None, 
+            debug: bool=False, 
+            logger: Logger|None=None,
+):
     """Convert a typed function into a tool for the specified Toolbox class
     
     Args:
@@ -137,6 +144,7 @@ def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: 
             that converts the parameter to the expected value for the function parameter. You can also pass
             a fully formed arcpy.Parameter object as the first item in the tuple instead of a simple type
         debug (bool): Print the converted arguments to the ArcGIS Pro message console (default: False)
+        logger (Logger|None): An optional logger to use for logging all runs of the toolified tool
     
     Usage:
         ```python
@@ -169,14 +177,21 @@ def toolify(*tool_registries: list[type[ToolABC]], name: str|None=None, params: 
         def _passthrough_execution(self: ToolABC, parameters: Parameters | list[Parameter], messages: Any) -> None:
             if debug:
                 print(f'Executing toolified {func.__name__} via {self.label}')
+            args, kwargs = _read_params(parameters, sig_params, params or {})
+            start = time.time()
             try:
-                args, kwargs = _read_params(parameters, sig_params, params or {})
                 if debug:
                     print(f"Using *{args}, **{kwargs}")
-                _execute(*args, **kwargs)
+                res = _execute(*args, **kwargs)
+                end = time.time()
+                if logger:
+                    logger.info(f'[{datetime.isoformat(datetime.now())}] PASS "{self.label}" ({end-start:0.2f} seconds) [{res}]')
             except Exception as e:
-                print(f'Something went wrong!: {e}', severity='ERROR')
-        
+                print(f'Something went wrong!:\n\t{traceback.format_exc()}', severity='ERROR')
+                end = time.time()
+                if logger:
+                    logger.info(f'[{datetime.isoformat(datetime.now())}] FAIL "{self.label}" ({end-start:0.2f} seconds) [{e}] ')
+                    
         def _local_build_params(self: ToolABC) -> Parameters | list[Parameter]:
             return _build_params(sig_params, params or {})
         
