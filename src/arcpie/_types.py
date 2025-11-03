@@ -440,6 +440,50 @@ class AddRuleOpts(TypedDict, total=False):
     tags: str
     triggering_fields: Sequence[str]
 
+from datetime import date, time
+NumericType = int | float
+DateType = datetime | date | time
+ValueType = str | NumericType | DateType
+_DomainType = Literal["CodedValue", "Range"]
+_DomainFieldType = Literal["Short", "Long", "BigInteger", "Float", "Double", "Text", "Date", "DateOnly", "TimeOnly"]
+_DomainMergePolicy = Literal["AreaWeighted", "DefaultValue", "SumValues"]
+_DomainSplitPolicy = Literal["DefaultValue", "Duplicate", "GeometryRatio"]
+class SystemDomain(TypedDict):
+    codedValues: dict[ValueType, str]
+    description: str
+    domainType: _DomainType
+    mergePolicy: _DomainMergePolicy
+    name: str
+    owner: str
+    range: tuple[ValueType, ValueType]
+    splitPolicy: _DomainSplitPolicy
+    type: _DomainFieldType
+    
+DomainFieldType = Literal['SHORT', 'LONG', 'BIGINTEGER', 'FLOAT', 'DOUBLE', 'TEXT', 'DATE', 'DATEONLY', 'TIMEONLY']
+DomainSplitPolicy = Literal['DEFAULT', 'DUPLICATE', 'GEOMETRY_RATIO']
+DomainMergePolicy = Literal['DEFAULT', 'SUM_VALUES', 'AREA_WEIGHTED']
+DomainType = Literal['CODED', 'RANGE']
+class BaseDomain(TypedDict):
+    in_workspace: str
+    domain_name: str
+    split_policy: DomainSplitPolicy
+    merge_policy: DomainMergePolicy
+    owner: str
+    
+class AlterDomain(BaseDomain, total=False):
+    """Use with arcpy.management.AlterDomain"""
+    new_domain_name: str
+    new_domain_description: str
+
+class CreateDomain(BaseDomain, total=False):
+    """Use with arcpy.management.CreateDomain"""
+    field_type: DomainFieldType
+    domain_type: DomainType
+    domain_description: str
+
+def parse_domain(domain: Domain) -> SystemDomain:
+    return SystemDomain(**domain.__dict__)
+
 # Parameter Datatypes for Tool Parameters
 ParameterDatatype = Literal[
     'analysis_cell_size',
