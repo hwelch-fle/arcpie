@@ -5,12 +5,14 @@ from pathlib import Path
 from collections.abc import (
     Iterator,
 )
-from typing import Any
+from typing import (
+    Any,
+    TypeVar,
+)
     
 from .featureclass import (
     Table,
     FeatureClass,
-    GeometryType,
 )
 
 from arcpy.da import (
@@ -22,6 +24,8 @@ from arcpy.da import (
 from arcpy.management import (
     DeleteDomain, # pyright: ignore[reportUnknownVariableType]
 )
+
+_Default = TypeVar('_Default')
 class Dataset:
     """A Container for managing workspace connections.
     
@@ -67,7 +71,7 @@ class Dataset:
         self.conn = Path(conn)
         self.parent = parent
         self._datasets: dict[str, Dataset] | None = None
-        self._feature_classes: dict[str, FeatureClass[GeometryType]] | None=None
+        self._feature_classes: dict[str, FeatureClass[Any]] | None=None
         self._tables: dict[str, Table] | None=None
         self.walk()
 
@@ -168,7 +172,8 @@ class Dataset:
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
     
-    def __getitem__(self, key: str) -> FeatureClass[GeometryType] | Table | Dataset:
+    def __getitem__(self, key: str) -> FeatureClass[Any] | Table | Dataset:
+        # Check top level
         ret = self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key)
         if not ret:
             raise KeyError(f'{key} is not a child of {self.conn.stem}')
