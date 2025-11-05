@@ -744,9 +744,9 @@ class Table:
             False
             ```
         """
-        name = Path(self.path).relative_to(Path(self.workspace))
-        if Exists(copy_fc := Path(workspace) / name):
-            raise ValueError(f'{name} already exists in {workspace}!')
+        #name = Path(self.path).relative_to(Path(self.workspace))
+        if Exists(copy_fc := Path(workspace) / self.name):
+            raise ValueError(f'{self.name} already exists in {workspace}!')
         CopyFeatures(self.path, str(copy_fc))
         fc = self.__class__(str(copy_fc))
         if options:
