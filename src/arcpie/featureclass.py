@@ -1235,7 +1235,8 @@ class Table:
             `.filter` method. If you can achieve the filtering you want with a where clause, do it.
         """
         with self.options(
-            search_options=SearchOptions(where_clause=where_clause)):
+            search_options=SearchOptions(where_clause=where_clause),
+            update_options=UpdateOptions(where_clause=where_clause)):
             yield self
 
     # Mapping interfaces (These pass common `Layer` operations up to the Table or FeatureClass)
