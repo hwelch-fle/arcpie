@@ -145,6 +145,49 @@ class Dataset:
         for domain_name in domain_names:
             DeleteDomain(str(self.conn), domain_name)
 
+    def export_rules(self, rule_dir: Path|str) -> None:
+        """Export all attribute rules from the dataset into feature subdirectories
+        
+        Args:
+            rule_dir (Path|str): The target directory for the rules
+        
+        Usage:
+            >>> # Transfer rules from one dataset to another
+            >>> ds.export_rules('my_rules')
+            >>> ds2.import_rules('my_rules')
+        """
+        rule_dir = Path(rule_dir)
+        for feature_class in self.feature_classes.values():
+            fc_dir = rule_dir / feature_class.name
+            fc_dir.mkdir(exist_ok=True, parents=True)
+            feature_class.attribute_rules.export_rules(fc_dir)
+
+    def import_rules(self, rule_dir: Path|str, 
+                     *, 
+                     skip_fail: bool=False) -> None:
+        """Import Attribute rules for the dataset from a directory
+        
+        Args:
+            rule_dir (Path|str): A directory containing rules in feature sub directories
+            skip_fail (bool): Skip any attribute rule imports that fail (whole FC) (default: False)
+            
+        Usage:
+            >>> # Transfer rules from one dataset to another
+            >>> ds.export_rules('my_rules')
+            >>> ds2.import_rules('my_rules')
+        """
+        rule_dir = Path(rule_dir)
+        for feature_class in self.feature_classes.values():
+                if not (rule_dir / feature_class.name).exists():
+                    continue
+                try:
+                    feature_class.attribute_rules.import_rules(rule_dir / feature_class.name)
+                except Exception as e:
+                    if skip_fail:
+                        print(f'Failed to import rules for {feature_class.name}: {e}')
+                    else:
+                        raise e
+
     def walk(self) -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
         
