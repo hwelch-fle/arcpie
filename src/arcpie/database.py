@@ -270,7 +270,7 @@ class Dataset:
             if (gdb := (out_loc / name).with_suffix('.gdb')) and gdb.exists():
                 rmtree(gdb) # Cleanup the malformed GDB
             raise ValueError("Unable to import schema") from e
-        return Dataset(out_loc / name)
+        return Dataset((out_loc / name).with_suffix('.gdb'))
 
 class DomainManager:
     def __init__(self, dataset: Dataset) -> None:
