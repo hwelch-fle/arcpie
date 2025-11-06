@@ -1438,7 +1438,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
         return self.describe.spatialReference
 
     @property
-    def unit_name(self) -> str:
+    def units(self) -> str:
         return self.spatial_reference.linearUnitName
 
     @property
@@ -1589,7 +1589,6 @@ class FeatureClass(Table, Generic[_GeometryType]):
             if isinstance(e, RuntimeError) and 'Cannot find field' in str(e):
                 raise
             return default
-    
     
     def __format__(self, format_spec: str) -> str:
         match format_spec:
