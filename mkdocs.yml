@@ -98,6 +98,9 @@ markdown_extensions:
   pymdownx.blocks.tab:
     alternate_style: True
 
+extra_javascript:
+- https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js
+
 extra:
   mkdocstrings:
     default_handler: python
@@ -105,17 +108,28 @@ extra:
       python:
         docstring_style: google
         options:
+          docstring_section_style: table
+          modernize_annotations: true
+          show_labels: false
+          backlinks: tree
           show_root_heading: true
           show_if_no_docstring: true
+          show_docstring_yields: true
           inherited_members: true
+          overloads_only: true
           members_order: source
           separate_signature: true
+          show_signature_type_parameters: true
+          show_signature: true
+          show_signature_annotations: true
           filters:
             - "!^_"
           merge_init_into_class: true
           signature_crossrefs: true
           show_symbol_type_heading: true
           show_symbol_type_toc: true
+          parameter_headings: true
+          type_parameter_headings: true
           rendering:
             show_source: false
           selection:
@@ -124,14 +138,17 @@ extra:
 nav:
   - Home: index.md
   - Modules:
-      - featureclass: featureclass.md
-      - database: database.md
-      - cursor: cursor.md
-      - network: network.md
-      - project: project.md
-      - toolbox: toolbox.md
-      - utils: utils.md
-      - diff: diff.md
+      - featureclass: modules/featureclass.md
+      - database: modules/database.md
+      - cursor: modules/cursor.md
+      - network: modules/network.md
+      - project: modules/project.md
+      - toolbox: modules/toolbox.md
+      - utils: modules/utils.md
+      - diff: modules/diff.md
+      - schemas: modules/schemas.md
+  - Examples:
+      - Feature Interaction: examples/feature-interaction.md
 
 plugins:
   - search
