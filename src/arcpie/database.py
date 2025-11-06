@@ -326,7 +326,10 @@ class Dataset:
             for feature_class in ds.feature_classes.values():
                 if not (tmp / 'rules' / feature_class.name).exists():
                     continue
-                feature_class.attribute_rules.import_rules(tmp / 'rules' / feature_class.name)
+                try:
+                    feature_class.attribute_rules.import_rules(tmp / 'rules' / feature_class.name)
+                except Exception as e:
+                    print(f'Failed to import rules for {feature_class.name}: {e}')
 
         return ds
 
