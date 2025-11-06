@@ -347,7 +347,7 @@ def convert_rule(rule: AttributeRule) -> dict[str, Any]:
         'fieldName': 'field',
         'subtypeCode': 'subtype',
         'errorNumber': 'error_number',
-        'error_message': 'error_message',
+        'errorMessage': 'error_message',
         'userEditable': 'is_editable',
         'isEnabled': 'enabled',
         'excludeFromClientEvaluation': 'exclude_from_client_evaluation',
@@ -400,7 +400,7 @@ def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
     }
     return AlterRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
 
-def to_rule_add(rule: AttributeRule) -> AlterRuleOpts:
+def to_rule_add(rule: AttributeRule) -> AddRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
     _rule = convert_rule(rule) # Will always have correct keys
     _keys = {
