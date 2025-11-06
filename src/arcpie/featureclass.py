@@ -303,30 +303,37 @@ class Table:
     
     @property
     def search_options(self) -> SearchOptions:
+        """Default SearchCursor options"""
         return self._search_options.copy()
     
     @search_options.setter
     def search_options(self, search_options: SearchOptions) -> None:
+        """Default SearchCursor options setter"""
         self._search_options = search_options or SearchOptions()
 
     @property
     def insert_options(self) -> InsertOptions:
+        """Default InsertCursor options"""
         return self._insert_options.copy()
     
     @insert_options.setter
     def insert_options(self, insert_options: InsertOptions) -> None:
+        """Default InsertCursor options setter"""
         self._insert_options = insert_options or InsertOptions()
 
     @property
     def update_options(self) -> UpdateOptions:
+        """Default UpdateCursor options"""
         return self._update_options.copy() # pyright: ignore[reportReturnType]
     
     @update_options.setter
     def update_options(self, update_options: UpdateOptions) -> None:
+        """Default UpdateCursor options setter"""
         self._update_options = update_options or UpdateOptions()
 
     @property
     def clause(self) -> SQLClause:
+        """Default SQLClause"""
         return self._clause
 
     @clause.setter
@@ -339,11 +346,12 @@ class Table:
 
     @property
     def layer(self) -> Layer|None:
+        """A Layer object for the FeatureClass/Table if one is bound"""
         return self._layer
 
     @layer.setter
     def layer(self, layer: Layer) -> None:
-        """Set a layer object for the Table or FeatureClass, layer datasource must be this feature class!"""
+        """Set a layer object for the Table or FeatureClass, layer datasource must be this FeatureClass!"""
         if layer.dataSource != self.path:
             raise ValueError(f'Layer: {layer.name} does not source to {self.name} Table or FeatureClass at {self.path}!')
         self._layer = layer
@@ -352,6 +360,7 @@ class Table:
 
     @property
     def path(self) -> str:
+        """The filepath of the FeatureClass/Table"""
         return self._path
 
     @property
@@ -371,14 +380,17 @@ class Table:
 
     @property
     def name(self) -> str:
+        """The common name of the FeatureClass/Table"""
         return self.describe.name
 
     @property
     def oid_field_name(self) -> str:
+        """ObjectID fieldname (ususally FID or OID or ObjectID)"""
         return self.describe.OIDFieldName
 
     @property
     def subtype_field(self) -> str | None:
+        """The Subtype field (ususally SUBTYPE or SUBTYPE_CODE, etc.)"""
         if not self.subtypes:
             return None
         return list(self.subtypes.values()).pop()['SubtypeField']
@@ -397,6 +409,7 @@ class Table:
 
     @property
     def np_dtypes(self):
+        """Numpy dtypes for each field"""
         return self.search_cursor(*self.fields)._dtype # pyright: ignore[reportPrivateUsage]
 
     @property
@@ -459,9 +472,9 @@ class Table:
 
         `{**self.search_options, **(search_options or {}), **overrides}`
         
-        With direct key word arguments (`**overrides`) shadowing all other supplied options. This allows a Feature Class to
+        With direct key word arguments (`**overrides`) shadowing all other supplied options. This allows a FeatureClass to
         be initialized using a base set of options, then a shared SearchOptions set to be applied in some contexts,
-        then a direct keyword override to be supplied while never mutating the base options of the feature class.
+        then a direct keyword override to be supplied while never mutating the base options of the FeatureClass.
         
         Args:
             field_names (str | Iterable[str]): The column names to include from the `Table` or `FeatureClass`
@@ -1410,10 +1423,12 @@ class FeatureClass(Table, Generic[_GeometryType]):
 
     @property
     def describe(self) -> dt.FeatureClass: # pyright: ignore[reportIncompatibleMethodOverride]
+        """A describe object fort the FeatureClass"""
         return Describe(self.path) # type: ignore
 
     @property
     def shape_field_name(self) -> str:
+        """The name for the base shape field of the FeatureClass"""
         return self.describe.shapeFieldName
 
     @property
@@ -1431,19 +1446,22 @@ class FeatureClass(Table, Generic[_GeometryType]):
 
     @property
     def shapes(self) -> Iterator[_GeometryType]:
+        """An iterator of feature shapes"""
         yield from ( shape for shape, in self.search_cursor('SHAPE@'))
 
     @property
     def spatial_reference(self):
+        """The SpatialReference object for the FeatureClass"""
         return self.describe.spatialReference
 
     @property
     def units(self) -> str:
+        """The unit name of the FeatureClass"""
         return self.spatial_reference.linearUnitName
 
     @property
     def extent(self) -> Extent:
-        """Get the stored extent of the feature class"""
+        """Get the stored extent of the FeatureClass"""
         return self.describe.extent
 
     @property
