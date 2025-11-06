@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from tempfile import TemporaryDirectory
@@ -17,6 +18,8 @@ from .featureclass import (
     Table,
     FeatureClass,
 )
+
+from .schemas.workspace import SchemaDataset, SchemaWorkspace
 
 from arcpy.da import (
     Walk,
@@ -239,18 +242,12 @@ class Dataset:
     # Work when the imput schema defines interdependent attribute rules for feature classes that happen
     # to be initialized at a later time in the import process
     @classmethod
-    def from_schema(cls, schema: Path|str, out_loc: Path|str, name: str) -> Dataset:
+    def from_schema(cls, schema: Path|str, out_loc: Path|str, gdb_name: str) -> Dataset:
         schema = Path(schema)
         out_loc = Path(out_loc)
-        try:
-            # Create a new GDB
-            CreateFileGDB(
-                out_folder_path=str(out_loc),
-                out_name=name,
-                out_version='CURRENT'
-            )
-        except Exception as e:
-            raise ValueError(f"Unable to create GDB!") from e
+        
+        if (out_loc / gdb_name).exists():
+            raise OSError(f'{gdb_name} already exists in target directory!')
         
         if schema.suffix not in ('.xml', '.json', '.xlsx'):
             raise ValueError(
@@ -258,19 +255,80 @@ class Dataset:
                 'only xlsx, json, and xml documents can be imported'
             )
         
-        try:
-            # Convert json/xlsx to xml
-            if not schema.suffix == '.xml':
-                with TemporaryDirectory(f'{name}_schema') as tmp:
-                    ConvertSchemaReport(str(schema), tmp, 'schema', 'XML')
-                    ImportXMLWorkspaceDocument(str((out_loc / name).with_suffix('.gdb')), str(Path(tmp) / 'schema.xml'), 'SCHEMA_ONLY')
-            else:
-                ImportXMLWorkspaceDocument(str((out_loc / name).with_suffix('.gdb')), str(schema), 'SCHEMA_ONLY')
-        except Exception as e:
-            if (gdb := (out_loc / name).with_suffix('.gdb')) and gdb.exists():
-                rmtree(gdb) # Cleanup the malformed GDB
-            raise ValueError("Unable to import schema") from e
-        return Dataset((out_loc / name).with_suffix('.gdb'))
+        # Convert the schema to json for easy parsing of attribute rules
+        with TemporaryDirectory(f'{gdb_name}_json_schema') as tmp:
+            tmp = Path(tmp)
+            
+            _gdb = str((out_loc / gdb_name).with_suffix('.gdb'))
+            
+            # Convert the schema to json
+            _res, = ConvertSchemaReport(str(schema), str(tmp), 'json_schema', 'JSON')
+            
+            # Load in the schema
+            workspace: SchemaWorkspace = json.loads(Path(_res).read_text(encoding='utf-8'))
+            
+            # Get all FCs on all levels
+            features: list[SchemaDataset] = []
+            for ds in workspace['datasets']:
+                if 'datasets' in ds:
+                    features.extend(ds['datasets'])
+                else:
+                    features.append(ds)
+            
+            # Use these to re-write any attribute rules
+            guid_map = {fc['catalogID']: fc['name'] for fc in features if 'catalogID' in fc}
+            
+            # Extract rules and repair GUID interpolation from export
+            for ds in workspace['datasets']:
+                if 'datasets' in ds:
+                    features = ds['datasets']
+                else:
+                    features = [ds]
+                
+                for fc in features:
+                    if 'attributeRules' not in fc:
+                        continue
+                    rules = fc['attributeRules']
+                    rule_dir = (tmp / 'rules' / fc['name'])
+                    rule_dir.mkdir(exist_ok=True, parents=True)
+                    for rule in rules:
+                        # Repair the script (use the common name and not catalogID)
+                        script = rule['scriptExpression']
+                        for guid, name in guid_map.items():
+                            script = script.replace(guid, name)
+                        rule.pop('scriptExpression')
+
+                        # Dump the rule 
+                        (rule_dir / rule['name']).with_suffix('.js').write_text(script, encoding='utf-8')
+                        (rule_dir / rule['name']).with_suffix('.cfg').write_text(json.dumps(rule), encoding='utf-8')
+                        
+                    # Delete all rules from the schema so it won't fail
+                    fc['attributeRules'] = []
+                               
+            _new = (tmp / '_patch_schema').with_suffix('.json')
+            _new.write_text(json.dumps(workspace))
+            
+            # Convert to importable XML
+            _xml, = ConvertSchemaReport(str(_new), str(tmp), 'schema', 'XML')
+            
+            # Create a new GDB
+            CreateFileGDB(
+                out_folder_path=str(out_loc),
+                out_name=gdb_name,
+                out_version='CURRENT'
+            )
+            
+            # Build base Schema
+            ImportXMLWorkspaceDocument(str(_gdb), _xml, 'SCHEMA_ONLY')
+
+            # Re-Construct the rules
+            ds = Dataset((out_loc / gdb_name).with_suffix('.gdb'))
+            for feature_class in ds.feature_classes.values():
+                if not (tmp / 'rules' / feature_class.name).exists():
+                    continue
+                feature_class.attribute_rules.import_rules(tmp / 'rules' / feature_class.name)
+
+        return ds
 
 class DomainManager:
     def __init__(self, dataset: Dataset) -> None:
