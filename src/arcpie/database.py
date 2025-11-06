@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from tempfile import TemporaryDirectory
+from shutil import rmtree
+
 from collections.abc import (
     Iterator,
 )
@@ -22,9 +25,12 @@ from arcpy.da import (
 )
 
 from arcpy.management import (
-    DeleteDomain, # pyright: ignore[reportUnknownVariableType]
-    CreateDomain, # pyright: ignore[reportUnknownVariableType]
-    AlterDomain,  # pyright: ignore[reportUnknownVariableType]
+    DeleteDomain,  # pyright: ignore[reportUnknownVariableType]
+    CreateDomain,  # pyright: ignore[reportUnknownVariableType]
+    AlterDomain,   # pyright: ignore[reportUnknownVariableType]
+    CreateFileGDB, # pyright: ignore[reportUnknownVariableType]
+    ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
+    ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
 )
 
 _Default = TypeVar('_Default')
@@ -228,6 +234,43 @@ class Dataset:
     
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
+
+    # NOTE: Due to incorrect import logic in arcpy.management.ImportXMLWorkspaceDocument, this will NOT
+    # Work when the imput schema defines interdependent attribute rules for feature classes that happen
+    # to be initialized at a later time in the import process
+    @classmethod
+    def from_schema(cls, schema: Path|str, out_loc: Path|str, name: str) -> Dataset:
+        schema = Path(schema)
+        out_loc = Path(out_loc)
+        try:
+            # Create a new GDB
+            CreateFileGDB(
+                out_folder_path=str(out_loc),
+                out_name=name,
+                out_version='CURRENT'
+            )
+        except Exception as e:
+            raise ValueError(f"Unable to create GDB!") from e
+        
+        if schema.suffix not in ('.xml', '.json', '.xlsx'):
+            raise ValueError(
+                f'Invlaid schema type {schema.suffix}, '
+                'only xlsx, json, and xml documents can be imported'
+            )
+        
+        try:
+            # Convert json/xlsx to xml
+            if not schema.suffix == '.xml':
+                with TemporaryDirectory(f'{name}_schema') as tmp:
+                    ConvertSchemaReport(str(schema), tmp, 'schema', 'XML')
+                    ImportXMLWorkspaceDocument(str((out_loc / name).with_suffix('.gdb')), str(Path(tmp) / 'schema.xml'), 'SCHEMA_ONLY')
+            else:
+                ImportXMLWorkspaceDocument(str((out_loc / name).with_suffix('.gdb')), str(schema), 'SCHEMA_ONLY')
+        except Exception as e:
+            if (gdb := (out_loc / name).with_suffix('.gdb')) and gdb.exists():
+                rmtree(gdb) # Cleanup the malformed GDB
+            raise ValueError("Unable to import schema") from e
+        return Dataset(out_loc / name)
 
 class DomainManager:
     def __init__(self, dataset: Dataset) -> None:
