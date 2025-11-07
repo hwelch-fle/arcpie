@@ -39,6 +39,7 @@ GeneralToken = Literal[
 ]
 
 ShapeToken = Literal[
+    'SHAPE@',
     'SHAPE@XY',
     'SHAPE@XYZ',
     'SHAPE@TRUECENTROID',
@@ -51,7 +52,6 @@ ShapeToken = Literal[
     'SHAPE@WKT',
     'SHAPE@AREA',
     'SHAPE@LENGTH',
-    'SHAPE@',
 ]
 
 EditToken = Literal[
@@ -70,6 +70,8 @@ FeatureTokens: tuple[FeatureToken, ...] = FeatureToken.__args__
 GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint | Multipatch
 
 class WhereClause:
+    """Wraps a string clause to signal to FeatureClass/Table indexes that a Where Clause is being passed"""
+    
     def __init__(self, where_clause: str, skip_validation: bool=False) -> None:
         """Object for storing and validating where clauses
         
