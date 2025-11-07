@@ -99,7 +99,7 @@ markdown_extensions:
     alternate_style: True
 
 extra_javascript:
-- https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js
+  - https://unpkg.com/mermaid@10.9.0/dist/mermaid.min.js
 
 extra:
   mkdocstrings:
@@ -108,7 +108,7 @@ extra:
       python:
         docstring_style: google
         options:
-          docstring_section_style: table
+          docstring_section_style: list
           modernize_annotations: true
           show_labels: false
           backlinks: tree
@@ -134,6 +134,12 @@ extra:
             show_source: false
           selection:
             docstring_style: google
+          extensions:
+            - griffe_dataclasses
+          summary:
+            classes: true
+            functions: true
+            attributes: true
 
 nav:
   - Home: index.md
@@ -148,7 +154,8 @@ nav:
       - diff: modules/diff.md
       - schemas: modules/schemas.md
   - Examples:
-      - Feature Interaction: examples/feature-interaction.md
+      - Getting Started: examples/1_getting-started.md
+      - Feature Interaction: examples/2_feature-interaction.md
 
 plugins:
   - search
