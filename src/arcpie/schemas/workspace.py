@@ -1,5 +1,3 @@
-"""Module for typing base Arc types from CIM and json functions"""
-
 from __future__ import annotations
 from typing import Any, TypedDict, Literal
 
@@ -104,7 +102,9 @@ class SchemaIndex(TypedDict):
     isAscending: bool
     fields: SchemaFieldArray
         
-SchemaIndexArray = dict[Literal['indexArray'], list[SchemaIndex]]
+class SchemaIndexArray(TypedDict):
+    """ESRI Index Array Schema"""
+    indexArray: list[SchemaIndex]
 
 class SchemaPropertySet(TypedDict):
     """ESRI Property Set Schema"""

@@ -125,6 +125,8 @@ from .cursor import (
 )
 
 FieldName = str #| FeatureToken
+"""Alias for string that specifies the function needs a valid fieldname"""
+
 _T = TypeVar('_T')
 
 def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
@@ -173,6 +175,22 @@ def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
     return vals
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
+    """Take a Cusrsor object and yield rows from it 
+    
+    Args:
+        cursor (SearchCursor | UpdateCursor): The cursor to convert to a RowRecord iterator
+        
+    Yields:
+        Iterator[RowRecord]
+        
+    Example:
+        ```python
+        >>> for row in as_dict(SearchCursor('table', ['Name', 'City']))
+        ...     print(f'{row["Name"]} lives in {row["City"]}')
+        Dave lives in New York City
+        Robert lives in Kansas City
+        ...
+    """
     yield from ( dict(zip(cursor.fields, row)) for row in cursor )
 
 def format_query_list(vals: Iterable[Any]) -> str:
@@ -188,6 +206,24 @@ def norm(val: Any) -> str:
     return val
 
 def where(where_clause: str) -> WhereClause:
+    """Wrap a string in a WhereClause object to use with indexing
+    
+    Args:
+        where_clause (str): A where clause string to mark as a clause
+    
+    Returns:
+        WhereClause
+        
+    Example:
+        ```python
+        >>> for row in features[where('SHAPE_LENGTH > 10')]:
+        ...     print(row)
+        {'OBJECTID': 1, 'SHAPE_LENGTH': 11}
+        {'OBJECTID': 2, 'SHAPE_LENGTH': 34}
+        {'OBJECTID': 3, 'SHAPE_LENGTH': 78}
+        ...
+        ```
+    """
     return WhereClause(where_clause)
 
 def filter_fields(*fields: FieldName) -> Callable[[FilterFunc], FilterFunc]:
@@ -267,7 +303,11 @@ def valid_field(fieldname: FieldName) -> bool:
         )
 
 RowRecord = dict[FieldName, Any]
+"""Alias for a dictionary of fieldnames and field values"""
+
 FilterFunc = Callable[[RowRecord], bool]
+"""The expected type signature for function indexing"""
+
 _GeometryType = TypeVar('_GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint, GeometryType)
 
 class Table:
@@ -1733,6 +1773,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
         return fc
 
 class AttributeRuleManager:
+    """Handler for interacting with AttributeRules on a FeatureClass or Table"""
     def __init__(self, parent: Table|FeatureClass[Any]) -> None:
         self._parent = parent
             
