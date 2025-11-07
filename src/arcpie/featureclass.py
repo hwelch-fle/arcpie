@@ -1921,6 +1921,14 @@ class AttributeRuleManager:
         _current_rule = self.get(rule_name)
         rule['name'] = rule_name
         
+        # Skip fields that are modified by the system
+        _skip_compare = {
+            'id',
+            'type',
+            'requiredGeodatabaseClientVersion',
+            'creationTime',
+        }
+        
         # Add a new rule
         if _current_rule is None:
             rule['name'] = rule_name
@@ -1934,13 +1942,16 @@ class AttributeRuleManager:
             self.disable_attribute_rule(rule_name)
         
         # Update/Alter
-        elif not all(rule.get(k) == _current_rule.get(k) for k in _current_rule):
+        elif not all(rule.get(k) == _current_rule.get(k) for k in _current_rule if k not in _skip_compare):
             # Subtype change requires a re-build
             if set(rule['subtypeCodes']) != set(self[rule_name]['subtypeCodes']):
                 self.delete_attribute_rule(rule_name)
                 self.add_attribute_rule(**to_rule_add(rule))
-            else:
+            elif rule.get('evaluationOrder') != _current_rule.get('evaluationOrder'):
                 self.alter_attribute_rule(evaluation_order=rule.get('evaluationOrder'), **to_rule_alter(rule))
+            else:
+                self.alter_attribute_rule(**to_rule_alter(rule))
+                
         
     def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
         return self.rules.get(rule_name, default)
