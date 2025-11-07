@@ -187,7 +187,7 @@ class Dataset:
                     feature_class.attribute_rules.import_rules(rule_dir / feature_class.name)
                 except Exception as e:
                     if skip_fail:
-                        print(f'Failed to import rules for {feature_class.name}: {e}')
+                        print(f'Failed to import rules for {feature_class.name}: \n\t{e.__notes__}\n\t{e}')
                     else:
                         raise e
 
