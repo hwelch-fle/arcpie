@@ -190,7 +190,7 @@ def norm(val: Any) -> str:
 def where(where_clause: str) -> WhereClause:
     return WhereClause(where_clause)
 
-def filter_fields(*fields: FieldName):
+def filter_fields(*fields: FieldName) -> Callable[[FilterFunc], FilterFunc]:
     """Decorator for filter functions that limits fields checked by the SearchCursor
     
     Args:
@@ -594,10 +594,7 @@ class Table:
 
         Args:
             field_names (str | Iterable[str]): The columns to iterate
-            search_options (SearchOptions): A Search Options object
-            **options (Unpack[SearchOptions]): Additional over
-            search_options (SearchOptions): A Search Options object
-            **options (Unpack[SearchOptions]): Additional over
+            **options (Unpack[SearchOptions]): Additional options to pass on to the cursor
         Yields 
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
@@ -1007,7 +1004,8 @@ class Table:
             KeyError "Name"
             ...
             
-            >>> for name, age in fc.get(('Name', 'Age'), [])    
+            >>> for name, age in fc.get(('Name', 'Age'), [])
+            ```
         
         """
         try:
@@ -1084,14 +1082,17 @@ class Table:
             called. See: `__len__` doc for info on better ways to track counts in loops.
 
         Args:
-            path|pth  : Table or FeatureClass path
-            len|length: Table or FeatureClass length (with applied SearchQuery)
-            layer|lyr : Linked Table or FeatureClass layer if applicable (else `'None'`)
-            shape|shp : Table or FeatureClass shape type
-            units|unt : Table or FeatureClass linear unit name
-            wkid|code : Table or FeatureClass WKID
-            name|nm   : Table or FeatureClass name
-            fields|fld: Table or FeatureClass fields (comma seperated)
+            format_spec:  One of the options listed below (the `|` symbol is used to seperate aliases)
+
+        Other Parameters:
+            path|pth (str): Table or FeatureClass path
+            len|length (str): Table or FeatureClass length (with applied SearchQuery)
+            layer|lyr (str): Linked Table or FeatureClass layer if applicable (else `'None'`)
+            shape|shp (str): Table or FeatureClass shape type
+            units|unt (str): Table or FeatureClass linear unit name
+            wkid|code (str): Table or FeatureClass WKID
+            name|nm (str): Table or FeatureClass name
+            fields|fld (str): Table or FeatureClass fields (comma seperated)
 
         Example:
             ```python
@@ -1269,7 +1270,7 @@ class Table:
             Otherwise a default layer will be added. And the new layer will be bound to the Table or FeatureClass
 
         Args:
-            mp (Map): The map to add the featureclass to
+            map (Map): The map to add the featureclass to
         """
         if not self.layer:
             # Create a default layer, bind it, remove, and add back
@@ -1338,7 +1339,7 @@ class Table:
         Args:
             layer (Layer): The layer to convert to a Table or FeatureClass
             ignore_selection (bool): Ignore the layer selection (default: False)
-            ignore_definition_query (bool): Ignore the layer definition query (default: False)
+            ignore_def_query (bool): Ignore the layer definition query (default: False)
         Returns:
             ( Table or FeatureClass ): The Table or FeatureClass object with the layer query applied
         """
@@ -1701,7 +1702,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
         Args:
             layer (Layer): The layer to convert to a FeatureClass
             ignore_selection (bool): Ignore the layer selection (default: False)
-            ignore_definition_query (bool): Ignore the layer definition query (default: False)
+            ignore_def_query (bool): Ignore the layer definition query (default: False)
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """

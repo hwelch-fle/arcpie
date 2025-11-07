@@ -122,7 +122,7 @@ class WhereClause:
 class SQLClause(NamedTuple):
     """Wrapper for Cursor sql_clause attribute,
     
-    Arguments:
+    Attributes:
         prefix (str): The SQL prefix to be prepended to the `FROM` part of the statment
         postfix (str): The SQL postfix that will be appended to the `WHERE` clause
 
@@ -145,7 +145,7 @@ class SQLClause(NamedTuple):
 class SearchOptions(TypedDict, total=False):
     """Optional parameters for SearchCursors
     
-    Arguments:
+    Attributes:
         where_clause (str): A SQL query that is inserted after the SQL `WHERE` (`SELECT {prefix} {fields} FROM {table} WHERE {where_clause} {postfix}...`)
         spatial_reference (str | int | SpatialReference): Perform an on the fly projection of the yielded geometry to this reference
         explode_to_points (bool): Return a row per vertex in each feature (e.g. `[SHAPE, 'eric', 'idle'] -> [Point, 'eric', 'idle'], [Point, 'eric', 'idle'], ...`)
@@ -220,7 +220,7 @@ FieldType = Literal[
 class Field(TypedDict, total=False):
     """Field Representation
     
-    Args:
+    Attributes:
         field_type (FieldType): The type of the field (required)
         field_precision (int): The precision (digits) of numeric fields (default: database determined)
         field_scale (int): The number of decimal places for floating point fields (default: database determined)
