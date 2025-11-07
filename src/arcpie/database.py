@@ -4,7 +4,6 @@ import json
 from pathlib import Path
 
 from tempfile import TemporaryDirectory
-from shutil import rmtree
 
 from collections.abc import (
     Iterator,
@@ -30,7 +29,7 @@ from arcpy.da import (
 from arcpy.management import (
     DeleteDomain,  # pyright: ignore[reportUnknownVariableType]
     CreateDomain,  # pyright: ignore[reportUnknownVariableType]
-    AlterDomain,   # pyright: ignore[reportUnknownVariableType]
+    #AlterDomain,   # pyright: ignore[reportUnknownVariableType]
     CreateFileGDB, # pyright: ignore[reportUnknownVariableType]
     ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
     ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
@@ -152,9 +151,11 @@ class Dataset:
             rule_dir (Path|str): The target directory for the rules
         
         Usage:
+            ```python
             >>> # Transfer rules from one dataset to another
             >>> ds.export_rules('my_rules')
             >>> ds2.import_rules('my_rules')
+            ```
         """
         rule_dir = Path(rule_dir)
         for feature_class in self.feature_classes.values():
@@ -172,9 +173,11 @@ class Dataset:
             skip_fail (bool): Skip any attribute rule imports that fail (whole FC) (default: False)
             
         Usage:
+            ```python
             >>> # Transfer rules from one dataset to another
             >>> ds.export_rules('my_rules')
             >>> ds2.import_rules('my_rules')
+            ```
         """
         rule_dir = Path(rule_dir)
         for feature_class in self.feature_classes.values():
@@ -297,10 +300,12 @@ class Dataset:
             skip_fail (bool): Skip any failed attribute rule imports (will rollback all rules for the class) (default: False)
         
         Usage:
+            ```python
             >>> ds = Dataset.from_schema('schema.xlsx', 'out_dir', 'new_db.gdb', skip_fail=True)
             ... # This can take a while depending on the size of the schema
             >>> ds
             Dataset('new_db' {'Features': 10, 'Tables': 3, Datasets: 0})
+            ```
         """
         schema = Path(schema)
         out_loc = Path(out_loc)
@@ -389,32 +394,43 @@ class Dataset:
         return ds
 
 class DomainManager:
+    """Handler for interacting with domains defined on a dataset"""
+    
     def __init__(self, dataset: Dataset) -> None:
         self._dataset = dataset
         self._domains = dataset.domains
         
     @property
     def dataset(self) -> Dataset:
+        """Get the parent Dataset object"""
         return self._dataset
     
     @property
     def domains(self) -> dict[str, Domain]:
+        """A mapping of domain names to domain objects"""
         if self.dataset.parent:
             return self.dataset.parent.domains
         return {d.name: d for d in ListDomains(str(self.dataset.conn))}
     
     def add_domain(self, domain: Domain) -> None:
-        """Add a domain to the parent dataset or the root dataset (gdb)"""
+        """Add a domain to the parent dataset or the root dataset (gdb)
+        
+        Args:
+            domain (Domain): The domain object to add to this managed Dataset
+        """
+        
         if self.dataset.parent is None:
             _root = self.dataset.conn
         else:
             _root = self.dataset.parent.conn
+        
+        # TODO: Map parameters!
         CreateDomain(
             in_workspace=str(_root), 
             domain_name=domain.name,
             domain_description=domain.description,
-            field_type=domain.type,
-            domain_type=domain.domainType,
-            split_policy=domain.splitPolicy,
-            merge_policy=domain.mergePolicy,
+            field_type=domain.type, # pyright: ignore[reportArgumentType]
+            domain_type=domain.domainType, # pyright: ignore[reportArgumentType]
+            split_policy=domain.splitPolicy, # pyright: ignore[reportArgumentType]
+            merge_policy=domain.mergePolicy, # pyright: ignore[reportArgumentType]
         )
