@@ -79,6 +79,10 @@ class Dataset:
     """
     def __init__(self, conn: str|Path, *, parent: Dataset|None=None) -> None:
         self.conn = Path(conn)
+        
+        # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
+        if not parent and self.conn.suffix != '.gdb':
+            raise ValueError(f'Root Dataset requires a valid gdb path!')
         self.parent = parent
         self._datasets: dict[str, Dataset] | None = None
         self._feature_classes: dict[str, FeatureClass[Any]] | None=None
@@ -229,15 +233,8 @@ class Dataset:
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
     
     def __getitem__(self, key: str) -> FeatureClass[Any] | Table | Dataset:
-        # Check top level
-        ret = self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key)
-        if ret is not None:
+        if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key):
             return ret
-        
-        # Traverse tree
-        for ds in self.datasets.values():
-            if key in ds:
-                return ds[key]
         
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
