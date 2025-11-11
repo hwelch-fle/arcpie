@@ -921,6 +921,10 @@ class Table:
     
     # Magic Methods
     
+    def __bool__(self) -> Literal[True]:
+        # Override __bool__ to prevent fallback to __len__
+        return True
+    
     if TYPE_CHECKING:
         _IndexableTypes = (
             FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
