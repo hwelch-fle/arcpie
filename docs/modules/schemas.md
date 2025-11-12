@@ -3,8 +3,3 @@
         show_submodules: true
         show_if_no_docstring: true
         parameter_headings: true
-        docstring_section_style: spacy
-        summary:
-            classes: yes
-            functions: yes
-            attributes: yes
