@@ -164,11 +164,8 @@ class Dataset:
             >>> ds2.import_rules('my_rules')
             ```
         """
-        rule_dir = Path(rule_dir)
         for feature_class in self.feature_classes.values():
-            fc_dir = rule_dir / feature_class.name
-            fc_dir.mkdir(exist_ok=True, parents=True)
-            feature_class.attribute_rules.export_rules(fc_dir)
+            feature_class.attribute_rules.export_rules(Path(rule_dir))
 
     def import_rules(self, rule_dir: Path|str, 
                      *, 
