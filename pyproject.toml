@@ -4,6 +4,11 @@ version = "0.1.0"
 description = "A simplified wrapper library for arcpy that makes it less painful"
 readme = "README.md"
 requires-python = ">=3.11"
+
+# arcpy is a required dep for now, 
+# but is not included here to prevent
+# PyPi from failing to build the deps
+# since it is not available outside ArcPro
 dependencies = [
     "httpx>=0.28.1",
     "networkx>=3.5",
