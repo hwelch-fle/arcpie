@@ -1,10 +1,13 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 import builtins
+from io import BytesIO
 from pathlib import Path
 import json
 
+from tempfile import TemporaryDirectory
 from typing import (
+    TYPE_CHECKING,
     Any,
     Literal,
 )
@@ -22,15 +25,21 @@ from .featureclass import (
     count,
 )
 
-from .database import (
-    Dataset,
-)
+if TYPE_CHECKING:
+    from .database import (
+        Dataset,
+    )
 
 from .project import (
     Map,
     Project,
     Layer,
     Table as StandaloneTable,
+)
+
+from arcpy.management import (
+    ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
+    GenerateSchemaReport, # pyright: ignore[reportUnknownVariableType]
 )
 
 def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
@@ -221,4 +230,77 @@ def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTabl
         _base_map['tableDefinitions'] = [t.cim_dict for t in tables]
     
     return _base_map
+
+from .schemas import SchemaWorkspace, SchemaDataset
+
+def convert_schema(schema: Dataset|Path|str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON') -> BytesIO:
+    """Convert a Schema from one format to another
+    
+    Args:
+        schema (Dataset|Path|str): Path to the schemafile or Dataset to convert
+        to (Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']): Target format (default: 'JSON')
         
+    Yields:
+        bytes: Raw bytes object containing the schema file
+    """
+    with TemporaryDirectory(suffix=to) as temp:
+        temp = Path(temp)
+        if not isinstance(schema, (Path, str)):
+            # Convert Dataset to report
+            schema, = GenerateSchemaReport(str(schema.conn), str(temp), 'json_schema', 'JSON')
+        schema = Path(schema)
+        conversion, = ConvertSchemaReport(str(schema), str(temp), 'out', to)
+        return BytesIO(Path(conversion).read_bytes())
+
+def patch_schema_rules(schema: SchemaWorkspace|Path|str, 
+                       *,
+                       remove_rules: bool=False) -> SchemaWorkspace:
+    """Patch an exported Schema doc by re-linking attribute rules to table names
+    
+    Args:
+        schema (Path|str): The input schema to patch
+        skip_rules (bool): Remove attribute rules from the schema (default: False)
+    
+    Returns:
+        SchemaWorkspace: A patched schema dictionary
+    """
+    # Load schema
+    if isinstance(schema, dict):
+        workspace = schema
+    else:
+        schema = Path(schema)
+        if not schema.suffix == '.json':
+            raise ValueError(f'Schema Patching can only be done on json schemas!, got {schema.suffix}')
+        workspace: SchemaWorkspace = json.load(schema.open(encoding='utf-8'))
+        
+    # Get all root Features
+    features = [
+        ds 
+        for ds in workspace['datasets'] 
+        if 'datasets' not in ds
+    ]
+    # Get all features that live in a FeatureDataset
+    # Use listcomp since typing is weird
+    [
+        features.extend(ds['datasets']) 
+        for ds in workspace['datasets'] 
+        if 'datasets' in ds
+    ]
+    # Get a translation dictionary of catalogID -> name
+    guid_to_name = {
+        fc['catalogID']: fc['name'] 
+        for fc in features 
+        if 'catalogID' in fc
+    }
+    for feature in filter(lambda fc: 'attributeRules' in fc, features):
+        feature: SchemaDataset
+        if remove_rules:
+            feature['attributeRules'] = []
+            continue
+        rules = feature['attributeRules']
+        for rule in rules:
+            script = rule['scriptExpression']
+            for guid, name in guid_to_name.items():
+                script = script.replace(guid, name)
+            rule['scriptExpression'] = script
+    return workspace
