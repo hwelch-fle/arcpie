@@ -1,5 +1,3 @@
-"""Sumbodule that helps wrap featureclass objects with useful methods"""
-
 from __future__ import annotations
 
 # Typing imports
