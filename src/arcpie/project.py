@@ -481,7 +481,8 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
             (dict[str, Any]): A dictionary representation of the pagx json
         """
         with NamedTemporaryFile() as tmp:
-            return json.loads(Path(self.exportToPAGX(str(tmp))).read_text())
+            self.exportToPAGX(tmp.name)
+            return json.loads(Path(f'{tmp.name}.pagx').read_text())
     
     def to_pdf(self, **settings: Unpack[PDFSetting]) -> BytesIO:
         """Get the bytes for a pdf export of the Layout
