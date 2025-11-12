@@ -887,7 +887,7 @@ class Project:
         """
         target_dir = Path(target_dir)
         for m in self.maps:
-            m.export_assoc_lyrx(target_dir / self.name, skip_groups=skip_groups, skip_grouped=skip_grouped)
+            m.export_assoc_lyrx(target_dir, skip_groups=skip_groups, skip_grouped=skip_grouped)
     
     def import_layers(self, src_dir: Path|str) -> None:
         """Import a structured directory of layerfiles generated with `export_layers`
