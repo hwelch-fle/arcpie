@@ -259,7 +259,7 @@ def patch_schema_rules(schema: SchemaWorkspace|Path|str,
     
     Args:
         schema (Path|str): The input schema to patch
-        skip_rules (bool): Remove attribute rules from the schema (default: False)
+        remove_rules (bool): Remove attribute rules from the schema (default: False)
     
     Returns:
         SchemaWorkspace: A patched schema dictionary
