@@ -412,7 +412,7 @@ class DomainManager:
                     assert 'domain' in field
                     if (dn := field['domain']['domainName']) in domain_names:
                         fc_usage.setdefault(dn, {}).setdefault(fc['name'], [])
-                        fc_usage[dn][fc['name']].append(field['name'])
+                        fc_usage[dn][fc['name']].append(field.get('name', '??'))
         return fc_usage
     
     def add_domain(self, domain: Domain|None=None, **opts: Unpack[CreateDomainOpts]) -> None:
