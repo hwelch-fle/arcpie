@@ -603,11 +603,11 @@ class Manager(Generic[_MappingObject]):
     """
     
     def __init__(self, objs: Iterable[_MappingObject]) -> None:
-        self._objects: dict[str, _MappingObject] = {
-            o.uri: o
-            for o in objs
-        }
-        
+        self._objects: dict[str, _MappingObject] = {}
+        for o in objs:
+            if (_uri := o.uri) not in self._objects:
+                self._objects[_uri] = o
+                
     @property
     def objects(self) -> list[_MappingObject]:
         """Get a list of all managed objects"""
