@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date, time
+
 from collections.abc import (
     Iterator, 
     Iterable,
@@ -440,7 +442,6 @@ class AddRuleOpts(TypedDict, total=False):
     tags: str
     triggering_fields: Sequence[str]
 
-from datetime import date, time
 NumericType = int | float
 DateType = datetime | date | time
 ValueType = str | NumericType | DateType
@@ -463,26 +464,47 @@ DomainFieldType = Literal['SHORT', 'LONG', 'BIGINTEGER', 'FLOAT', 'DOUBLE', 'TEX
 DomainSplitPolicy = Literal['DEFAULT', 'DUPLICATE', 'GEOMETRY_RATIO']
 DomainMergePolicy = Literal['DEFAULT', 'SUM_VALUES', 'AREA_WEIGHTED']
 DomainType = Literal['CODED', 'RANGE']
-class BaseDomain(TypedDict):
-    in_workspace: str
-    domain_name: str
-    split_policy: DomainSplitPolicy
-    merge_policy: DomainMergePolicy
-    owner: str
-    
-class AlterDomain(BaseDomain, total=False):
+class AlterDomainOpts(TypedDict, total=False):
     """Use with arcpy.management.AlterDomain"""
     new_domain_name: str
     new_domain_description: str
+    new_domain_owner: str
+    split_policy: DomainSplitPolicy
+    merge_policy: DomainMergePolicy
 
-class CreateDomain(BaseDomain, total=False):
+class CreateDomainOpts(TypedDict, total=False):
     """Use with arcpy.management.CreateDomain"""
+    domain_name: str
     field_type: DomainFieldType
     domain_type: DomainType
     domain_description: str
+    split_policy: DomainSplitPolicy
+    merge_policy: DomainMergePolicy
 
 def parse_domain(domain: Domain) -> SystemDomain:
     return SystemDomain(**domain.__dict__)
+
+DomainParamMap = {
+    'Short': 'SHORT', 
+    'Long': 'LONG', 
+    'BigInteger': 'BIGINTEGER', 
+    'Float': 'FLOAT', 
+    'Double': 'DOUBLE', 
+    'Text': 'TEXT', 
+    'Date': 'DATE', 
+    'DateOnly': 'DATEONLY', 
+    'TimeOnly': 'TIMEONLY',
+    'CodedValue': 'CODED',
+    'Range': 'RANGE',
+    'DefaultValue': 'DEFAULT',
+    'Duplicate': 'DUPLICATE',
+    'GeometryRatio': 'GEOMETRY_RATIO',
+    'SumValues': 'SUM_VALUES',
+    'AreaWeighted': 'AREA_WEIGHTED',
+}
+
+def domain_param(param: str) -> Any:
+    return DomainParamMap.get(param) or param
 
 # Parameter Datatypes for Tool Parameters
 ParameterDatatype = Literal[

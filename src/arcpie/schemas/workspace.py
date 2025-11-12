@@ -57,7 +57,7 @@ class SchemaDomainCode(TypedDict):
 class SchemaDomain(TypedDict):
     """ESRI Domain Schema"""
     type: ESRIDomainType
-    name: str
+    domainName: str
     description: str
     codedValues: list[SchemaDomainCode]
     fieldType: ESRIFieldType

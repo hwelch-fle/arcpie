@@ -12,8 +12,16 @@ from typing import (
     Any,
     Literal,
     TypeVar,
+    Unpack,
 )
-    
+
+from ._types import (
+    domain_param,
+    AlterDomainOpts,
+    CreateDomainOpts,
+)
+from arcpie.schemas.workspace import SchemaWorkspace
+
 from .featureclass import (
     Table,
     FeatureClass,
@@ -111,44 +119,12 @@ class Dataset:
         return self._tables or {}
 
     @property
-    def domains(self) -> dict[str, Domain]:
-        # Domains only exist in the root dataset
-        # Defer to parent until the root is found
-        if self.parent:
-            return self.parent.domains
-        return {d.name: d for d in ListDomains(str(self.conn))}
+    def domains(self) -> DomainManager:
+        return DomainManager(self)
 
     @property
-    def unused_domains(self) -> dict[str, Domain]:
-        return {
-            name: domain
-            for name, domain in self.domains.items() 
-            if not self.domain_usage(name)
-        }
-
-    def domain_usage(self, *domain_names: str) -> list[str]:
-        """A list of all Table/FeatureClass names using a specified domain"""
-        if not domain_names:
-            domain_names = tuple(self.domains)
-        
-        if invalid := set(domain_names) - set(self.domains):
-            raise ValueError(f'{invalid} not found in {self.name} domains')
-        
-        _features: list[FeatureClass[Any] | Table] = [*self.tables.values(), *self.feature_classes.values()]
-        return [
-            o.name
-            for o in _features
-            if any(
-                f.domain == domain_name 
-                for f in o.describe.fields
-                for domain_name in domain_names
-            )
-        ]
-
-    def delete_domain(self, *domain_names: str) -> None:
-        """Delete a domain from the dataset"""
-        for domain_name in domain_names:
-            DeleteDomain(str(self.conn), domain_name)
+    def schema(self) -> SchemaWorkspace:
+        return json.load(convert_schema(self, 'JSON'))
 
     def export_rules(self, rule_dir: Path|str) -> None:
         """Export all attribute rules from the dataset into feature subdirectories
@@ -364,7 +340,6 @@ class DomainManager:
     
     def __init__(self, dataset: Dataset) -> None:
         self._dataset = dataset
-        self._domains = dataset.domains
         
     @property
     def dataset(self) -> Dataset:
@@ -372,31 +347,110 @@ class DomainManager:
         return self._dataset
     
     @property
-    def domains(self) -> dict[str, Domain]:
+    def workspace(self) -> Path:
+        """Get a path to the root workspace that the domains live in"""
+        if self.dataset.parent is None:
+            return self.dataset.conn
+        else:
+            return self.dataset.parent.conn
+    
+    @property
+    def domain_map(self) -> dict[str, Domain]:
         """A mapping of domain names to domain objects"""
         if self.dataset.parent:
-            return self.dataset.parent.domains
+            return self.dataset.parent.domains.domain_map
         return {d.name: d for d in ListDomains(str(self.dataset.conn))}
     
-    def add_domain(self, domain: Domain) -> None:
+    @property
+    def unused_domains(self) -> dict[str, Domain]:
+        return {
+            name: domain
+            for name, domain in self.domain_map.items() 
+            if not self.usage(name)
+        }
+    
+    def __len__(self) -> int:
+        return len(self.domain_map)
+    
+    def __iter__(self) -> Iterator[Domain]:
+        """Iterate all domains"""
+        yield from self.domain_map.values()
+    
+    def __getitem__(self, name: str) -> Domain:
+        return self.domain_map[name]
+    
+    def get(self, name: str, default: _Default) -> Domain | _Default:
+        try:
+            return self[name]
+        except KeyError:
+            return default
+    
+    def __contains__(self, domain: str) -> bool:
+        return domain in self.domain_map
+    
+    def usage(self, *domain_names: str) -> dict[str, dict[str, list[str]]]:
+        """A mapping of domains to features to fields that shows usage of a domain in a dataset
+        
+        Args:
+            *domain_names (str): Varargs of all domain names to include in the output mapping
+        
+        Returns:
+            ( dict[str, dict[str, list[str]]] ) : A Nested mapping of `Domain Name -> Feature Class -> [Field Name, ...]`
+        """
+        
+        if not domain_names:
+            domain_names = tuple(self.domain_map)
+        schema = self.dataset.schema
+        fc_usage: dict[str, dict[str, list[str]]] = {}
+        for ds in schema['datasets']:
+            if 'datasets' in ds:
+                ds = ds['datasets']
+            else:
+                ds = [ds]
+            for fc in filter(lambda f: 'fields' in f, ds):
+                for field in filter(lambda fld: 'domain' in fld, fc['fields']['fieldArray']):
+                    assert 'domain' in field
+                    if (dn := field['domain']['domainName']) in domain_names:
+                        fc_usage.setdefault(dn, {}).setdefault(fc['name'], [])
+                        fc_usage[dn][fc['name']].append(field['name'])
+        return fc_usage
+    
+    def add_domain(self, domain: Domain|None=None, **opts: Unpack[CreateDomainOpts]) -> None:
         """Add a domain to the parent dataset or the root dataset (gdb)
         
         Args:
-            domain (Domain): The domain object to add to this managed Dataset
+            domain (Domain): The domain object to add to the managed Dataset (optional)
+            **opts (CreateDomainOpts): Additional overrides that will be applied to the create domain call
         """
         
-        if self.dataset.parent is None:
-            _root = self.dataset.conn
+        if domain:
+            args: CreateDomainOpts = {
+                'domain_name': domain.name,
+                'domain_description': domain.description,
+                'domain_type': domain_param(domain.domainType),
+                'field_type': domain_param(domain.type),
+                'merge_policy': domain_param(domain.mergePolicy),
+                'split_policy': domain_param(domain.splitPolicy),
+            }
+            # Allow overrides
+            args.update(opts)
         else:
-            _root = self.dataset.parent.conn
+            args = opts
+        CreateDomain(in_workspace=str(self.workspace), **args)
         
-        # TODO: Map parameters!
-        CreateDomain(
-            in_workspace=str(_root), 
-            domain_name=domain.name,
-            domain_description=domain.description,
-            field_type=domain.type, # pyright: ignore[reportArgumentType]
-            domain_type=domain.domainType, # pyright: ignore[reportArgumentType]
-            split_policy=domain.splitPolicy, # pyright: ignore[reportArgumentType]
-            merge_policy=domain.mergePolicy, # pyright: ignore[reportArgumentType]
-        )
+    def delete_domain(self, domain: str) -> None:
+        """Delete a domain from the workspace
+        
+        Args:
+            domain (str): The name of the domain to delete
+        """
+        DeleteDomain(str(self.workspace), domain)
+    
+    def alter_domain(self, domain: str, **opts: Unpack[AlterDomainOpts]) -> None:
+        """Alter a domain using the given domain values
+        
+        Args:
+            **opts (AlterDomainOpts): Passthrough for AlterDomain function
+        """
+        AlterDomain(in_workspace=str(self.workspace), domain_name=domain, **opts)
+    
