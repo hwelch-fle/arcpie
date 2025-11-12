@@ -5,7 +5,7 @@
         show_root_toc_entry: true
         docstring_section_style: spacy
         summary:
-            classes: true
-            functions: true
-            attributes: true
+            classes: yes
+            functions: yes
+            attributes: yes
         

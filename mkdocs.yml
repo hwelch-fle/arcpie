@@ -135,9 +135,9 @@ extra:
           selection:
             docstring_style: google
           summary:
-            classes: true
-            functions: true
-            attributes: true
+            classes: yes
+            functions: yes
+            attributes: yes
 
 nav:
   - Home: index.md
