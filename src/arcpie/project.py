@@ -193,10 +193,10 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
             out_dir (Path|str): The location to export the mapx to
         """
         out_dir = Path(out_dir)
-        target = (out_dir / self.longName)
+        target = out_dir / f'{self.longName}.lyrx'
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
-        target.with_suffix(f'{target.suffix}.lyrx').write_text(json.dumps(self.lyrx, indent=2))
+        target.write_text(json.dumps(self.lyrx, indent=2), encoding='utf-8')
     
     def import_lyrx(self, lyrx: Path|str) -> None:
         """Import the layer state from an lyrx file
@@ -413,8 +413,8 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         Args:
             out_dir (Path|str): The location to export the mapx to
         """
-        out_dir = Path(out_dir) / self.unique_name
-        out_dir.with_suffix(f'{out_dir.suffix}.mapx').write_text(json.dumps(self.mapx, indent=2))
+        target = Path(out_dir) / f'{self.unique_name}'
+        target.write_text(json.dumps(self.mapx, indent=2), encoding='utf-8')
     
     def export_assoc_lyrx(self, out_dir: Path|str, *, skip_groups: bool=False, skip_grouped: bool=False) -> None:
         """Export all child layers to lyrx files the target directory
@@ -482,7 +482,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
         """
         with NamedTemporaryFile() as tmp:
             self.exportToPAGX(tmp.name)
-            return json.loads(Path(f'{tmp.name}.pagx').read_text())
+            return json.loads(Path(f'{tmp.name}.pagx').read_text(encoding='utf-8'))
     
     def to_pdf(self, **settings: Unpack[PDFSetting]) -> BytesIO:
         """Get the bytes for a pdf export of the Layout
@@ -536,10 +536,10 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
         Args:
             out_dir (Path|str): The location to export the lyrx to
         """
-        target = Path(out_dir) / self.longName
+        target = Path(out_dir) / f'{self.longName}.lyrx'
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
-        target.with_suffix(f'{target.suffix}.lyrx').write_text(json.dumps(self.lyrx, indent=2))
+        target.write_text(json.dumps(self.lyrx, indent=2), encoding='utf-8')
     
     def import_lyrx(self, lyrx: Path|str) -> None:
         """Import the table state from an lyrx file
@@ -816,7 +816,7 @@ class Project:
             Project instance targeted at the new file
         """
         path = Path(path)
-        self.aprx.saveACopy(str(path.with_suffix('.aprx')))
+        self.aprx.saveACopy(str(path.with_suffix(f'{path.suffix}.aprx')))
         return Project(path)
     
     def import_pagx(self, pagx: Path|str, *, reuse_existing_maps: bool=True) -> Layout:
@@ -846,7 +846,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for layout in self.layouts:
-            (target_dir / layout.unique_name).with_suffix('.pagx').write_text(json.dumps(layout.pagx))
+            (target_dir / f'{layout.unique_name}.pagx').write_text(json.dumps(layout.pagx), encoding='utf-8')
     
     def import_mapx(self, mapx: Path|str) -> Map:
         """Import a mapx file into this project
@@ -875,7 +875,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for m in self.maps:
-            (target_dir / m.unique_name).with_suffix('.mapx').write_text(json.dumps(m.mapx))
+            (target_dir / f'{m.unique_name}.mapx').write_text(json.dumps(m.mapx), encoding='utf-8')
     
     def export_layers(self, target_dir: Path|str, *, skip_groups: bool = False, skip_grouped: bool = False) -> None:
         """Export all layers in the project to a structured directory of layerfiles
