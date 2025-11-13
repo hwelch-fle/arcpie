@@ -42,7 +42,6 @@ from arcpy.management import (
     CreateFileGDB, # pyright: ignore[reportUnknownVariableType]
     ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
     ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
-    GenerateSchemaReport, # pyright: ignore[reportUnknownVariableType]
 )
 
 _Default = TypeVar('_Default')
