@@ -1919,12 +1919,30 @@ class AttributeRuleManager:
     def __getitem__(self, rule_name: str) -> AttributeRule:
         return self.rules[rule_name]
     
-    def __setitem__(self, rule_name: str, rule: AttributeRule) -> None:
-        _current_rule = self.get(rule_name)
-        rule['name'] = rule_name
+    def __contains__(self, name: str) -> bool:
+        return name in self.names
+    
+    def __setitem__(self, rule_name: str, new_rule: AttributeRule) -> None:
+        """The primary method for interacting with attribute rules
+        
+        The setitem override will take any dictionary that contains the keys expected by 
+        the `AttributeRule` definition. Alteration or Addition is determined and applied 
+        depending on the name of the rule and its state compared to the matching rule in 
+        the current ruleset.
+        
+        Example:
+            ```python
+            >>> fc.attribute_rules.names
+            ['Rule A', 'Rule B']
+            >>> fc.attribute_rules['Rule A'] = {'isEnabled': False}
+            ```
+        """
+        new_rule['name'] = rule_name
+        current_rule = self.get(rule_name)
+        is_enabled = new_rule.get('isEnabled', True)
         
         # Skip fields that are modified by the system
-        _skip_compare = {
+        skip_compare = {
             'id',
             'type',
             'requiredGeodatabaseClientVersion',
@@ -1932,28 +1950,41 @@ class AttributeRuleManager:
         }
         
         # Add a new rule
-        if _current_rule is None:
-            rule['name'] = rule_name
-            self.add_attribute_rule(**to_rule_add(rule))
+        if not current_rule:
+            self.add_attribute_rule(**to_rule_add(new_rule))
+            if not is_enabled:
+                self.disable_attribute_rule(rule_name)
             return
         
         # Enable/Disable
-        if rule['isEnabled'] and not _current_rule['isEnabled']:
+        if is_enabled and not current_rule['isEnabled']:
             self.enable_attribute_rule(rule_name)
-        elif not rule['isEnabled'] and _current_rule['isEnabled']:
+        elif not is_enabled and current_rule['isEnabled']:
             self.disable_attribute_rule(rule_name)
+        is_enabled = current_rule['isEnabled']
         
-        # Update/Alter
-        elif not all(rule.get(k) == _current_rule.get(k) for k in _current_rule if k not in _skip_compare):
-            # Subtype change requires a re-build
-            if set(rule['subtypeCodes']) != set(self[rule_name]['subtypeCodes']):
-                self.delete_attribute_rule(rule_name)
-                self.add_attribute_rule(**to_rule_add(rule))
-            elif rule.get('evaluationOrder') != _current_rule.get('evaluationOrder'):
-                self.alter_attribute_rule(evaluation_order=rule.get('evaluationOrder'), **to_rule_alter(rule))
-            else:
-                self.alter_attribute_rule(**to_rule_alter(rule))
-                
+        # Get Changes
+        changes: dict[str, Any] = {
+            setting: new_rule[setting]
+            for setting in current_rule 
+            if setting not in skip_compare
+            and setting in new_rule
+            and new_rule[setting] != current_rule[setting]
+        }
+        
+        if not changes:
+            return
+        
+        # Subtype change requires a re-build
+        if 'subtypeCodes'in changes:
+            self.delete_attribute_rule(rule_name)
+            current_rule.update(new_rule)
+            self.add_attribute_rule(**to_rule_add(current_rule))
+        else:
+            self.alter_attribute_rule(
+                evaluation_order=changes.get('evaluatonOrder'),
+                **to_rule_alter(new_rule)
+            )
         
     def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
         return self.rules.get(rule_name, default)
