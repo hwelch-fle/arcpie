@@ -126,7 +126,7 @@ class MappingWrapper(Generic[_MapType, _CIMType]):
     @property
     def cim_dict(self) -> dict[str, Any] | None:
         if _cim := self.cim:
-            return json.loads(json.dumps(_cim, cls=CimJsonEncoder))
+            return json.loads(json.dumps(_cim, cls=CimJsonEncoder, indent=2))
     
     def __getattr__(self, attr: str) -> Any:
         return getattr(self._obj, attr)
@@ -385,7 +385,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
     
     @property
     def cim_dict(self) -> dict[str, Any]:
-        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder))
+        return json.loads(json.dumps(self.cim, cls=CimJsonEncoder, indent=2))
     
     @overload
     def __getitem__(self, name: str) -> Layer | Table: ...
@@ -846,7 +846,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for layout in self.layouts:
-            (target_dir / f'{layout.unique_name}.pagx').write_text(json.dumps(layout.pagx), encoding='utf-8')
+            (target_dir / f'{layout.unique_name}.pagx').write_text(json.dumps(layout.pagx, indent=2), encoding='utf-8')
     
     def import_mapx(self, mapx: Path|str) -> Map:
         """Import a mapx file into this project
@@ -875,7 +875,7 @@ class Project:
         target_dir = Path(target_dir)
         target_dir.mkdir(exist_ok=True, parents=True)
         for m in self.maps:
-            (target_dir / f'{m.unique_name}.mapx').write_text(json.dumps(m.mapx), encoding='utf-8')
+            (target_dir / f'{m.unique_name}.mapx').write_text(json.dumps(m.mapx, indent=2), encoding='utf-8')
     
     def export_layers(self, target_dir: Path|str, *, skip_groups: bool = False, skip_grouped: bool = False) -> None:
         """Export all layers in the project to a structured directory of layerfiles

@@ -91,7 +91,7 @@ class Dataset:
         
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
         if not parent and self.conn.suffix != '.gdb':
-            raise ValueError(f'Root Dataset requires a valid gdb path!')
+            raise ValueError('Root Dataset requires a valid gdb path!')
         self.parent = parent
         self._datasets: dict[str, Dataset] | None = None
         self._feature_classes: dict[str, FeatureClass[Any]] | None=None
@@ -278,7 +278,7 @@ class Dataset:
         workspace = json.load(convert_schema(self, out_format))
         schema = patch_schema_rules(workspace, remove_rules=remove_rules)
         with outfile.open('w') as f:
-            json.dump(schema, f)
+            json.dump(schema, f, indent=2)
         return outfile
     
     @classmethod
