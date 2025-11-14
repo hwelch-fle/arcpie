@@ -362,10 +362,12 @@ class DomainManager:
     
     @property
     def unused_domains(self) -> dict[str, Domain]:
+        usage = self.usage()
         return {
             name: domain
             for name, domain in self.domain_map.items() 
-            if not self.usage(name)
+            if name not in usage
+            or not usage[name]
         }
     
     def __len__(self) -> int:
