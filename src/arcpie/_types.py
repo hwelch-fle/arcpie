@@ -44,7 +44,7 @@ def cast_type(dt: np.dtype[Any]) -> type:
     match dt.type:
         case np.int_:
             return int
-        case np.float_:
+        case np.float64:
             return float
         case np.str_:
             return str
