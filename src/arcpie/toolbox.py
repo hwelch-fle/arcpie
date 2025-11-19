@@ -7,12 +7,25 @@ from logging import Logger
 from datetime import datetime
 import time
 
-from arcpy import Parameter
+from arcpy import Parameter as _Parameter
 from arcpie.project import Project
 from arcpie._types import ParameterDatatype
 from abc import ABC
 from collections.abc import Callable
-from typing import Any, TypeVar, overload, SupportsIndex
+from typing import Any, Literal, TypeVar, overload, SupportsIndex
+
+class Parameter(_Parameter):
+    def __init__(self,
+                 name: str | None = None, 
+                 displayName: str | None = None, 
+                 direction: None | Literal['Input', 'Output'] = None, 
+                 datatype: str | None | ParameterDatatype = None, 
+                 parameterType: None | Literal['Required', 'Optional', 'Derived'] = None, 
+                 enabled: bool | None = None, 
+                 category: str | None = None, 
+                 symbology: str | None = None, 
+                 multiValue: bool | None = None) -> None:
+        super().__init__(name, displayName, direction, datatype, parameterType, enabled, category, symbology, multiValue)
 
 class ToolboxABC(ABC):
     
