@@ -8,7 +8,7 @@ from datetime import datetime
 import time
 
 from arcpy import Parameter as _Parameter
-from arcpie.project import Project
+from arcpie.project import Map, Project
 from arcpie._types import ParameterDatatype
 from abc import ABC
 from collections.abc import Callable
@@ -51,6 +51,10 @@ class ToolABC(ABC):
             except Exception:
                 pass
         return ToolABC._current_project # pyright: ignore[reportReturnType]
+    
+    @property
+    def active_map(self) -> Map:
+        return Map(self.project.aprx.activeMap, parent=self.project)
     
     def getParameterInfo(self) -> Parameters | list[Parameter]: return Parameters()
     def isLicensed(self) -> bool: return True
