@@ -1,6 +1,7 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 import builtins
+from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
 import json
@@ -16,6 +17,8 @@ from arcpy import (
     AddMessage,
     AddWarning,
     AddError,
+    PointGeometry,
+    Polyline,
 )
 
 from .featureclass import (
@@ -304,3 +307,51 @@ def patch_schema_rules(schema: SchemaWorkspace|Path|str,
                 script = script.replace(guid, name)
             rule['scriptExpression'] = script
     return workspace
+
+def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeometry], 
+                *, 
+                tolerance: float=0.0,
+                min_len: float=0.0) -> Iterator[tuple[int, dict[str, Polyline]]]:
+    """Split lines at provided points
+    
+    Args:
+        lines (FeatureClass[Polyline]): Line features to split
+        points (FeatureClass[PointGeometry]): Points to split on
+        tolerance (float): Split tolerance in feature units (default: 0.0 [exact])
+        min_len (float): Minumum length for a new line in feature units (default: 0.0)
+    
+    Yields:
+        ( tuple[int, {'SHAPE@': Polyline}]] ): Tuples of parent OID and child shape record
+    
+    Example:
+        ```python
+        >>> # Assign the split iterator to a name 
+        >>> splits = split_at_points(line_features, point_features)
+        >>> # Initialize a set for storing removed OIDs
+        >>> removed: set[int] = set()
+        >>> # Initialize an edit session for rollback
+        >>> with line_features.editor:
+        ...     # The predicate of this expression is used to allow extraction of removed rows
+        ...     # without having to consume the generator beforehand
+        ...     line_features.insert_records(row for oid, row in splits if not removed.add(oid))
+        ...     # Format the extracted split OIDs as a query and delete them
+        ...     if removed: 
+        ...         line_features.delete_where('OBJECTID IN ({format_query_list(removed)})')
+        ```
+    """
+    line_iter: Iterator[tuple[Polyline, int]] = lines[('SHAPE@', 'OID@')]
+    for line, oid in line_iter:
+        int_points: list[PointGeometry] = []
+        with points.reference_as(line.spatialReference), points.fields_as('SHAPE@'):
+            int_points = [r['SHAPE@'] for r in points[line.buffer(tolerance or 0)]]
+        
+        if len(int_points) == 0 or all(p.touches(line) for p in int_points):
+            continue
+        
+        prev_measure = 0.0
+        measures = sorted(line.measureOnLine(p) for p in int_points) + [line.length]
+        for measure in measures:
+            seg = line.segmentAlongLine(prev_measure, measure)
+            prev_measure = measure
+            if seg and seg.length >= (min_len or 0):
+                yield oid, {'SHAPE@': seg}
