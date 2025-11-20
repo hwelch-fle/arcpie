@@ -917,6 +917,15 @@ class Table:
             for _ in cur:
                 cur.deleteRow()
     
+    def delete_where(self, clause: WhereClause|str) -> None:
+        """Delete all records that match the provided where clause
+        
+        Args:
+            clause (WhereClause|str): The SQL query that determines the records that will be deleted
+        """
+        with self.where(clause):
+            self.clear()
+    
     # Magic Methods
     
     def __bool__(self) -> Literal[True]:
@@ -1266,11 +1275,11 @@ class Table:
             self._clause = _clause
 
     @contextmanager
-    def where(self, where_clause: str):
+    def where(self, where_clause: WhereClause|str):
         """Apply a where clause to a Table or FeatureClass in a context
 
         Args:
-            where_clause (str): The where clause to apply to the Table or FeatureClass
+            where_clause (WhereClause|str): The where clause to apply to the Table or FeatureClass
         
         Example:
             ```python
@@ -1291,8 +1300,8 @@ class Table:
             `.filter` method. If you can achieve the filtering you want with a where clause, do it.
         """
         with self.options(
-            search_options=SearchOptions(where_clause=where_clause),
-            update_options=UpdateOptions(where_clause=where_clause)):
+            search_options=SearchOptions(where_clause=str(where_clause)),
+            update_options=UpdateOptions(where_clause=str(where_clause))):
             yield self
 
     # Mapping interfaces (These pass common `Layer` operations up to the Table or FeatureClass)
