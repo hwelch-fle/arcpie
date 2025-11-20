@@ -53,18 +53,19 @@ class Tool(ToolABC):
     _current_project: Project | None = None
     
     @property
-    def project(self) -> Project:
+    def project(self) -> Project | None:
         """Get the current project that the tool is running in if it exists (otherwise: None)"""
         if __class__._current_project is None:
             try:
                 __class__._current_project = Project('CURRENT')
             except Exception:
                 pass
-        return __class__._current_project # pyright: ignore[reportReturnType]
+        return __class__._current_project
     
     @property
-    def active_map(self) -> Map:
-        return Map(self.project.aprx.activeMap, parent=self.project)
+    def active_map(self) -> Map | None:
+        if self.project:
+            return Map(self.project.aprx.activeMap, parent=self.project)
 
 _Default = TypeVar('_Default')
 class Parameters(list[Parameter]):
