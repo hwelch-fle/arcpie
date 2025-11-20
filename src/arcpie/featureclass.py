@@ -691,7 +691,7 @@ class Table:
             raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
 
         new_ids: list[int] = []
-        with self.editor, self.insert_cursor(*rec_fields) as cur:
+        with self.insert_cursor(*rec_fields) as cur:
             for rec in filter(rec_filter, records):
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
@@ -715,7 +715,7 @@ class Table:
             
         unique: dict[int, tuple[Any]] = {}
         deleted: dict[int, int] = {}
-        with self.editor, self.update_cursor('OID@', *field_names) as cur:
+        with self.update_cursor('OID@', *field_names) as cur:
             for row in cur:
                 oid: int = row[0]
                 row = tuple(row[1:])
@@ -913,7 +913,7 @@ class Table:
     
     def clear(self) -> None:
         """Clear all records from the table"""
-        with self.editor, self.update_cursor(self.oid_field_name) as cur:
+        with self.update_cursor(self.oid_field_name) as cur:
             for _ in cur:
                 cur.deleteRow()
     
