@@ -310,40 +310,40 @@ def patch_schema_rules(schema: SchemaWorkspace|Path|str,
 
 def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeometry], 
                 *, 
-                tolerance: float=0.0,
-                min_len: float=0.0) -> Iterator[tuple[int, dict[str, Polyline]]]:
+                buffer: float=0.0,
+                min_len: float=0.0) -> Iterator[tuple[int, Polyline]]:
     """Split lines at provided points
     
     Args:
         lines (FeatureClass[Polyline]): Line features to split
         points (FeatureClass[PointGeometry]): Points to split on
-        tolerance (float): Split tolerance in feature units (default: 0.0 [exact])
+        buffer (float): Split buffer in feature units (default: 0.0 [exact])
         min_len (float): Minumum length for a new line in feature units (default: 0.0)
     
     Yields:
-        ( tuple[int, {'SHAPE@': Polyline}]] ): Tuples of parent OID and child shape record
+        ( tuple[int, Polyline]] ): Tuples of parent OID and child shape
     
     Example:
         ```python
-        >>> # Assign the split iterator to a name 
-        >>> splits = split_at_points(line_features, point_features)
-        >>> # Initialize a set for storing removed OIDs
+        >>> # Initialize a set to capture the removed ids
         >>> removed: set[int] = set()
-        >>> # Initialize an edit session for rollback
-        >>> with line_features.editor:
-        ...     # The predicate of this expression is used to allow extraction of removed rows
-        ...     # without having to consume the generator beforehand
-        ...     line_features.insert_records(row for oid, row in splits if not removed.add(oid))
-        ...     # Format the extracted split OIDs as a query and delete them
-        ...     if removed: 
-        ...         line_features.delete_where('OBJECTID IN ({format_query_list(removed)})')
+        >>> with lines.editor:
+        ...     # Insert new lines
+        ...     with lines.insert_cursor('SHAPE@') as cur:
+        ...         for oid, shape in split_at_points(lines, points):
+        ...             cur.insertRow([shape])
+        ...             removed.add(oid) # Add parent ID to removed
+        ...     # Remove old lines (if you're inserting to the same featureclass)
+        ...     with lines.update_cursor('OID@') as cur:
+        ...         for _ in filter(lambda r: r[0] in removed, cur):
+        ...             cur.deleteRow() 
         ```
     """
     line_iter: Iterator[tuple[Polyline, int]] = lines[('SHAPE@', 'OID@')]
     for line, oid in line_iter:
         int_points: list[PointGeometry] = []
         with points.reference_as(line.spatialReference), points.fields_as('SHAPE@'):
-            int_points = [r['SHAPE@'] for r in points[line.buffer(tolerance or 0)]]
+            int_points = [r['SHAPE@'] for r in points[line.buffer(buffer)]]
         
         if len(int_points) == 0 or all(p.touches(line) for p in int_points):
             continue
@@ -354,4 +354,4 @@ def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeo
             seg = line.segmentAlongLine(prev_measure, measure)
             prev_measure = measure
             if seg and seg.length >= (min_len or 0):
-                yield oid, {'SHAPE@': seg}
+                yield oid, seg
