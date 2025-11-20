@@ -64,7 +64,7 @@ class Tool(ToolABC):
     
     @property
     def active_map(self) -> Map | None:
-        if self.project:
+        if self.project and self.project.aprx.activeMap:
             return Map(self.project.aprx.activeMap, parent=self.project)
 
 _Default = TypeVar('_Default')
