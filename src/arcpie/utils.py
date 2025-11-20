@@ -323,16 +323,22 @@ def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeo
     Yields:
         ( tuple[int, Polyline]] ): Tuples of parent OID and child shape
     
+    Warning:
+        When splitting features in differing projections, the point features will be projected
+        into the spatial reference of the line features.
+    
     Example:
         ```python
+        >>> # Simple process for splitting lines in place
+        ... 
         >>> # Initialize a set to capture the removed ids
         >>> removed: set[int] = set()
         >>> with lines.editor:
         ...     # Insert new lines
         ...     with lines.insert_cursor('SHAPE@') as cur:
-        ...         for oid, shape in split_at_points(lines, points):
-        ...             cur.insertRow([shape])
-        ...             removed.add(oid) # Add parent ID to removed
+        ...         for parent, new_line in split_at_points(lines, points):
+        ...             cur.insertRow([new_line])
+        ...             removed.add(parent) # Add parent ID to removed
         ...     # Remove old lines (if you're inserting to the same featureclass)
         ...     with lines.update_cursor('OID@') as cur:
         ...         for _ in filter(lambda r: r[0] in removed, cur):
