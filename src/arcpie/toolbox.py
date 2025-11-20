@@ -1,7 +1,10 @@
 from __future__ import annotations
+
+from importlib import reload, import_module
+from traceback import format_exc
 from functools import wraps
 import traceback
-from types import MappingProxyType
+from types import MappingProxyType, ModuleType
 import inspect
 from logging import Logger
 from datetime import datetime
@@ -28,33 +31,16 @@ class Parameter(_Parameter):
         super().__init__(name, displayName, direction, datatype, parameterType, enabled, category, symbology, multiValue)
 
 class ToolboxABC(ABC):
-    
     def __init__(self) -> None:
         self.label: str
         self.alias: str
         self.tools: list[type[ToolABC]]
 
 class ToolABC(ABC):
-    _current_project: Project | None = None
-    
     def __init__(self) -> None:
         self.label: str = self.__class__.__name__
         self.description: str = self.__doc__ or 'No Descrption Provided'
         self.category: str | None = None
-    
-    @property
-    def project(self) -> Project:
-        """Get the current project that the tool is running in if it exists (otherwise: None)"""
-        if ToolABC._current_project is None:
-            try:
-                ToolABC._current_project = Project('CURRENT')
-            except Exception:
-                pass
-        return ToolABC._current_project # pyright: ignore[reportReturnType]
-    
-    @property
-    def active_map(self) -> Map:
-        return Map(self.project.aprx.activeMap, parent=self.project)
     
     def getParameterInfo(self) -> Parameters | list[Parameter]: return Parameters()
     def isLicensed(self) -> bool: return True
@@ -62,6 +48,23 @@ class ToolABC(ABC):
     def updateMessages(self, parameters: Parameters | list[Parameter]) -> None: ...
     def execute(self, parameters: Parameters | list[Parameter], messages: Any) -> None: ...
     def postExecute(self, parameters: Parameters | list[Parameter]) -> None: ...
+
+class Tool(ToolABC):
+    _current_project: Project | None = None
+    
+    @property
+    def project(self) -> Project:
+        """Get the current project that the tool is running in if it exists (otherwise: None)"""
+        if __class__._current_project is None:
+            try:
+                __class__._current_project = Project('CURRENT')
+            except Exception:
+                pass
+        return __class__._current_project # pyright: ignore[reportReturnType]
+    
+    @property
+    def active_map(self) -> Map:
+        return Map(self.project.aprx.activeMap, parent=self.project)
 
 _Default = TypeVar('_Default')
 class Parameters(list[Parameter]):
@@ -102,6 +105,89 @@ class Parameters(list[Parameter]):
                 return any(p == key for p in self)
             case _:
                 return False
+
+def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
+    """ Higher order function for creating a tool class that represents a broken tool. """
+    class _BrokenImport(ToolABC):
+        __name__ = f"{tool_name}_BrokenImport"
+        __exc__ = exception
+        def __init__(self):
+            self.category = "Broken Tools (Read Description for More Info)"
+            self.label = f"{tool_name} - {exception}"
+            self.alias = self.label.replace(" ", "")
+            self.description = traceback
+    return _BrokenImport
+
+def _import_mod(module_name: str, tool_name: str) -> ModuleType:
+    try:
+        # Tool File with matching class name
+        mod = import_module(f'{module_name}.{tool_name}')
+    except ImportError:
+        # Direct class import
+        mod = import_module(module_name)
+    return mod
+
+def _get_tool(module_name: str, tool_name: str, reload_module: bool) -> type[ToolABC]:
+    # Last component is always the ToolClass name
+    try:
+        mod = _import_mod(module_name, tool_name)
+        if reload_module:
+            reload(mod)
+        return getattr(mod, tool_name)
+    except Exception as e:
+        return _placeholder_tool(tool_name, e, format_exc(limit=1))
+
+def safe_load(tools: dict[str, list[str]],
+              *,
+              scope: dict[str, Any]|None=None,
+              reload_module: bool=False) -> list[type[ToolABC]]:
+    """Safely load in tools to a toolbox placing all failed imports in a `Broken Tools` category
+    
+    Args:
+        tools (dict[str, list[str]]): A mapping of tool modules to tool files or tool classes in a module
+        scope (dict[str, Any]): The `globals()` dict for the Toolbox scope (required so loading happend in Toolbox scope)
+        reload_module (bool): Reload the module after importing (default: False)
+    
+    Returns:
+        ( list[type[ToolABC]] ): A list of tool classes
+    
+    Note:
+        To isolate bugs in a large toolbox, it is reccomended that you use file/module level importing
+        with matching toolclass names (e.g. `Tool.py -> class Tool`) where the Tool mapping is:
+            `Tools = {'tools': ['Tool.py']}`
+        instead of:
+            `Tools = {'tools.Tool': ['Tool']}`
+        This allows the import to fail softly on a single tool instead of breaking imports for all other
+        toolclasses in that `Tool.py` module.
+        
+        Any tools with errors will be placed in a `Broken Tools` category in the toolbox with the full
+        stack trace placed in its description field. The final component of the exception will be placed
+        at the end of the tool label for easy debugging.
+    
+    Example:
+        ```python
+        >>> # File import
+        >>> Tools = {
+        ...     # import matching class from named file in a submodule (tools)
+        ...     # where ToolFileA is ToolFileA.py with a class ToolFileA
+        ...     'tools': ['ToolFileA', 'ToolFileB'],
+        ...     
+        ...     # Import explicit ToolClass from toolfile (MyTools.py)
+        ...     # NOT RECOMMENDED
+        ...     'tools.MyTools': ['ToolClassA', 'ToolClassB'],
+        ... }
+        >>> tools = safe_import(globals(), Tools)
+        ```
+    """
+    _tools = [
+        _get_tool(module, tool_name, reload_module)
+        for module in tools
+        for tool_name in tools[module]
+    ]
+    if scope:
+        scope.update({tool.__name__: tool for tool in _tools})
+    return _tools
+    
 
 # toolify wrapper
 # NOTE: inspect.Parameter is much different from arcpy.Parameter, module level import used to keep them clear
