@@ -308,7 +308,7 @@ def patch_schema_rules(schema: SchemaWorkspace|Path|str,
             rule['scriptExpression'] = script
     return workspace
 
-def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeometry], 
+def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[PointGeometry, Any], 
                 *, 
                 buffer: float=0.0,
                 min_len: float=0.0) -> Iterator[tuple[int, Polyline]]:
