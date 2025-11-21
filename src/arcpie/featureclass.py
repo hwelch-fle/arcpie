@@ -14,6 +14,7 @@ from collections.abc import (
     Iterator,
     Callable,
     Sequence,
+    MutableMapping,
 )
 
 from typing import (
@@ -61,11 +62,7 @@ from ._types import (
 )
 
 from arcpy import (
-    Geometry,
     Polygon,
-    Polyline,
-    PointGeometry,
-    Multipoint,
     Extent,
     Describe, #type:ignore
     SpatialReference,
@@ -127,7 +124,7 @@ FieldName = str #| FeatureToken
 
 _T = TypeVar('_T')
 
-def count(featureclass: FeatureClass[Any] | Iterator[Any]) -> int:
+def count(featureclass: FeatureClass | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
     
     Args:
@@ -189,7 +186,7 @@ def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
         Robert lives in Kansas City
         ...
     """
-    yield from ( dict(zip(cursor.fields, row)) for row in cursor )
+    yield from (dict(zip(cursor.fields, row)) for row in cursor)
 
 def format_query_list(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
@@ -303,12 +300,14 @@ def valid_field(fieldname: FieldName) -> bool:
 RowRecord = dict[FieldName, Any]
 """Alias for a dictionary of fieldnames and field values"""
 
-FilterFunc = Callable[[RowRecord], bool]
+_GeometryType = TypeVar('_GeometryType', bound=GeometryType, default=GeometryType)
+# Optional Schema to use for typing records
+_Schema = TypeVar('_Schema', bound=MutableMapping[str, Any], default=RowRecord)
+
+FilterFunc = Callable[[_Schema], bool]
 """The expected type signature for function indexing"""
 
-_GeometryType = TypeVar('_GeometryType', Geometry, Polygon, PointGeometry, Polyline, Multipoint, GeometryType)
-
-class Table:
+class Table(Generic[_Schema]):
     """A Wrapper for ArcGIS Table objects"""
     
     Tokens = TableTokens
@@ -555,6 +554,10 @@ class Table:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
+    # Localize as_dict for internal typing of _Schema var
+    def as_dict(self, cursor: SearchCursor | UpdateCursor) -> Iterator[_Schema]:
+        yield from as_dict(cursor) # pyright: ignore[reportReturnType]
+
     if TYPE_CHECKING:
         GroupIter = Iterator[tuple[Any, ...] | Any]
         GroupIdent = tuple[Any, ...] | Any
@@ -611,7 +614,7 @@ class Table:
                 for row in filter(lambda row: all(row[k] == group_key[k] for k in group_key), self[set(_all_fields)]):
                     yield (extract_singleton(group), (row.pop(k) for k in return_fields))
 
-    def distinct(self, distinct_fields: Sequence[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
+    def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
         
         Args:
@@ -627,7 +630,7 @@ class Table:
         except RuntimeError: # Fallback when DISTINCT is not available or fails with Token input
             yield from sorted(set(self.get_tuples(distinct_fields)))
 
-    def get_records(self, field_names: Sequence[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[RowRecord]:
+    def get_records(self, field_names: Iterable[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[_Schema]:
         """Generate row dicts with in the form `{field: value, ...}` for each row in the cursor
 
         Args:
@@ -637,9 +640,9 @@ class Table:
             ( dict[str, Any] ): A mapping of fieldnames to field values for each row
         """
         with self.search_cursor(*field_names, **options) as cur:
-            yield from as_dict(cur)
+            yield from self.as_dict(cur)
 
-    def get_tuples(self, field_names: Sequence[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
+    def get_tuples(self, field_names: Iterable[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[tuple[Any, ...]]:
         """Generate tuple rows in the for (val1, val2, ...) for each row in the cursor
         
         Args:
@@ -649,7 +652,7 @@ class Table:
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_records(self, records: Iterator[RowRecord] | Sequence[RowRecord], ignore_errors: bool=False) -> tuple[int, ...]:
+    def insert_records(self, records: Iterable[_Schema] , ignore_errors: bool=False) -> tuple[int, ...]:
         """Provide a list of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -683,7 +686,7 @@ class Table:
             return tuple()
         
         rec_fields: list[str] = list(records[0].keys())
-        def rec_filter(rec: RowRecord) -> bool:
+        def rec_filter(rec: RowRecord | _Schema) -> bool:
             if not rec_fields or set(rec.keys()).issubset(rec_fields):
                 return True
             if ignore_errors:
@@ -696,7 +699,7 @@ class Table:
                 new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
         return tuple(new_ids)
 
-    def delete_identical(self, field_names: Sequence[FieldName] | FieldName) -> dict[int, int]:
+    def delete_identical(self, field_names: Iterable[FieldName] | FieldName) -> dict[int, int]:
         """Delete all records that have matching field values
         
         Args:
@@ -735,7 +738,7 @@ class Table:
                     cur.deleteRow()
         return deleted
                 
-    def filter(self, func: FilterFunc, invert: bool=False) -> Iterator[RowRecord]:
+    def filter(self, func: FilterFunc[_Schema], invert: bool=False) -> Iterator[_Schema]:
         """Apply a function filter to rows in the Table or FeatureClass
 
         Args:
@@ -907,7 +910,7 @@ class Table:
             DeleteField(self.path, fieldname)
             self._fields = None # Defer new field check to next access
 
-    def delete_fields(self, fieldnames: Sequence[str]) -> None:
+    def delete_fields(self, fieldnames: Iterable[FieldName]) -> None:
         for fname in fieldnames:
             self.delete_field(fname)
     
@@ -932,27 +935,23 @@ class Table:
         # Override __bool__ to prevent fallback to __len__
         return True
     
-    if TYPE_CHECKING:
-        _IndexableTypes = (
-            FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | 
-            FilterFunc | WhereClause | None
-        )
+    _IndexableTypes = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | WhereClause | None
         
     @overload
     def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
     @overload
     def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]: ...
     @overload
-    def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: set[FieldName]) -> Iterator[_Schema]: ...
     @overload
     def __getitem__(self, field: FieldName) -> Iterator[Any]: ...
     @overload
-    def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: FilterFunc[_Schema]) -> Iterator[_Schema]: ...
     @overload
-    def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: WhereClause) -> Iterator[_Schema]: ...
     @overload
     def __getitem__(self, field: None) -> Iterator[None]: ...
-    def __getitem__(self, field: _IndexableTypes) -> Iterator[Any]:
+    def __getitem__(self, field: _IndexableTypes | FilterFunc[_Schema]) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -1008,7 +1007,7 @@ class Table:
                     yield from (list(row) for row in cur)
             case set():
                 with self.search_cursor(*field) as cur:
-                    yield from (row for row in as_dict(cur))
+                    yield from (row for row in self.as_dict(cur))
             case None:
                 yield from () # This allows a side effect None to be used to get nothing
 
@@ -1017,7 +1016,7 @@ class Table:
                 if not wc.validate(self.fields):
                     raise KeyError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
                 with self.search_cursor(*self.fields, where_clause=wc.where_clause) as cur:
-                    yield from (row for row in as_dict(cur))
+                    yield from (row for row in self.as_dict(cur))
             case func if callable(func):
                 yield from (row for row in self.filter(func))
             case _:
@@ -1031,16 +1030,16 @@ class Table:
     @overload
     def get(self, field: list[FieldName], default: _T) -> Iterator[list[Any]] | _T: ...
     @overload
-    def get(self, field: set[FieldName], default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: set[FieldName], default: _T) -> Iterator[_Schema] | _T: ...
     @overload
     def get(self, field: FieldName, default: _T) -> Iterator[Any] | _T: ...
     @overload
-    def get(self, field: FilterFunc, default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: FilterFunc[_Schema], default: _T) -> Iterator[_Schema] | _T: ...
     @overload
-    def get(self, field: WhereClause, default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: WhereClause, default: _T) -> Iterator[_Schema] | _T: ...
     @overload
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
-    def get(self, field: _IndexableTypes, default: _T=None) -> Iterator[Any] | _T:
+    def get(self, field: _IndexableTypes | FilterFunc[_Schema], default: _T=None) -> Iterator[Any] | _T:
         """Allow accessing the implemented indexes defined by `__getitem__` with a default shielding a raised `KeyError`
         
         Args:
@@ -1071,8 +1070,7 @@ class Table:
         """
         return field in self.fields
 
-
-    def __iter__(self) -> Iterator[dict[str, Any]] | Iterator[Any]:
+    def __iter__(self) -> Iterator[_Schema] | Iterator[Any]:
         """Iterate all rows in the Table or FeatureClass yielding mappings of field name to field value
         
         Note:
@@ -1087,7 +1085,7 @@ class Table:
             if len(self.fields) == 1:
                 yield from (row for row, in cur)
             else:
-                yield from as_dict(cur)
+                yield from self.as_dict(cur)
 
     def __len__(self) -> int:
         """Iterate all rows and count them. Only count with `self.search_options` queries.
@@ -1384,7 +1382,7 @@ class Table:
     def from_layer(cls, layer: Layer,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> Table:
+                   ignore_def_query: bool = False,) -> Table[Any]:
         """Build a Table or FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Args:
@@ -1394,7 +1392,7 @@ class Table:
         Returns:
             ( Table or FeatureClass ): The Table or FeatureClass object with the layer query applied
         """
-        fc = cls(layer.dataSource)
+        fc = cls(Path(layer.dataSource).resolve())
         
         selected_ids: set[int] | None = (
             layer.getSelectionSet() or None
@@ -1420,7 +1418,7 @@ class Table:
         fc.layer = layer
         return fc
     
-class FeatureClass(Table, Generic[_GeometryType]):
+class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     """A Wrapper for ArcGIS FeatureClass objects
     
     Example:
@@ -1525,7 +1523,11 @@ class FeatureClass(Table, Generic[_GeometryType]):
         return _types
     # Data Operations
     
-    def footprint(self, buffer: float|None=None) -> _GeometryType | None:
+    @overload
+    def footprint(self, buffer: float) -> Polygon | None: ...
+    @overload
+    def footprint(self, buffer: None) -> _GeometryType | None: ...
+    def footprint(self, buffer: float|None=None) -> _GeometryType | Polygon | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
         as a spatial filter on other FeatureClasses
         
@@ -1538,15 +1540,21 @@ class FeatureClass(Table, Generic[_GeometryType]):
         if len(self) == 0:
             return None
 
-        def merge(acc: _GeometryType, nxt: _GeometryType) -> _GeometryType:
+        def merge(acc: _GeometryType | Polygon, nxt: _GeometryType | Polygon) -> _GeometryType | Polygon:
+            # Return type of union is Geometry for all types which is incorrect, it is Polygon
             if buffer:
-                nxt = nxt.buffer(buffer)
-            return acc.union(nxt)
+                return acc.union(nxt.buffer(buffer)) # pyright: ignore[reportReturnType]
+            else:
+                return acc.union(nxt) # pyright: ignore[reportReturnType]
         
         # Consume the shape generator popping off the first shape and applying the buffer, 
         # Then buffering each additional shape and merging it into the accumulator (starting with _first)
         _shapes = self.shapes
-        _first = next(_shapes)
+        for _first in _shapes:
+            break
+        else:
+            return None
+        
         if buffer:
             _first = _first.buffer(buffer)
         
@@ -1558,26 +1566,25 @@ class FeatureClass(Table, Generic[_GeometryType]):
 
     # Magic Methods
     
-    if TYPE_CHECKING:
-        _IndexableTypes = Table._IndexableTypes | Extent | GeometryType
-        
     @overload
     def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
     @overload
     def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]: ...
     @overload
-    def __getitem__(self, field: set[FieldName]) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: set[FieldName]) -> Iterator[_Schema]: ...
+    @overload # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
+    def __getitem__(self, field: Literal['SHAPE@']) -> Iterator[_GeometryType]: ...
     @overload
     def __getitem__(self, field: FieldName) -> Iterator[Any]: ...
     @overload
-    def __getitem__(self, field: FilterFunc) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: FilterFunc[_Schema]) -> Iterator[_Schema]: ...
     @overload
-    def __getitem__(self, field: WhereClause) -> Iterator[RowRecord]: ...
+    def __getitem__(self, field: WhereClause) -> Iterator[_Schema]: ...
     @overload
     def __getitem__(self, field: None) -> Iterator[None]: ...
     @overload
-    def __getitem__(self, field: GeometryType | Extent) -> Iterator[RowRecord]: ...
-    def __getitem__(self, field: _IndexableTypes) -> Iterator[Any]:
+    def __getitem__(self, field: GeometryType | Extent) -> Iterator[_Schema]: ...
+    def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -1625,33 +1632,35 @@ class FeatureClass(Table, Generic[_GeometryType]):
             ```
         """
         match field:
+            case 'SHAPE@':
+                yield from self.shapes
             case shape if isinstance(shape, Extent | GeometryType):
                 with self.search_cursor(*self.fields, spatial_filter=shape) as cur:
-                    yield from (row for row in as_dict(cur))
-            case field if isinstance(field, str|list|tuple|set|Callable|WhereClause):
+                    yield from (row for row in self.as_dict(cur))
+            case field if isinstance(field, str|set|list|tuple|Callable|WhereClause|None):
                 yield from super().__getitem__(field)
             case _:
-                raise KeyError(
-                    f"Invalid option: {field}\n"
-                    "Must be a filter functon, set of keys, list of keys, or tuple of keys"
-                )
+                raise KeyError
+    
     @overload
     def get(self, field: tuple[FieldName, ...], default: _T) -> Iterator[tuple[Any, ...]] | _T: ...
     @overload
     def get(self, field: list[FieldName], default: _T) -> Iterator[list[Any]] | _T: ...
     @overload
-    def get(self, field: set[FieldName], default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: set[FieldName], default: _T) -> Iterator[_Schema] | _T: ...
+    @overload # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
+    def get(self, field: Literal['SHAPE@'], default: _T) -> Iterator[_GeometryType] | _T: ...
     @overload
     def get(self, field: FieldName, default: _T) -> Iterator[Any] | _T: ...
     @overload
-    def get(self, field: FilterFunc, default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: FilterFunc[_Schema], default: _T) -> Iterator[_Schema] | _T: ...
     @overload
-    def get(self, field: WhereClause, default: _T) -> Iterator[RowRecord] | _T: ...
+    def get(self, field: WhereClause, default: _T) -> Iterator[_Schema] | _T: ...
     @overload
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
     @overload
-    def get(self, field: GeometryType | Extent, default: _T) -> Iterator[RowRecord] | _T: ...
-    def get(self, field: _IndexableTypes, default: _T=None) -> Iterator[Any] | _T:
+    def get(self, field: GeometryType | Extent, default: _T) -> Iterator[_Schema] | _T: ...
+    def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T=None) -> Iterator[Any] | _T:
         """Allows safe indexing of a FeatureClass, see `Table.get` for more information"""
         try:
             return self[field]
@@ -1747,7 +1756,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
     def from_layer(cls, layer: Layer,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> FeatureClass[_GeometryType]:
+                   ignore_def_query: bool = False,) -> FeatureClass[Any, Any]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Args:
@@ -1785,7 +1794,7 @@ class FeatureClass(Table, Generic[_GeometryType]):
 
 class AttributeRuleManager:
     """Handler for interacting with AttributeRules on a FeatureClass or Table"""
-    def __init__(self, parent: Table|FeatureClass[Any]) -> None:
+    def __init__(self, parent: Table[Any]|FeatureClass[Any, Any]) -> None:
         self._parent = parent
             
     @property
@@ -1793,7 +1802,7 @@ class AttributeRuleManager:
         return list(self.rules.keys())
     
     @property
-    def parent(self) -> Table|FeatureClass[Any]:
+    def parent(self) -> Table[Any] | FeatureClass[Any, Any]:
         return self._parent 
     
     @property
