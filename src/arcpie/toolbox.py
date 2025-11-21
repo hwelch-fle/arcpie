@@ -107,6 +107,26 @@ class Parameters(list[Parameter]):
             case _:
                 return False
 
+class Toggle(Parameter):
+    # Parameters are detected using __class__.__name__ == 'Parameter'
+    # So all subclasses of Parameter must inherit the name 'Parameter'
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 default: bool=False, 
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required',
+            datatype='GPBoolean',
+            direction='Input',
+            category=category,
+        )
+        self.value = default
+
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):
