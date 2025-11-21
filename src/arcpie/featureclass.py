@@ -14,7 +14,7 @@ from collections.abc import (
     Iterator,
     Callable,
     Sequence,
-    MutableMapping,
+    Mapping,
 )
 
 from typing import (
@@ -221,7 +221,7 @@ def where(where_clause: str) -> WhereClause:
     """
     return WhereClause(where_clause)
 
-def filter_fields(*fields: FieldName) -> Callable[[FilterFunc], FilterFunc]:
+def filter_fields(*fields: FieldName) -> Callable[[FilterFunc[RowRecord]], FilterFunc[RowRecord]]:
     """Decorator for filter functions that limits fields checked by the SearchCursor
     
     Args:
@@ -302,7 +302,7 @@ RowRecord = dict[FieldName, Any]
 
 _GeometryType = TypeVar('_GeometryType', bound=GeometryType, default=GeometryType)
 # Optional Schema to use for typing records
-_Schema = TypeVar('_Schema', bound=MutableMapping[str, Any], default=RowRecord)
+_Schema = TypeVar('_Schema', bound=Mapping[str, Any], default=RowRecord)
 
 FilterFunc = Callable[[_Schema], bool]
 """The expected type signature for function indexing"""
@@ -612,7 +612,7 @@ class Table(Generic[_Schema]):
                     yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
             else: # Handle token being passed by iterating a cursor and checking values directly
                 for row in filter(lambda row: all(row[k] == group_key[k] for k in group_key), self[set(_all_fields)]):
-                    yield (extract_singleton(group), (row.pop(k) for k in return_fields))
+                    yield (extract_singleton(group), (row.pop(k) for k in return_fields)) # type: ignore (TypedDict Generic causes issues)
 
     def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
@@ -1640,7 +1640,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             case field if isinstance(field, str|set|list|tuple|Callable|WhereClause|None):
                 yield from super().__getitem__(field)
             case _:
-                raise KeyError
+                raise KeyError(f'{type(field)}: {field}')
     
     @overload
     def get(self, field: tuple[FieldName, ...], default: _T) -> Iterator[tuple[Any, ...]] | _T: ...
