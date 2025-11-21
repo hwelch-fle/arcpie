@@ -41,7 +41,7 @@ class _FeatureGraph(nx.Graph):
 
 
 class FeatureGraph:
-    def __init__(self, edges: FeatureClass[Polyline], nodes: FeatureClass[PointGeometry], tolerance: float=0.0,
+    def __init__(self, edges: FeatureClass[Polyline, Any], nodes: FeatureClass[PointGeometry, Any], tolerance: float=0.0,
                  *,
                  node_attributes: Sequence[str] | None=None,
                  edge_attributes: Sequence[str] | None=None) -> None:

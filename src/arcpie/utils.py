@@ -236,7 +236,7 @@ def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTabl
 
 from .schemas import SchemaWorkspace, SchemaDataset
 
-def convert_schema(schema: Dataset|Path|str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON') -> BytesIO:
+def convert_schema(schema: Dataset[Any]|Path|str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON') -> BytesIO:
     """Convert a Schema from one format to another
     
     Args:
