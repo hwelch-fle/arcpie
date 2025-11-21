@@ -7,9 +7,12 @@ from tempfile import TemporaryDirectory
 
 from collections.abc import (
     Iterator,
+    Mapping,
 )
 from typing import (
+    TYPE_CHECKING,
     Any,
+    Generic,
     Literal,
     TypeVar,
     Unpack,
@@ -44,8 +47,11 @@ from arcpy.management import (
     ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
 )
 
-_Default = TypeVar('_Default')
-class Dataset:
+if TYPE_CHECKING: # 3.13 features (default for TypeVar)
+    _Default = TypeVar('_Default')
+    _Schema = TypeVar('_Schema', default=Mapping[str, Any])
+
+class Dataset(Generic[_Schema]):
     """A Container for managing workspace connections.
     
     A Dataset is initialized using `arcpy.da.Walk` and will discover all child datasets, tables, and featureclasses.
@@ -86,15 +92,15 @@ class Dataset:
         ['fc3', 'fc4', 'fc5', 'fc6']
         ```
     """
-    def __init__(self, conn: str|Path, *, parent: Dataset|None=None) -> None:
+    def __init__(self, conn: str|Path, *, parent: Dataset[Any]|None=None) -> None:
         self.conn = Path(conn)
         
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
         if not parent and self.conn.suffix != '.gdb':
             raise ValueError('Root Dataset requires a valid gdb path!')
         self.parent = parent
-        self._datasets: dict[str, Dataset] | None = None
-        self._feature_classes: dict[str, FeatureClass[Any]] | None=None
+        self._datasets: dict[str, Dataset[Any]] | None = None
+        self._feature_classes: dict[str, FeatureClass[Any, Any]] | None=None
         self._tables: dict[str, Table] | None=None
         self.walk()
 
@@ -206,13 +212,13 @@ class Dataset:
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
     
-    def __getitem__(self, key: str) -> FeatureClass[Any] | Table | Dataset:
+    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table | Dataset:
         if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key):
             return ret
         
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
-    def get(self, key: str, default: _Default=None) -> FeatureClass[Any] | Table | Dataset | _Default:
+    def get(self, key: str, default: _Default=None) -> FeatureClass[Any, Any] | Table | Dataset | _Default:
         try:
             return self[key]
         except KeyError:
@@ -337,7 +343,7 @@ class Dataset:
 class DomainManager:
     """Handler for interacting with domains defined on a dataset"""
     
-    def __init__(self, dataset: Dataset) -> None:
+    def __init__(self, dataset: Dataset[Any]) -> None:
         self._dataset = dataset
         
     @property
