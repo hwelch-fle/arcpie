@@ -236,7 +236,7 @@ def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTabl
 
 from .schemas import SchemaWorkspace, SchemaDataset
 
-def convert_schema(schema: Dataset|Path|str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON') -> BytesIO:
+def convert_schema(schema: Dataset[Any]|Path|str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON') -> BytesIO:
     """Convert a Schema from one format to another
     
     Args:
@@ -308,7 +308,7 @@ def patch_schema_rules(schema: SchemaWorkspace|Path|str,
             rule['scriptExpression'] = script
     return workspace
 
-def split_at_points(lines: FeatureClass[Polyline], points: FeatureClass[PointGeometry], 
+def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[PointGeometry, Any], 
                 *, 
                 buffer: float=0.0,
                 min_len: float=0.0) -> Iterator[tuple[int, Polyline]]:

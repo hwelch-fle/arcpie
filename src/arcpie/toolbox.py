@@ -107,6 +107,185 @@ class Parameters(list[Parameter]):
             case _:
                 return False
 
+# Parameter Primitives
+
+class Toggle(Parameter):
+    """Simple toggle button with a name and default state"""
+
+    def __init__(self, displayName: str, 
+                 default: bool=False, 
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required',
+            datatype='GPBoolean',
+            direction='Input',
+            category=category,
+        )
+        self.value = default
+
+class String(Parameter):
+    """Simple string input parameter with filter options and default passthrough"""
+    
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None, 
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPString',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default:
+            self.value = default
+            
+class StringList(Parameter):
+    """Simple string list with default and filter passthroughs"""
+
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None, 
+                 defaults: list[str]|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPString',
+            direction='Input',
+            category=category,
+            multiValue=True,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if defaults:
+            self.values = defaults
+
+class FilePath(Parameter):
+    """Simple filepath input with default and filter passthroughs"""
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None, 
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='DEFile',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default:
+            self.value = default
+
+class Integer(Parameter):
+    """Simple Integer number parameter with default and filter passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 options: list[int]|range|None=None, 
+                 default: int|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPLong',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            if isinstance(options, range):
+                if options.step:
+                    self.filter.list = list(options)
+                else:
+                    self.filter.type = 'Range'
+                    self.filter.list = [options.start, options.stop]
+            else:
+                self.filter.list = options
+        if default:
+            self.value = default
+
+class FeatureLayer(Parameter):
+    """Simple Feature Layer parameter with filter and default passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None,
+                 default: list[str]|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPFeatureLayer',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default:
+            self.values = default
+
+class Folder(Parameter):
+    """Simple Feature Layer parameter with filter and default passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None,
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='DEFolder',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default:
+            self.value = default
+
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):

@@ -297,9 +297,9 @@ def valid_field(fieldname: FieldName) -> bool:
             or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
         )
 
+RowRecord = dict[FieldName, Any]
+"""Alias for a dictionary of fieldnames and field values"""
 if TYPE_CHECKING: # Using some 3.13 features here
-    RowRecord = dict[FieldName, Any]
-    """Alias for a dictionary of fieldnames and field values"""
 
     _GeometryType = TypeVar('_GeometryType', bound=GeometryType, default=GeometryType)
     # Optional Schema to use for typing records
@@ -307,6 +307,10 @@ if TYPE_CHECKING: # Using some 3.13 features here
 
     FilterFunc = Callable[[_Schema], bool]
     """The expected type signature for function indexing"""
+else:
+    _Schema = TypeVar('_Schema')
+    _GeometryType = TypeVar('_GeometryType')
+    FilterFunc = Callable[[RowRecord], bool]
 
 class Table(Generic[_Schema]):
     """A Wrapper for ArcGIS Table objects"""

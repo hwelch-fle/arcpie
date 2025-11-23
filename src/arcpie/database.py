@@ -47,10 +47,12 @@ from arcpy.management import (
     ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
 )
 
+_Default = TypeVar('_Default')
 if TYPE_CHECKING: # 3.13 features (default for TypeVar)
-    _Default = TypeVar('_Default')
     _Schema = TypeVar('_Schema', default=Mapping[str, Any])
-
+else:
+    _Schema = TypeVar('_Schema')
+    
 class Dataset(Generic[_Schema]):
     """A Container for managing workspace connections.
     

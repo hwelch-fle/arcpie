@@ -145,7 +145,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
     """mp.Layer wrapper"""
     
     @property
-    def feature_class(self) -> FeatureClass[Any]:
+    def feature_class(self) -> FeatureClass[Any, Any]:
         """Get a `arcpie.FeatureClass` object that is initialized using the layer and its current state"""
         return FeatureClass[Any].from_layer(self)
     
