@@ -15,6 +15,7 @@ from collections.abc import (
     Callable,
     Sequence,
     Mapping,
+    Generator,
 )
 
 from typing import (
@@ -559,6 +560,53 @@ class Table(Generic[_Schema]):
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
+    def row_updater(self, *field_names: FieldName,
+                      update_options: UpdateOptions|None=None, 
+                      **overrides: Unpack[UpdateOptions]) -> Generator[_Schema, _Schema|None, None]:
+        """A Bi-Directional generator that yields rows and updates them with the sent value
+        
+        Note:
+            This method will assume the full provided schema if there is one, so make sure you keep track of
+            any applied field filters.
+        
+        Example:
+            ```python
+            >>> updater = fc.row_updater()
+            >>> for row in updater:
+            ...     if row['Name'] = 'No Name':
+            ...         row['Name'] = None
+            ...         updater.send(row)
+            ```
+        """
+        with self.update_cursor(*field_names, update_options=update_options, **overrides) as cur:
+            for row in cur:
+                row = dict(zip(cur.fields, row))
+                # Provide the row to the user
+                yield row #type: ignore
+                # Accept changes
+                row = yield #type: ignore
+                # Only update the row if changes are sent back
+                if row is not None:
+                    cur.updateRow(list(row.values()))
+    
+    @contextmanager
+    def updater(self):
+        """A wrapper around `row_updater` that allows use as a context manager
+        
+        This simplifies the interaction with the `row_updater` method by allowing inline declaration
+        of the generator. For most simple update operations, this manager should work well. 
+        
+        Example:
+            >>> with fc.editor, fc.updater() as upd:
+            ...     for row in upd:
+            ...         row['Name'] = 'Dave'
+            ...         upd.send(row)
+        """
+        try:
+            yield self.row_updater()
+        finally:
+            pass
+    
     # Localize as_dict for internal typing of _Schema var
     def as_dict(self, cursor: SearchCursor | UpdateCursor) -> Iterator[_Schema]:
         yield from as_dict(cursor) # pyright: ignore[reportReturnType]
