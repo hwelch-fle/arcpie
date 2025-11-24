@@ -657,14 +657,24 @@ class Table(Generic[_Schema]):
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_records(self, records: Iterable[_Schema] , ignore_errors: bool=False) -> tuple[int, ...]:
-        """Provide a list of records to insert
+    def insert_record(self, record: _Schema, ignore_errors: bool=False) -> int | None:
+        """Insert a single record into the table"""
+        if missing_fields := set(record.keys()).difference(self.fields):
+            if ignore_errors:
+                return None
+            else:
+                raise ValueError(f'{missing_fields} not in {self.fields}')
+        with self.insert_cursor(*record.keys()) as cur:
+            return cur.insertRow(list(record.values()))
+
+    def insert_records(self, records: Iterable[_Schema] , ignore_errors: bool=False) -> Iterator[int]:
+        """Provide am iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
             ignore_errors (bool): Ignore per-row errors and continue. Otherwise raise KeyError (default: True)
         
         Returns:
-            ( tuple[int] ): Returns the OIDs of the newly inserted rows
+            ( Iterator[int] ): Returns the OIDs of the newly inserted rows
 
         Raises:
             ( KeyError ): If the records have varying keys or the keys are not in the Table or FeatureClass
@@ -683,27 +693,8 @@ class Table(Generic[_Schema]):
             (1,2)
             ```
         """
-        # Always cast records to a list to prevent cursor race conditions, 
-        # e.g. feature_class.insert_records(feature_class[where('SUBTYPE == 1')]) 
-        # would insert infinite records since the search cursor trails the insert cursor.
-        records = list(records)
-        if not records:
-            return tuple()
-        
-        rec_fields: list[str] = list(records[0].keys())
-        def rec_filter(rec: RowRecord | _Schema) -> bool:
-            if not rec_fields or set(rec.keys()).issubset(rec_fields):
-                return True
-            if ignore_errors:
-                return False
-            raise KeyError(f"Invalid record found {rec}, does not contain the required fields: {rec_fields}")
-
-        new_ids: list[int] = []
-        with self.insert_cursor(*rec_fields) as cur:
-            for rec in filter(rec_filter, records):
-                new_ids.append(cur.insertRow(tuple(rec.get(k) for k in rec_fields)))
-        return tuple(new_ids)
-
+        yield from filter(None, (self.insert_record(record, ignore_errors=ignore_errors) for record in records))
+ 
     def delete_identical(self, field_names: Iterable[FieldName] | FieldName) -> dict[int, int]:
         """Delete all records that have matching field values
         
