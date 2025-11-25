@@ -555,19 +555,26 @@ class Table(Generic[_Schema]):
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
     def update_cursor(self, *field_names: FieldName,
-                      update_options: UpdateOptions|None=None, 
-                      **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
+                    update_options: UpdateOptions|None=None, 
+                    **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     def row_updater(self, *field_names: FieldName,
-                      update_options: UpdateOptions|None=None, 
-                      **overrides: Unpack[UpdateOptions]) -> Generator[_Schema, _Schema|None, None]:
+                    strict: bool=False,
+                    update_options: UpdateOptions|None=None, 
+                    **overrides: Unpack[UpdateOptions]) -> Generator[_Schema, _Schema|None, None]:
         """A Bi-Directional generator that yields rows and updates them with the sent value
         
         Note:
             This method will assume the full provided schema if there is one, so make sure you keep track of
             any applied field filters.
+        
+        Args:
+            fields (FieldName|str): The fields to include in the update operation (default: All)
+            stict (bool): Raise a KeyError if an invalid fieldname is passed, otherwise drop invalid updates (default: False)
+            update_options (UpdateOptions): Additional context to pass to the UpdateCursor as a dictionary
+            **overrides (UpdateOptions): Additional context to pass to the UpdateCursor as keyword arguments
         
         Example:
             ```python
@@ -578,23 +585,27 @@ class Table(Generic[_Schema]):
             ...         updater.send(row)
             ```
         """
-        with self.update_cursor(*field_names, update_options=update_options, **overrides) as cur:
-            for row in cur:
-                row = dict(zip(cur.fields, row))
-                # Provide the row to the user
-                yield row #type: ignore
-                # Accept changes
-                row = yield #type: ignore
-                # Only update the row if changes are sent back
-                if row is not None:
+        with self.update_cursor(*(field_names or self.fields), update_options=update_options, **overrides) as cur:
+            for row in self.as_dict(cur):
+                upd = yield row
+                
+                if strict and (invalid := set(upd) - (set(row))):
+                    raise KeyError(f'{invalid} fields not found in {self.name}')
+                
+                if upd is not None and isinstance(row, dict):
+                    row = {upd.get(k, row[k]) for k in row}
                     cur.updateRow(list(row.values()))
     
     @contextmanager
-    def updater(self):
+    def updater(self, *fields: FieldName, strict: bool=False):
         """A wrapper around `row_updater` that allows use as a context manager
         
         This simplifies the interaction with the `row_updater` method by allowing inline declaration
         of the generator. For most simple update operations, this manager should work well. 
+        
+        Args:
+            fields (FieldName|str): The fields to include in the update operation (default: All)
+            stict (bool): Raise a KeyError if an invalid fieldname is passed, otherwise drop invalid updates (default: False)
         
         Example:
             >>> with fc.editor, fc.updater() as upd:
@@ -603,7 +614,7 @@ class Table(Generic[_Schema]):
             ...         upd.send(row)
         """
         try:
-            yield self.row_updater()
+            yield self.row_updater(*(fields or self.fields), strict=strict)
         finally:
             pass
     
