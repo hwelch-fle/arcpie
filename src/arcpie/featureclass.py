@@ -560,6 +560,7 @@ class Table(Generic[_Schema]):
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
+    # TODO, Fix this
     def row_updater(self, *field_names: FieldName,
                     strict: bool=False,
                     update_options: UpdateOptions|None=None, 
@@ -587,11 +588,10 @@ class Table(Generic[_Schema]):
         """
         with self.update_cursor(*(field_names or self.fields), update_options=update_options, **overrides) as cur:
             for row in self.as_dict(cur):
-                upd = yield row                 
+                upd = yield row
                 if strict and (invalid := set(upd or []) - set(row)):
                     raise KeyError(f'{invalid} fields not found in {self.name}')
-                
-                if upd is not None and isinstance(row, dict):
+                if upd is not None:
                     cur.updateRow([upd.get(f, row[f]) for f in cur.fields])
     
     @contextmanager
