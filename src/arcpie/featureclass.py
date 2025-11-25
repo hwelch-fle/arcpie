@@ -125,7 +125,7 @@ FieldName = str #| FeatureToken
 
 _T = TypeVar('_T')
 
-def count(featureclass: FeatureClass | Iterator[Any]) -> int:
+def count(featureclass: FeatureClass[Any, Any] | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
     
     Args:
