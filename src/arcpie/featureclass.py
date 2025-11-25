@@ -593,7 +593,7 @@ class Table(Generic[_Schema]):
                     raise KeyError(f'{invalid} fields not found in {self.name}')
                 
                 if upd is not None and isinstance(row, dict):
-                    row = {upd.get(k, row[k]) for k in row}
+                    row = {k: upd.get(k, row[k]) for k in row}
                     cur.updateRow(list(row.values()))
     
     @contextmanager
