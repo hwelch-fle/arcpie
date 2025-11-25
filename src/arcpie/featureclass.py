@@ -587,14 +587,12 @@ class Table(Generic[_Schema]):
         """
         with self.update_cursor(*(field_names or self.fields), update_options=update_options, **overrides) as cur:
             for row in self.as_dict(cur):
-                upd = yield row
-                
-                if strict and (invalid := set(upd) - (set(row))):
+                upd = yield row                 
+                if strict and (invalid := set(upd or []) - set(row)):
                     raise KeyError(f'{invalid} fields not found in {self.name}')
                 
                 if upd is not None and isinstance(row, dict):
-                    row = {k: upd.get(k, row[k]) for k in row}
-                    cur.updateRow(list(row.values()))
+                    cur.updateRow([upd.get(f, row[f]) for f in cur.fields])
     
     @contextmanager
     def updater(self, *fields: FieldName, strict: bool=False):
