@@ -831,7 +831,7 @@ class Table(Generic[_Schema]):
 
     # Data Operations
     
-    def copy(self, workspace: str, options: bool=True) -> Self:
+    def copy_to(self, workspace: str, options: bool=True) -> Self:
         """Copy this `Table` or `FeatureClass` to a new workspace
         
         Args:
@@ -1471,6 +1471,16 @@ class Table(Generic[_Schema]):
         fc.layer = layer
         return fc
     
+    def copy(self) -> Table[_Schema]:
+        """Create a new FeatureClass instance to prevent overriding a shared resource"""
+        return Table[_Schema](
+            self._path, 
+            search_options=self.search_options.copy(),
+            update_options=self.update_options.copy(),
+            insert_options=self.insert_options.copy(),
+            clause=self.clause
+        )
+    
 class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     """A Wrapper for ArcGIS FeatureClass objects
     
@@ -1803,7 +1813,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
                 spatial_relationship=spatial_relationship)):
             yield self
 
-    # Factory Constructors
+    # Factory Constructors        
 
     @classmethod
     def from_layer(cls, layer: Layer,
@@ -1844,6 +1854,17 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             
         fc.layer = layer
         return fc
+
+    def copy(self) -> FeatureClass[_GeometryType, _Schema]:
+        """Create a new FeatureClass instance to prevent overriding a shared resource"""
+        return FeatureClass[_GeometryType, _Schema](
+            self._path, 
+            search_options=self.search_options.copy(),
+            update_options=self.update_options.copy(),
+            insert_options=self.insert_options.copy(),
+            clause=self.clause,
+            shape_token=self.shape_token,
+        )
 
 class AttributeRuleManager:
     """Handler for interacting with AttributeRules on a FeatureClass or Table"""
