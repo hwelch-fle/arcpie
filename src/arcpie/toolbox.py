@@ -241,7 +241,7 @@ class FeatureLayer(Parameter):
     __name__ = 'Parameter'
     def __init__(self, displayName: str, 
                  options: list[str]|None=None,
-                 default: list[str]|None=None,
+                 default: str|None=None,
                  required: bool=True,
                  name: str|None=None,
                  category: str|None=None) -> None:
@@ -259,7 +259,7 @@ class FeatureLayer(Parameter):
         if self.filter and options:
             self.filter.list = options
         if default:
-            self.values = default
+            self.value = default
 
 class Folder(Parameter):
     """Simple Feature Layer parameter with filter and default passthroughs"""
