@@ -1987,23 +1987,53 @@ class AttributeRuleManager:
         if rule:
             AlterAttributeRule(self._parent.path, **rule)
     
-    def delete_attribute_rule(self, rule_name: str) -> None:
+    def delete_attribute_rule(self, *rule_name: str, delete_all: bool=False) -> None:
+        """Delete provided attribute rules from the ruleset
+        
+        Args:
+            *rule_name (str): The rule names to delete as positional varargs
+            delete_all (bool): If this flag is set, the noarg case will delete all rules (default: False)
+        """
+        if not rule_name and delete_all:
+            rule_name = tuple(self.names)
         DeleteAttributeRule(self._parent.path, rule_name)
-        
+    
+    @deprecated('Use delete_attribute_rule(*rule_name, ...) [varargs] instead')
     def delete_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        DeleteAttributeRule(self._parent.path, rule_names)
+        """DEPRECATED: USE `delete_attribute_rule` instead"""
+        self.delete_attribute_rule(*rule_names) 
         
-    def disable_attribute_rule(self, rule_name: str) -> None:
+    def disable_attribute_rule(self, *rule_name: str, disable_all: bool=False) -> None:
+        """Disable provided attribute rules from the ruleset
+        
+        Args:
+            *rule_name (str): The rule names to delete as positional varargs
+            disable_all (bool): If this flag is set, the noarg case will disable all rules (default: False)
+        """
+        if not rule_name and disable_all:
+            rule_name = tuple(self.names)
         DisableAttributeRules(self._parent.path, rule_name)
-        
+    
+    @deprecated('Use disable_attribute_rules(*rule_name, ...) [varargs] instead')
     def disable_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        DisableAttributeRules(self._parent.path, rule_names)
+        """DEPRECATED: USE `disable_attribute_rule` instead"""
+        self.disable_attribute_rule(*rule_names)
         
-    def enable_attribute_rule(self, rule_name: str) -> None:
+    def enable_attribute_rule(self, *rule_name: str, enable_all: bool=False) -> None:
+        """Enable provided attribute rules in the ruleset
+        
+        Args:
+            *rule_name (str): The rule names to delete as positional varargs
+            enable_all (bool): If this flag is set, the noarg case will enable all rules (default: False)
+        """
+        if not rule_name and enable_all:
+            rule_name = tuple(self.names)
         EnableAttributeRules(self, rule_name)
-        
+    
+    @deprecated('Use enable_attribute_rules(*rule_name, ...) [varargs] instead')
     def enable_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        EnableAttributeRules(self, rule_names)
+        """DEPRECATED: USE `enable_attribute_rule` instead"""
+        self.enable_attribute_rule(*rule_names)
     
     def __iter__(self) -> Iterator[AttributeRule]:
         return iter(self.rules.values())
