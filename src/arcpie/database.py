@@ -542,7 +542,7 @@ class Relationship:
     def origins(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
         """Origin FeatureClass/Table objects"""
         return [
-            self.parent.feature_classes[origin] or self.parent.tables[origin]
+            self.parent.feature_classes.get(origin) or self.parent.tables[origin]
             for origin in self.describe.originClassNames 
             if origin in self.parent
         ]
@@ -563,7 +563,7 @@ class Relationship:
     def destinations(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
         """Destination FeatureClass/Table objects"""
         return [
-            self.parent.feature_classes[dest] or self.parent.tables[dest]
+            self.parent.feature_classes.get(dest) or self.parent.tables[dest]
             for dest in self.describe.destinationClassNames 
             if dest in self.parent
         ]
