@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         FieldType as ArcFieldType,
     )
 else:
+    ArcFieldType = str
     SpatialRelationship = None
     SearchOrder = None
 
