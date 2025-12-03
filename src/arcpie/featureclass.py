@@ -2008,7 +2008,7 @@ class AttributeRuleManager:
         """
         if not rule_name and delete_all:
             rule_name = tuple(self.names)
-        DeleteAttributeRule(self._parent.path, rule_name)
+        DeleteAttributeRule(str(self.parent), rule_name)
     
     @deprecated('Use delete_attribute_rule(*rule_name, ...) [varargs] instead')
     def delete_attribute_rules(self, rule_names: Sequence[str]) -> None:
@@ -2024,7 +2024,7 @@ class AttributeRuleManager:
         """
         if not rule_name and disable_all:
             rule_name = tuple(self.names)
-        DisableAttributeRules(self._parent.path, rule_name)
+        DisableAttributeRules(str(self.parent), rule_name)
     
     @deprecated('Use disable_attribute_rules(*rule_name, ...) [varargs] instead')
     def disable_attribute_rules(self, rule_names: Sequence[str]) -> None:
@@ -2040,7 +2040,7 @@ class AttributeRuleManager:
         """
         if not rule_name and enable_all:
             rule_name = tuple(self.names)
-        EnableAttributeRules(self, rule_name)
+        EnableAttributeRules(str(self.parent), rule_name)
     
     @deprecated('Use enable_attribute_rules(*rule_name, ...) [varargs] instead')
     def enable_attribute_rules(self, rule_names: Sequence[str]) -> None:
