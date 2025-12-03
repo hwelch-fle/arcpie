@@ -459,7 +459,37 @@ class SystemDomain(TypedDict):
     range: tuple[ValueType, ValueType]
     splitPolicy: _DomainSplitPolicy
     type: _DomainFieldType
-    
+
+class RelationshipAddRuleOpts(TypedDict, total=False):
+    in_rel_class: str
+    origin_subtype: str
+    origin_minimum: int
+    origin_maximum: int
+    destination_subtype: str
+    destination_minimum: int
+    destination_maximum: int 
+
+class RelationshipRemoveRuleOpts(TypedDict, total=False):
+    in_rel_class: str
+    origin_subtype: str
+    destination_subtype: str
+    remove_all: Literal['REMOVE', 'NOT_ALL']
+
+class RelationshipOpts(TypedDict, total=False):
+    origin_table: str
+    destination_table: str
+    out_relationship_class: str
+    relationship_type: Literal["SIMPLE", "COMPOSITE"]
+    forward_label: str
+    backward_label: str
+    message_direction: Literal["FORWARD", "BACKWARD", "BOTH", "NONE"]
+    cardinality: Literal["ONE_TO_ONE", "ONE_TO_MANY", "MANY_TO_MANY"]
+    attributed: Literal["ATTRIBUTED", "NONE"]
+    origin_primary_key: str
+    origin_foreign_key: str
+    destination_primary_key: str
+    destination_foreign_key: str
+
 DomainFieldType = Literal['SHORT', 'LONG', 'BIGINTEGER', 'FLOAT', 'DOUBLE', 'TEXT', 'DATE', 'DATEONLY', 'TIMEONLY']
 DomainSplitPolicy = Literal['DEFAULT', 'DUPLICATE', 'GEOMETRY_RATIO']
 DomainMergePolicy = Literal['DEFAULT', 'SUM_VALUES', 'AREA_WEIGHTED']

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from functools import cached_property
 import json
 from pathlib import Path
 
@@ -18,10 +19,15 @@ from typing import (
     Unpack,
 )
 
+from arcpy import Describe  # pyright: ignore[reportUnknownVariableType]
+
 from ._types import (
     domain_param,
     AlterDomainOpts,
     CreateDomainOpts,
+    RelationshipOpts,
+    RelationshipRemoveRuleOpts,
+    RelationshipAddRuleOpts,
 )
 from arcpie.schemas.workspace import SchemaWorkspace
 
@@ -45,7 +51,16 @@ from arcpy.management import (
     CreateFileGDB, # pyright: ignore[reportUnknownVariableType]
     ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
     ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
+    Delete, # pyright: ignore[reportUnknownVariableType]
+    CreateRelationshipClass, # pyright: ignore[reportUnknownVariableType]
+    AddRuleToRelationshipClass, # pyright: ignore[reportUnknownVariableType]
+    RemoveRuleFromRelationshipClass, # pyright: ignore[reportUnknownVariableType]
 )
+
+if TYPE_CHECKING:
+    from arcpy.typing.describe import RelationshipClass
+else:
+    RelationshipClass = object
 
 _Default = TypeVar('_Default')
 if TYPE_CHECKING: # 3.13 features (default for TypeVar)
@@ -104,6 +119,7 @@ class Dataset(Generic[_Schema]):
         self._datasets: dict[str, Dataset[Any]] | None = None
         self._feature_classes: dict[str, FeatureClass[Any, Any]] | None=None
         self._tables: dict[str, Table[Any]] | None=None
+        self._relationships: dict[str, Relationship]
         self.walk()
 
     @property
@@ -124,6 +140,11 @@ class Dataset(Generic[_Schema]):
     def tables(self) -> dict[str, Table[Any]]:
         """A mapping of table names to `Table` objects in the dataset root"""
         return self._tables or {}
+
+    @property
+    def relationships(self) -> RelationshipManager:
+        """A Manager object for interacting with RelationshipClasses"""
+        return RelationshipManager(self)
 
     @property
     def domains(self) -> DomainManager:
@@ -208,18 +229,28 @@ class Dataset(Generic[_Schema]):
                 else:
                     self._tables[tbl] = Table(root / tbl)
         
+        self._relationships = {}
+        for root, _, rels in Walk(str(self.conn), datatype=['RelationshipClass']):
+            root = Path(root)
+            for rel in rels:
+                # Backlink Datasets to parent
+                if self.parent and rel in self.parent:
+                    self._relationships[rel] = self.parent.relationships[rel]
+                else:
+                    self._relationships[rel] = Relationship(self, root / rel)
+        
         # Handle datasets last to allow for backlinking     
         self._datasets = {}
         for root, ds, _ in Walk(str(self.conn), datatype=['FeatureDataset']):
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
     
-    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any]:
-        if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key):
+    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
+        if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
             return ret
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
-    def get(self, key: str, default: _Default=None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | _Default:
+    def get(self, key: str, default: _Default=None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | _Default:
         try:
             return self[key]
         except KeyError:
@@ -232,7 +263,7 @@ class Dataset(Generic[_Schema]):
         except KeyError:
             return False
         
-    def __iter__(self) -> Iterator[Table[Any]]:
+    def __iter__(self) -> Iterator[FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship]:
         for feature_class in self.feature_classes.values():
             yield feature_class
             
@@ -241,6 +272,9 @@ class Dataset(Generic[_Schema]):
             
         for dataset in self.datasets.values():
             yield from dataset
+        
+        for relationship in self.relationships:
+            yield relationship
     
     def __len__(self) -> int:
         return sum(1 for _ in self)
@@ -252,7 +286,8 @@ class Dataset(Generic[_Schema]):
             "{"
             f"Features: {len(self.feature_classes)}, "
             f"Tables: {len(self.tables)}, "
-            f"Datasets: {len(self.datasets)}"
+            f"Datasets: {len(self.datasets)}, "
+            f"Relationships: {len(self.relationships)}"
             "})"
         )
     
@@ -461,4 +496,148 @@ class DomainManager:
             **opts (AlterDomainOpts): Passthrough for AlterDomain function
         """
         AlterDomain(in_workspace=str(self.workspace), domain_name=domain, **opts)
+
+def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY']:
+    if arg == 'OneToOne':
+        return 'ONE_TO_ONE'
+    if arg == 'OneToMany':
+        return 'ONE_TO_MANY'
+    if arg == 'ManyToMany':
+        return 'MANY_TO_MANY'
+    else:
+        raise ValueError(f'{arg} is not a valid relationsip type')
+  
+class Relationship:
+    def __init__(self, parent: Dataset[Any], path: Path|str) -> None:
+        self.parent = parent
+        self.path = path
     
+    @cached_property
+    def describe(self) -> RelationshipClass:
+        return Describe(str(self.path)) # pyright: ignore[reportUnknownVariableType]
+
+    @property
+    def name(self) -> str:
+        return self.describe.name
+
+    @property
+    def settings(self) -> RelationshipOpts:
+        return RelationshipOpts(
+            origin_table=self.describe.originClassNames[0],
+            destination_table=self.describe.destinationClassNames[0],
+            out_relationship_class=self.name,
+            relationship_type='COMPOSITE' if self.describe.isComposite else 'SIMPLE',
+            forward_label=self.describe.forwardPathLabel,
+            backward_label=self.describe.backwardPathLabel,
+            message_direction=self.describe.notification.upper(), # type: ignore
+            cardinality=convert_cardinality(self.describe.cardinality),
+            attributed= 'ATTRIBUTED' if self.describe.isAttributed else 'NONE',
+            origin_primary_key=self.origin_keys['OriginPrimary'],
+            origin_foreign_key=self.origin_keys['OriginForeign'],
+            destination_primary_key=self.destination_keys['DestinationPrimary'],
+            destination_foreign_key=self.destination_keys['DestinationForeign'],
+        )
+
+    @property
+    def origins(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
+        """Origin FeatureClass/Table objects"""
+        return [
+            self.parent.feature_classes[origin] or self.parent.tables[origin]
+            for origin in self.describe.originClassNames 
+            if origin in self.parent
+        ]
+     
+    @property
+    def origin_keys(self) -> dict[Literal['OriginPrimary', 'OriginForeign'], str]:
+        """Mapping of origin Primary and Foreign keys"""
+        keys = {
+            'OriginPrimary': '',
+            'OriginForeign': '',
+        }
+        for f, k, _ in self.describe.originClassKeys:
+            keys['OriginForeign'] = k if f == 'OriginForeign' else ''
+            keys['OriginPrimary'] = k if f == 'OriginPrimary' else ''
+        return keys # pyright: ignore[reportReturnType]
+        
+    @property
+    def destinations(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
+        """Destination FeatureClass/Table objects"""
+        return [
+            self.parent.feature_classes[dest] or self.parent.tables[dest]
+            for dest in self.describe.destinationClassNames 
+            if dest in self.parent
+        ]
+
+    @property
+    def destination_keys(self) -> dict[Literal['DestinationPrimary', 'DestinationForeign'], str]:
+        """Mapping of destination Primary and Foreign keys"""
+        keys = {
+            'DestinationPrimary': '',
+            'DestinationForeign': '',
+        }
+        for f, k, _ in self.describe.destinationClassKeys:
+            keys['DestinationForeign'] = k if f == 'DestinationForeign' else ''
+            keys['DestinationPrimary'] = k if f == 'DestinationPrimary' else ''
+        return keys # pyright: ignore[reportReturnType]
+    
+    def add_rule(self, **options: Unpack[RelationshipAddRuleOpts]) -> None:
+        options['in_rel_class'] = str(self.path)
+        AddRuleToRelationshipClass(**options)
+    
+    def remove_rule(self, **options: Unpack[RelationshipRemoveRuleOpts]) -> None:
+        options['in_rel_class'] = str(self.path)
+        RemoveRuleFromRelationshipClass(**options)
+        
+    def delete(self) -> None:
+        """Delete the relationship"""
+        Delete(str(self.path), 'RelationshipClass')
+    
+    def update(self, **options: Unpack[RelationshipOpts]) -> None:
+        """Update the relationship class"""
+        rel_opts = self.settings
+        self.delete()
+        rel_opts.update(options)
+        CreateRelationshipClass(**rel_opts)
+
+class RelationshipManager:
+    def __init__(self, parent: Dataset[Any]) -> None:
+        self.parent = parent
+    
+    @property
+    def relationships(self) -> dict[str, Relationship]:
+        return self.parent._relationships # pyright: ignore[reportPrivateUsage]
+    
+    @property
+    def names(self) -> list[str]:
+        return list(self.relationships.keys())
+    
+    def create(self, **options: Unpack[RelationshipOpts]) -> None:
+        """Create a relationship"""
+        CreateRelationshipClass(**options)
+    
+    def delete(self, name: str) -> RelationshipOpts | None:
+        """Delete the relationship and return the settings so it can be made again"""
+        rel = self.get(name)
+        if rel is None:
+            return None
+        settings = rel.settings
+        rel.delete()
+        return settings
+    
+    def __len__(self) -> int:
+        return len(self.relationships)
+    
+    def __iter__(self) -> Iterator[Relationship]:
+        for rel in self.relationships.values():
+            yield rel
+    
+    def __getitem__(self, key: str) -> Relationship:
+        if key in self.relationships:
+            return self.relationships[key]
+        raise KeyError(f'{key} not found in {self.parent.name} Relationships')
+    
+    def get(self, key: str, default: _Default=None) -> Relationship | _Default:
+        try:
+            return self[key]
+        except KeyError:
+            return default
