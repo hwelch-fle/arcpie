@@ -20,12 +20,16 @@ from arcpy import (
     Multipoint,
     Multipatch,
     Extent,
+    Field as ArcField,
 )
 
 if TYPE_CHECKING:
     from arcpy.da import (
         SpatialRelationship,
         SearchOrder,
+    )
+    from arcpy import (
+        FieldType as ArcFieldType,
     )
 else:
     SpatialRelationship = None
@@ -238,5 +242,76 @@ class Field(TypedDict, total=False):
     field_length: int
     field_alias: str
     field_is_nullable: Literal['NULLABLE', 'NON_NULLABLE']
-    field_is_required: Literal['REQUIRED']
+    field_is_required: Literal['REQUIRED', 'NON_REQUIRED']
     field_domain: str
+
+def get_field_type(arc_field_type: ArcFieldType, *, strict: bool=False) -> FieldType:
+    """Convert a field type flag from a describe arcpy.Field to arguments for AddField
+    
+    Args:
+        arc_field_type (ArcFieldType): The field type as reported by arcpy.Describe(...).fields
+        strict (bool): Raise a ValueError if this is set to True, otherwise assume `TEXT`
+    
+    Returns:
+        (FieldType)
+        
+    Raises:
+        (ValueError): If `strict` flag is set and the input type is unmapped
+    """
+    match arc_field_type:
+        case 'BigInteger':
+            return 'BIGINTEGER'
+        case 'Blob':
+            return 'BLOB'
+        case 'Date':
+            return 'DATE'
+        case 'DateOnly':
+            return 'DATEONLY'
+        case 'Double':
+            return 'DOUBLE'
+        case 'Geometry': # No Passthrough
+            return 'BLOB'
+        case 'GlobalID': # No Passthrough
+            return 'GUID'
+        case 'GUID':
+            return 'GUID'
+        case 'Integer':
+            return 'LONG'
+        case 'OID':
+            return 'BIGINTEGER'
+        case 'Raster':
+            return 'RASTER'
+        case 'Single':
+            return 'FLOAT'
+        case 'SmallInteger':
+            return 'SHORT'
+        case 'String':
+            return 'TEXT'
+        case 'TimeOnly':
+            return 'TIMEONLY'
+        case 'TimestampOffset':
+            return 'TIMESTAMPOFFSET'
+        case _:
+            if strict:
+                raise ValueError()
+            return 'TEXT' 
+
+def convert_field(arc_field: ArcField) -> Field:
+    """Convert an arcpy Field object to a Field argument dictionary
+    
+    Args:
+        arc_field (arcpy.Field): The Field object returned by Describe().fields
+    
+    Returns:
+        (Field): A Field argument dictionary that can be used to construct a new field
+    """
+    return Field(
+        field_type=get_field_type(arc_field.type),
+        field_precision=arc_field.precision,
+        field_scale=arc_field.scale,
+        field_length=arc_field.length,
+        field_alias=arc_field.aliasName,
+        field_is_nullable='NULLABLE' if arc_field.isNullable else 'NON_NULLABLE',
+        field_is_required='REQUIRED' if arc_field.required else 'NON_REQUIRED',
+        field_domain=arc_field.domain,
+    )
