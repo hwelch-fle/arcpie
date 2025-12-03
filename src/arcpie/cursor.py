@@ -239,4 +239,4 @@ class Field(TypedDict, total=False):
     field_alias: str
     field_is_nullable: Literal['NULLABLE', 'NON_NULLABLE']
     field_is_required: Literal['REQUIRED']
-    field_domain: bool
+    field_domain: str
