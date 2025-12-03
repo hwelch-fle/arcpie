@@ -1,4 +1,5 @@
 from __future__ import annotations
+from warnings import deprecated
 
 # Typing imports
 import arcpy.typing.describe as dt
@@ -1925,6 +1926,7 @@ class AttributeRuleManager:
         _imported_rule_names: set[str] = set()
         rule_config: AttributeRule = {'name': 'UNINITIALIZED'} # type: ignore
         try:
+            rule_orders: dict[str, int] = {}
             for cfg in src_dir.glob('*.cfg'):
                 # Grab base config and attach script sidecar
                 rule_config: AttributeRule = json.loads(cfg.read_text(encoding='utf-8'))
@@ -1935,12 +1937,22 @@ class AttributeRuleManager:
                 # Let the __setitem__ logic handle the rule (alter/add)
                 self[rule['name']] = rule
                 _imported_rule_names.add(rule['name'])
+                
+                # Store order for re-ordering later
+                rule_orders[rule['name']] = rule['evaluationOrder']
 
+            # Re-Order added rules if they don't match
+            for rule_name, rule_order in sorted(rule_orders.items(), key=lambda i: i[1]):
+                if rule_name not in self.rules:
+                    continue
+                if self.rules[rule_name]['evaluationOrder'] != rule_order:
+                    self.alter_attribute_rule(name=rule_name, evaluation_order=rule_order)
+            
             if strict and (to_remove := set(self.names).difference(_imported_rule_names)):
                 if disable:
-                    self.disable_attribute_rules(list(to_remove))
+                    self.disable_attribute_rule(*to_remove)
                 else:
-                    self.delete_attribute_rules(list(to_remove))
+                    self.delete_attribute_rule(*to_remove)
         except Exception as e:
             # Revert the import if an Exception is rasied
             for rule_name, rule in _old_rules.items():
@@ -1949,7 +1961,7 @@ class AttributeRuleManager:
             
             # Remove rules
             if (to_remove := set(_old_rules).difference(self.names)):
-                self.delete_attribute_rules(list(to_remove))
+                self.delete_attribute_rule(*to_remove)
             
             e.add_note(f"{rule_config['name']} failed to import")
             e.add_note(f'Config: {pformat(convert_rule(rule_config))}')
