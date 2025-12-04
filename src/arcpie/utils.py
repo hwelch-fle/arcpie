@@ -401,6 +401,7 @@ def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyli
             if prev_measure == measure:
                 continue
             yield line.segmentAlongLine(prev_measure, measure)
+            prev_measure = measure
         
 
 PointLike = PointGeometry | Point
