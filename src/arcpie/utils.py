@@ -1,7 +1,8 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 import builtins
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
+from functools import reduce
 from io import BytesIO
 from pathlib import Path
 import json
@@ -11,12 +12,22 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    overload,
+)
+
+from networkx import (
+    Graph, 
+    shortest_path as nx_shortest_path, # type: ignore
+    all_shortest_paths as nx_all_shortest_paths,
+    NodeNotFound,
+    NetworkXNoPath,
 )
 
 from arcpy import (
     AddMessage,
     AddWarning,
     AddError,
+    Point,
     PointGeometry,
     Polyline,
 )
@@ -361,3 +372,136 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
             prev_measure = measure
             if seg and seg.length >= (min_len or 0):
                 yield oid, seg
+
+PointLike = PointGeometry | Point
+LineCollection = FeatureClass[Polyline, Any] | Sequence[Polyline] | Iterator[Polyline]
+@overload
+def shortest_path( # type: ignore (all_paths changes return type)
+    source: PointLike, 
+    target: PointLike, 
+    network: LineCollection, 
+    *,
+    all_paths: Literal[False]=False,
+    method: Literal['dijkstra', 'bellman-ford']='dijkstra',
+    weighted: bool=True,
+    precision: int=6) -> Polyline | None: ...
+
+@overload
+def shortest_path(
+    source: PointLike, 
+    target: PointLike, 
+    network: LineCollection, 
+    *,
+    all_paths: Literal[True]=True,
+    method: Literal['dijkstra', 'bellman-ford']='dijkstra',
+    weighted: bool=True,
+    precision: int=6) -> list[Polyline] | None: ...
+
+def shortest_path(
+    source: PointLike, 
+    target: PointLike, 
+    network: LineCollection,
+    *,
+    all_paths: bool=False,
+    method: Literal['dijkstra', 'bellman-ford']='dijkstra',
+    weighted: bool=True,
+    precision: int=6,
+    ) -> Polyline | list[Polyline] | None:
+    """Find the shortest path or paths given a source point, target point and network of Polylines
+    
+    Args:
+        source (PointGeometry | Point): The start point for the path
+        target (PointGeometry | Point): The end point for the path
+        network (FeatureClass[Polyline, Any] | Sequence[Polyline] | Iterator[Polyline]): The polylines to traverse
+        all_paths (bool): If True, yield all shortest paths from (default: False)
+        method (Literal['dijkstra', 'bellman-ford']): The graph traversal algorithm to use (default: 'dijkstra')
+        weighted (bool): Use line lengths to weight the paths (default: True)
+        precision (int): Number of decimal places to round coordinates to (default: 6)
+    
+    Returns:
+        (Polyline | None): The unioned polyline of the path or None if no path is found
+    
+    Yields:
+        (Polyline): Yields all shortest paths if `all_paths` is set (None is still *returned* if no path found)
+    
+    Raises:
+        (ValueError): When input arguments are not of the correct types (`PointLike`, `PointLike`, `LineCollection`)
+        
+    Example:
+        ```python
+        path = shortest_path(p1, p2, line_features)
+        paths = shortest_path(p1, p2, line_features, all_paths=True)
+        
+        if path is None:
+            print('No Path')
+        else:
+            print(path.length)
+        
+        # Check that path(s) were found
+        if paths is None:
+            print('No Path')
+        else:
+            for p in paths:
+                print(p.length)
+        ```   
+    """
+    
+    # Parameter Validations
+    if isinstance(network, FeatureClass):
+        if network.describe.shapeType != 'Polyline':
+            raise ValueError(f'network must have polyline geometry')
+        network = list(network.shapes)
+    
+    if not isinstance(network, Sequence):
+        network = list(network)
+    
+    if not network:
+        return None
+    
+    if not isinstance(network[0], Polyline): # type: ignore
+        raise ValueError(f'network must have polyline geometry')
+    
+    # Project point geometries to match reference of network, extract X,Y tuples
+    if isinstance(source, PointGeometry):
+        if source.isMultipart:
+            raise ValueError('source point must not be multipart')
+        source = source.projectAs(network[0].spatialReference).centroid
+    _source = (round(source.X, precision), round(source.Y, precision))
+    
+    if isinstance(target, PointGeometry):
+        if target.isMultipart:
+            raise ValueError('target point must not be multipart')
+        target = target.projectAs(network[0].spatialReference).centroid
+    _target = (round(target.X, precision), round(target.Y, precision))
+    
+    G = Graph(
+        [
+            (
+                (round(l.firstPoint.X, precision), round(l.firstPoint.Y, precision)), 
+                (round(l.lastPoint.X, precision), round(l.lastPoint.Y, precision)), 
+                {'shape': l, 'length': l.length}
+            ) 
+            for l in network
+        ]
+    )
+    try:
+        if all_paths:
+            paths = nx_all_shortest_paths(G, _source, _target, weight='length' if weighted else None, method=method)
+        else:
+            paths = nx_shortest_path(G, _source, _target, weight='length' if weighted else None, method=method)
+    except (NodeNotFound, NetworkXNoPath):
+        return None
+
+    if all_paths:
+        _paths: list[Polyline] = []
+        for path in paths:
+            assert isinstance(path, list)
+            edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(path, path[1:])]
+            _paths.append(reduce(lambda acc, s: acc.union(s), edges))  # pyright: ignore[reportArgumentType]
+        return _paths
+    
+    else:
+        assert isinstance(paths, list)
+        edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(paths, paths[1:])]
+        return reduce(lambda acc, s: acc.union(s), edges) # pyright: ignore[reportReturnType]
+    
