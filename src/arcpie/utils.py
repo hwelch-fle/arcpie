@@ -372,6 +372,36 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
             prev_measure = measure
             if seg and seg.length >= (min_len or 0):
                 yield oid, seg
+                
+def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyline], points: Sequence[PointGeometry] | Iterator[PointGeometry]) -> Iterator[Polyline]:
+    """Split a Polyline or Sequence/Iterable of polylines at provided points
+    
+    Args:
+        lines (Polyline | Sequence[Polyline] | Iterator[Polyline]): The line or lines to split
+        points (Sequence[PointGeometry] | Iterator[PointGeometry]): The points to split at
+    
+    Yields:
+        (Polyline): Segments of the polyline split at the input points
+    """
+    if isinstance(lines, Polyline):
+        lines = [lines]
+    if not isinstance(points, list):
+        points = list(points)
+    
+    for line in lines:
+        int_points = [p for p in points if not p.disjoint(line)]
+        if all(p.touches(line) for p in int_points):
+            continue
+        if not int_points:
+            continue
+        
+        prev_measure = 0.0
+        measures = sorted(line.measureOnLine(p) for p in int_points)
+        for measure in measures + [line.length]:
+            if prev_measure == measure:
+                continue
+            yield line.segmentAlongLine(prev_measure, measure)
+        
 
 PointLike = PointGeometry | Point
 LineCollection = FeatureClass[Polyline, Any] | Sequence[Polyline] | Iterator[Polyline]
