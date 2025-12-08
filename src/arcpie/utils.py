@@ -390,11 +390,12 @@ def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyli
     
     for line in lines:
         int_points = [p for p in points if not p.disjoint(line)]
-        if all(p.touches(line) for p in int_points):
-            continue
         if not int_points:
+            yield line
             continue
-        
+        if all(p.touches(line) for p in int_points):
+            yield line
+            continue
         prev_measure = 0.0
         measures = sorted(line.measureOnLine(p) for p in int_points)
         for measure in measures + [line.length]:
