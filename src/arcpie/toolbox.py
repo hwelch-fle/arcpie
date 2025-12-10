@@ -151,7 +151,7 @@ class String(Parameter):
         )
         if self.filter and options:
             self.filter.list = options
-        if default:
+        if default is not None:
             self.value = default
             
 class StringList(Parameter):
@@ -201,7 +201,7 @@ class FilePath(Parameter):
         )
         if self.filter and options:
             self.filter.list = options
-        if default:
+        if default is not None:
             self.value = default
 
 class Integer(Parameter):
@@ -233,7 +233,7 @@ class Integer(Parameter):
                     self.filter.list = [options.start, options.stop]
             else:
                 self.filter.list = options
-        if default:
+        if default is not None:
             self.value = default
 
 class FeatureLayer(Parameter):
@@ -258,7 +258,7 @@ class FeatureLayer(Parameter):
         )
         if self.filter and options:
             self.filter.list = options
-        if default:
+        if default is not None:
             self.value = default
 
 class Folder(Parameter):
@@ -283,7 +283,7 @@ class Folder(Parameter):
         )
         if self.filter and options:
             self.filter.list = options
-        if default:
+        if default is not None:
             self.value = default
 
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
