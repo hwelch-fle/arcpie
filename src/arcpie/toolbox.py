@@ -109,6 +109,17 @@ class Parameters(list[Parameter]):
 
 # Parameter Primitives
 
+class Done(Parameter):
+    """An Empty Output parameter that can be used to signal that a tool has completed in Model Builder"""
+    def __init__(self) -> None:
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName='Done',
+            name='done',
+            direction='Output',
+            parameterType='Derived',
+        )
+
 class Toggle(Parameter):
     """Simple toggle button with a name and default state"""
 
