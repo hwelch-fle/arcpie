@@ -89,7 +89,7 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
        _digits.append(int(''.join(_digit_chars)))
     return tuple(_digits), tuple(_alpha)
 
-def get_subtype_count(fc: Table | FeatureClass[Any], drop_empty: bool=False) -> dict[str, int]:
+def get_subtype_count(fc: Table | FeatureClass, drop_empty: bool=False) -> dict[str, int]:
     """Get the subtype counts for a Table or FeatureClass
     
     Args:

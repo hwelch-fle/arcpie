@@ -145,9 +145,9 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
     """mp.Layer wrapper"""
     
     @property
-    def feature_class(self) -> FeatureClass[Any, Any]:
+    def feature_class(self) -> FeatureClass:
         """Get a `arcpie.FeatureClass` object that is initialized using the layer and its current state"""
-        return FeatureClass[Any, Any].from_layer(self)
+        return FeatureClass.from_layer(self)
     
     @property
     def symbology(self) -> Symbology:
@@ -259,7 +259,7 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         return Layer(self.indexLayer, self.map)
     
     @property # Passthrough
-    def feature_class(self) -> FeatureClass[Any, Any]:
+    def feature_class(self) -> FeatureClass:
         """Get the FeatureClass of the parent layer"""
         return self.layer.feature_class
     

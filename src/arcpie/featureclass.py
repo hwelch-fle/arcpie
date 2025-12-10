@@ -126,7 +126,7 @@ FieldName = str #| FeatureToken
 
 _T = TypeVar('_T')
 
-def count(featureclass: FeatureClass[Any, Any] | Iterator[Any]) -> int:
+def count(featureclass: FeatureClass | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
     
     Args:
@@ -1820,7 +1820,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def from_layer(cls, layer: Layer,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> FeatureClass[Any, Any]:
+                   ignore_def_query: bool = False,) -> FeatureClass:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Args:
@@ -1869,7 +1869,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
 
 class AttributeRuleManager:
     """Handler for interacting with AttributeRules on a FeatureClass or Table"""
-    def __init__(self, parent: Table[Any]|FeatureClass[Any, Any]) -> None:
+    def __init__(self, parent: Table[Any]|FeatureClass) -> None:
         self._parent = parent
             
     @property
@@ -1877,7 +1877,7 @@ class AttributeRuleManager:
         return list(self.rules.keys())
     
     @property
-    def parent(self) -> Table[Any] | FeatureClass[Any, Any]:
+    def parent(self) -> Table[Any] | FeatureClass:
         return self._parent 
     
     @property
@@ -1968,7 +1968,7 @@ class AttributeRuleManager:
             e.add_note(f'Transaction reverted for {_imported_rule_names} in {self.parent.name}')
             raise e # Raise the Exception
     
-    def sync(self, target: FeatureClass[Any]|Table) -> None:
+    def sync(self, target: FeatureClass|Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
         the current ruleset with the targeted ruleset
         

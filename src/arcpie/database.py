@@ -117,7 +117,7 @@ class Dataset(Generic[_Schema]):
             raise ValueError('Root Dataset requires a valid gdb path!')
         self.parent = parent
         self._datasets: dict[str, Dataset[Any]] | None = None
-        self._feature_classes: dict[str, FeatureClass[Any, Any]] | None=None
+        self._feature_classes: dict[str, FeatureClass] | None=None
         self._tables: dict[str, Table[Any]] | None=None
         self._relationships: dict[str, Relationship]
         self.walk()
@@ -132,7 +132,7 @@ class Dataset(Generic[_Schema]):
         return self._datasets or {}
     
     @property
-    def feature_classes(self) -> dict[str, FeatureClass[Any, Any]]:
+    def feature_classes(self) -> dict[str, FeatureClass]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
 
@@ -245,12 +245,12 @@ class Dataset(Generic[_Schema]):
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
     
-    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
+    def __getitem__(self, key: str) -> FeatureClass | Table[Any] | Dataset[Any] | Relationship:
         if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
             return ret
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
-    def get(self, key: str, default: _Default=None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | _Default:
+    def get(self, key: str, default: _Default=None) -> FeatureClass | Table[Any] | Dataset[Any] | Relationship | _Default:
         try:
             return self[key]
         except KeyError:
@@ -263,7 +263,7 @@ class Dataset(Generic[_Schema]):
         except KeyError:
             return False
         
-    def __iter__(self) -> Iterator[FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship]:
+    def __iter__(self) -> Iterator[FeatureClass | Table[Any] | Dataset[Any] | Relationship]:
         for feature_class in self.feature_classes.values():
             yield feature_class
             
@@ -539,7 +539,7 @@ class Relationship:
         )
 
     @property
-    def origins(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
+    def origins(self) -> list[FeatureClass | Table[Any]]:
         """Origin FeatureClass/Table objects"""
         return [
             self.parent.feature_classes.get(origin) or self.parent.tables[origin]
@@ -560,7 +560,7 @@ class Relationship:
         return keys # pyright: ignore[reportReturnType]
         
     @property
-    def destinations(self) -> list[FeatureClass[Any, Any] | Table[Any]]:
+    def destinations(self) -> list[FeatureClass | Table[Any]]:
         """Destination FeatureClass/Table objects"""
         return [
             self.parent.feature_classes.get(dest) or self.parent.tables[dest]
