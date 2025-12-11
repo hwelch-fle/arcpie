@@ -535,5 +535,6 @@ def shortest_path(
     else:
         assert isinstance(paths, list)
         edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(paths, paths[1:])]
-        return reduce(lambda acc, s: acc.union(s), edges) # pyright: ignore[reportReturnType]
+        if edges:
+            return reduce(lambda acc, s: acc.union(s), edges) # pyright: ignore[reportReturnType]
     
