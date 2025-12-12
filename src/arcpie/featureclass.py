@@ -64,6 +64,7 @@ from ._types import (
 )
 
 from arcpy import (
+    ListTransformations,
     Polygon,
     Extent,
     Describe, #type:ignore
@@ -1815,6 +1816,20 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
                 spatial_filter=spatial_filter, 
                 spatial_relationship=spatial_relationship)):
             yield self
+
+    def get_transformation(self, to_ref: SpatialReference) -> str | None:
+        """Get the name of the transformation to convert from feature reference to provided reference
+        
+        Args:
+            to_ref (SpatialReference): The spatial reference to get a transformation for
+        
+        Returns:
+            (str | None): The name of the first transformation or None if no transformation available
+        """
+        trans = ListTransformations(self.spatial_reference, to_ref, first_only=True)
+        if not trans:
+            return None
+        return trans[0]
 
     # Factory Constructors        
 
