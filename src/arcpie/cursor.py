@@ -190,7 +190,7 @@ class SearchOptions(TypedDict, total=False):
 
 class InsertOptions(TypedDict, total=False):
     """Optional parameters for InsertCursors"""
-    datum_transformation: str
+    datum_transformation: str | None
     explicit: bool
 
 class UpdateOptions(TypedDict, total=False):
