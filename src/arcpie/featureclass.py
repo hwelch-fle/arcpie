@@ -554,6 +554,10 @@ class Table(Generic[_Schema]):
                       insert_options: InsertOptions|None=None, 
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
+        if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
+            overrides.pop('datum_transformation')
+        if insert_options and 'datum_transformation' in insert_options and insert_options['datum_transformation'] is None:
+            insert_options.pop('datum_transformation')
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
     def update_cursor(self, *field_names: FieldName,
