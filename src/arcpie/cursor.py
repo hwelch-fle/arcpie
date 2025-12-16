@@ -201,7 +201,7 @@ class UpdateOptions(TypedDict, total=False):
     sql_clause: SQLClause
     #skip_nulls: bool
     #null_value: dict[str, Any]
-    datum_transformation: str
+    datum_transformation: str | None
     explicit: bool
     spatial_filter: GeometryType | Extent
     spatial_relationship: SpatialRelationship

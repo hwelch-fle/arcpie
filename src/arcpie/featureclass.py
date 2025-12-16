@@ -564,6 +564,10 @@ class Table(Generic[_Schema]):
                     update_options: UpdateOptions|None=None, 
                     **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
+        if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
+            overrides.pop('datum_transformation')
+        if update_options and 'datum_transformation' in update_options and update_options['datum_transformation'] is None:
+            update_options.pop('datum_transformation')
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     # TODO, Fix this
