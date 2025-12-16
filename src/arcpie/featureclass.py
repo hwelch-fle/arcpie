@@ -64,6 +64,7 @@ from ._types import (
 )
 
 from arcpy import (
+    Geometry,
     ListTransformations,
     Polygon,
     Extent,
@@ -1543,6 +1544,13 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         self._shape_token = shape_token
 
     # ro Properties
+
+    @property
+    def shape_type(self) -> type[_GeometryType]:
+        for shape in self.shapes:
+            return type(shape)
+        else:
+            return Geometry # type: ignore
 
     @property
     def describe(self) -> dt.FeatureClass: # pyright: ignore[reportIncompatibleMethodOverride]
