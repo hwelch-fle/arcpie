@@ -587,7 +587,7 @@ def box_on_point(
     elif start == 'bl':
         points.rotate(-3)
         
-    box = Polygon(Array(), spatial_reference=ref)
+    box = Polygon(Array(points), spatial_reference=ref)
     if angle:
         box = box.rotate(center, angle) # type: ignore
         assert isinstance(box, Polygon)
@@ -719,7 +719,7 @@ class Vector:
         Note:
             Whatever point type you provide will be given back to you
         """
-        ref: SpatialReference | None = getattr(point, 'spatialReference')
+        ref: SpatialReference | None = getattr(point, 'spatialReference', None)
         if isinstance(point, Point):
             target = point
         else:
