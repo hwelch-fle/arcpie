@@ -736,7 +736,7 @@ class Table(Generic[_Schema]):
             return cur.insertRow(list(record.values()))
 
     def insert_records(self, records: Iterable[_Schema] , ignore_errors: bool=False) -> Iterator[int]:
-        """Provide am iterable of records to insert
+        """Provide an iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
             ignore_errors (bool): Ignore per-row errors and continue. Otherwise raise KeyError (default: True)
