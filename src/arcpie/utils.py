@@ -1,9 +1,12 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 import builtins
+from collections import deque
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from functools import reduce
 from io import BytesIO
+import math
 from pathlib import Path
 import json
 
@@ -12,6 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    TypeVar,
     overload,
 )
 
@@ -27,9 +31,13 @@ from arcpy import (
     AddMessage,
     AddWarning,
     AddError,
+    Array,
+    AsShape,
     Point,
     PointGeometry,
+    Polygon,
     Polyline,
+    SpatialReference,
 )
 
 from .featureclass import (
@@ -537,4 +545,187 @@ def shortest_path(
         edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(paths, paths[1:])]
         if edges:
             return reduce(lambda acc, s: acc.union(s), edges) # pyright: ignore[reportReturnType]
+
+def box_on_point(
+    center: Point | PointGeometry, 
+    width: float, height: float, 
+    angle: float=0.0, 
+    ref: SpatialReference|None=None, 
+    start: Literal['tl', 'tr', 'bl', 'br']='tl'
+    ) -> Polygon:
+    """Build a rectangular box on a point
     
+    Args:
+        center (Point|PointGeometry): The center point of the box
+        width (float): The width of the box
+        height (float): The height of the box
+        angle (float): An angle to roatate the box by in radians (default: 0.0)
+        ref (SpatialReference|None): An optional spatial reference to apply to the output polygon
+        start (Literal['tl', 'tr', 'bl', 'br']): The corner of the box that should be the start point (default: 'tl')
+        
+    Returns:
+        (Polygon): A rectangular polygon (with provided ref or ref inhereted from center)
+    """
+    if isinstance(center, PointGeometry):
+        ref = ref or center.spatialReference
+        if center.spatialReference != ref:
+            center = center.projectAs(ref)
+        center = center.centroid
+        
+    h_width = width/2
+    h_height = height/2
+    tl = Point(center.X-h_width, center.Y+h_height)
+    tr = Point(center.X+h_width, center.Y+h_height)
+    bl = Point(center.X-h_width, center.Y-h_height)
+    br = Point(center.X+h_width, center.Y-h_height)
+    points = deque([tl, tr, br, bl])
+    
+    if start == 'tr':
+        points.rotate(-1)
+    elif start == 'br':
+        points.rotate(-2)
+    elif start == 'bl':
+        points.rotate(-3)
+        
+    box = Polygon(Array(), spatial_reference=ref)
+    if angle:
+        box = box.rotate(center, angle) # type: ignore
+        assert isinstance(box, Polygon)
+    return box
+
+def two_point_circle(center: Point|PointGeometry, end: Point|PointGeometry, ref: SpatialReference|None=None) -> Polyline:
+    """Create a circle using a center point and an end point
+    
+    Args:
+        center (Point|PointGeometry): The center of the circle
+        end: (Point|PointGeometry): The end point of the arc (distance from center is Circle radius)
+        ref: (SpatialReference|None): The SpatialReference to use with the returned geometry
+        
+    Returns:
+        (Polyline): A Circular Polyline
+    
+    Note:
+        If PointGeometries are provided, they will be projected as the provided ref
+        If no ref is provided, the shape will inherit the reference of the center
+        
+        Reference resolution is as follows:
+        `ref -> center.spatialReference -> end.spatialReference`
+        
+        If both points are Point objects with no spatial reference, and no ref is provided, 
+        The returned Polyline will have no spatial reference
+    """
+    if isinstance(center, PointGeometry):
+        _c_ref = center.spatialReference
+        if ref and _c_ref != ref:
+            center = center.projectAs(ref)
+        else:
+            ref = ref or _c_ref
+        center = center.centroid
+    if isinstance(end, PointGeometry):
+        _e_ref = end.spatialReference
+        if ref and _e_ref != ref:
+            end = end.projectAs(ref)
+        else:
+            ref = ref or _e_ref
+        end = end.centroid
+    
+    esri_json: dict[str, Any] = {}
+    _arc: dict[str, Any] = {'a': [[end.X, end.Y, end.Z, end.M], [center.X, center.Y], 0, 1]}
+    esri_json['curvePaths'] = [[[end.X, end.Y, end.Z], _arc]]
+    if ref:
+        esri_json['spatialReference'] = {'wkid': ref.factoryCode, 'latestWkid': ref.factoryCode}
+    return AsShape(esri_json, esri_json=True) # type: ignore
+
+def center_circle(center: Point|PointGeometry, radius: float, ref: SpatialReference|None=None) -> Polyline:
+    """Create a circle using a center point and a radius
+    
+    Args:
+        center (Point|PointGeometry): The center of the circle
+        radius: (float): The dist
+        ref: (SpatialReference|None): The SpatialReference to use with the returned geometry
+        
+    Returns:
+        (Polyline): A Circular Polyline
+    
+    Note:
+        If a PointGeometry are provided, it will be projected as the provided ref
+        If no ref is provided, the shape will inherit the reference of the center
+        
+        Reference resolution is as follows:
+        `ref -> center.spatialReference`
+        
+        If no center reference can be found and no ref is provided, the returned geometry will 
+        have no reference
+    """
+    if isinstance(center, PointGeometry):
+        ref = ref or center.spatialReference
+        center = center.centroid 
+    return two_point_circle(center, Point(center.X, center.Y+radius), ref)
+
+_PointType = TypeVar('_PointType', bound=Point|PointGeometry)
+@dataclass
+class Vector:
+    """Simple Vector implementation that takes a start and end point.\n
+    
+    If `PointGeometries` are passed as the start and end points, the end point
+    will inherit the reference of the start point
+    
+    Attributes:
+        x1 (float): The X coordinate of the startpoint
+        y1 (float): The Y coordinate of the startpoint
+        x2 (float): The X coordiante of the endpoint
+        y2 (float): The Y coordiante of the endpoint
+        ang (float): The angle of the vector in radians
+        dist (float): The magnitute of the vector (distance b/w start and end)
+        cos (float): the cos of the vector angle in radians
+        sin (float): The sin of the vector angle in radians
+        mid (Point): The midpoint of the vector along its magnitude
+    """
+    start: Point | PointGeometry
+    end: Point | PointGeometry
+    
+    def __post_init__(self) -> None:
+        _ref = None
+        if isinstance(self.start, PointGeometry):
+            _ref = self.start.spatialReference
+            self.start = self.start.centroid
+        if isinstance(self.end, PointGeometry):
+            if _ref and self.end.spatialReference != _ref:
+                self.end = self.end.projectAs(_ref)
+            self.end = self.end.centroid
+        self.x1: float = self.start.X
+        self.x2: float = self.end.X
+        self.y1: float = self.start.Y
+        self.y2: float = self.end.Y
+        self.ang: float = math.atan2(self.y2-self.y1, self.x2-self.x1)
+        self.dist: float = ((self.x2-self.x1)**2+(self.y2-self.y1)**2)**0.5
+        self.cos = math.cos(self.ang)
+        self.sin = math.sin(self.ang)
+        self.mid: Point = self.translate(self.start, self.dist/2)
+        
+    def translate(self, point: _PointType, dist: float|None=None) -> _PointType:
+        """Translate the provided point along the vector direction.
+        
+        The Point will be moved from its original location along the vector angle the provided distance.
+        The location of the `Vector` object is not taken into account, only angle and magnitude
+        
+        Args:
+            point (Point|PointGeometry): The point to translate along the given vector
+            dist (float|None): The distance to translate the point (default: `self.dist`)
+        
+        Returns:
+            (Point|PointGeometry): Return the provided geometry back translated
+            
+        Note:
+            Whatever point type you provide will be given back to you
+        """
+        ref: SpatialReference | None = getattr(point, 'spatialReference')
+        if isinstance(point, Point):
+            target = point
+        else:
+            target = point.centroid
+        dist = dist or self.dist
+        target = Point(target.X+dist*self.cos, target.Y+dist*self.sin, target.Z, target.M, target.ID)
+        if isinstance(point, PointGeometry):
+            return PointGeometry(target, ref) # pyright: ignore[reportReturnType]
+        return target   # pyright: ignore[reportReturnType]
