@@ -583,8 +583,8 @@ class Table(Generic[_Schema]):
             any applied field filters.
         
         Args:
-            fields (FieldName|str): The fields to include in the update operation (default: All)
-            stict (bool): Raise a KeyError if an invalid fieldname is passed, otherwise drop invalid updates (default: False)
+            field_names (FieldName|str): The fields to include in the update operation (default: All)
+            strict (bool): Raise a KeyError if an invalid fieldname is passed, otherwise drop invalid updates (default: False)
             update_options (UpdateOptions): Additional context to pass to the UpdateCursor as a dictionary
             **overrides (UpdateOptions): Additional context to pass to the UpdateCursor as keyword arguments
         
