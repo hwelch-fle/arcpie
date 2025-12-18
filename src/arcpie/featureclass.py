@@ -1596,6 +1596,29 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         return self.describe.extent
 
     @property
+    def shape_extent(self) -> Extent | None:
+        """Get a new extent by finding the maximum extent of the current shapes. 
+        
+        If no features, None is returned
+        will respect the spatial reference applied in a context manager (inherit ref from shapes)
+        """
+        x_max = None
+        x_min = None
+        y_max = None
+        y_min = None
+        s_ref = None
+        for s in self.shapes:
+            if s_ref is None:
+                s_ref = s.spatialReference
+            x_max = max(s.extent.XMax, x_max or s.extent.XMax)
+            x_min = min(s.extent.XMax, x_min or s.extent.XMin)
+            y_max = max(s.extent.YMax, y_max or s.extent.YMax)
+            y_min = min(s.extent.YMax, y_min or s.extent.YMin)
+        if all([x_min, x_max, y_min, y_max]):
+            return Extent(x_min, y_min, x_max, y_max, spatial_reference=s_ref)
+        
+
+    @property
     def py_types(self) -> dict[str, type]:
         """Get a mapping of the field types for the FeatureClass"""
         _types = convert_dtypes(self.np_dtypes)
