@@ -280,6 +280,7 @@ class FeatureLayer(Parameter):
                  default: str|None=None,
                  required: bool=True,
                  name: str|None=None,
+                 allow_create: bool=False,
                  category: str|None=None) -> None:
         
         self.__class__.__name__ =  __name__ = 'Parameter'
@@ -296,6 +297,8 @@ class FeatureLayer(Parameter):
             self.filter.list = options
         if default is not None:
             self.value = default
+        if allow_create:
+            self.controlCLSID = '{60061247-BCA8-473E-A7AF-A2026DDE1C2D}'
 
 class Folder(Parameter):
     """Simple Feature Layer parameter with filter and default passthroughs"""
