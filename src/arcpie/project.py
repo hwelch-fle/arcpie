@@ -668,6 +668,7 @@ class Manager(Generic[_MappingObject]):
     def get(self, name: str, default: _Default) -> _MappingObject | _Default: ...
     @overload
     def get(self, name: Wildcard, default: _Default) -> list[_MappingObject] | _Default: ...
+    
     def get(self, name: str|Wildcard, default: _Default|None=None) -> _MappingObject|list[_MappingObject]|_Default|None:
         """Get a value from the Project with a safe default value"""
         try:
