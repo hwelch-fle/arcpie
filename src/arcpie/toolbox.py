@@ -300,6 +300,35 @@ class FeatureLayer(Parameter):
         if allow_create:
             self.controlCLSID = '{60061247-BCA8-473E-A7AF-A2026DDE1C2D}'
 
+class FeatureLayerList(Parameter):
+    """Simple Feature Layer parameter with filter and default passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None,
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 allow_create: bool=False,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPFeatureLayer',
+            direction='Input',
+            category=category,
+            multiValue=True,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default is not None:
+            self.value = default
+        if allow_create:
+            self.controlCLSID = '{60061247-BCA8-473E-A7AF-A2026DDE1C2D}'
+
 class Folder(Parameter):
     """Simple Feature Layer parameter with filter and default passthroughs"""
     __name__ = 'Parameter'
