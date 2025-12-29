@@ -1015,6 +1015,7 @@ class Table(Generic[_Schema]):
     def __getitem__(self, field: WhereClause) -> Iterator[_Schema]: ...
     @overload
     def __getitem__(self, field: None) -> Iterator[None]: ...
+    
     def __getitem__(self, field: _IndexableTypes | FilterFunc[_Schema]) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
@@ -1103,6 +1104,7 @@ class Table(Generic[_Schema]):
     def get(self, field: WhereClause, default: _T) -> Iterator[_Schema] | _T: ...
     @overload
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
+    
     def get(self, field: _IndexableTypes | FilterFunc[_Schema], default: _T=None) -> Iterator[Any] | _T:
         """Allow accessing the implemented indexes defined by `__getitem__` with a default shielding a raised `KeyError`
         
@@ -1690,6 +1692,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def __getitem__(self, field: None) -> Iterator[None]: ...
     @overload
     def __getitem__(self, field: GeometryType | Extent) -> Iterator[_Schema]: ...
+    
     def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
@@ -1766,6 +1769,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
     @overload
     def get(self, field: GeometryType | Extent, default: _T) -> Iterator[_Schema] | _T: ...
+    
     def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T=None) -> Iterator[Any] | _T:
         """Allows safe indexing of a FeatureClass, see `Table.get` for more information"""
         try:
