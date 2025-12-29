@@ -86,6 +86,7 @@ from arcpy.management import (
     EnableAttributeRules, #type: ignore
     DisableAttributeRules, #type: ignore
     ReorderAttributeRule, #type: ignore
+    Delete, #type: ignore
 )
 
 from arcpy._mp import ( 
@@ -841,6 +842,14 @@ class Table(Generic[_Schema]):
             yield from (row for row in self if func(row) == (not invert))
 
     # Data Operations
+    
+    def delete(self) -> None:
+        """Delete the object permanently using arcpy.management.Delete
+        
+        Note: After calling this method, the current FeatureClass object becomes unbound so `del` is called on `self`
+        """
+        Delete(self.path)
+        del self
     
     def copy_to(self, workspace: str, options: bool=True) -> Self:
         """Copy this `Table` or `FeatureClass` to a new workspace
