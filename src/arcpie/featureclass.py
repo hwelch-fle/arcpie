@@ -1411,6 +1411,7 @@ class Table(Generic[_Schema]):
         if self.layer:
             _selected = list(self['OID@'])
             self.layer.setSelectionSet(_selected, method=method)
+            _selected = self.layer.getSelectionSet()
             try: # Try to select the layer in the active map
                 if len(_selected) == 1:
                     _query = f'{self.oid_field_name} = {_selected.pop()})'
