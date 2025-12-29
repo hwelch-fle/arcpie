@@ -2069,12 +2069,7 @@ class AttributeRuleManager:
         if not rule_name and delete_all:
             rule_name = tuple(self.names)
         DeleteAttributeRule(str(self.parent), rule_name)
-    
-    @deprecated('Use delete_attribute_rule(*rule_name, ...) [varargs] instead')
-    def delete_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        """DEPRECATED: USE `delete_attribute_rule` instead"""
-        self.delete_attribute_rule(*rule_names) 
-        
+       
     def disable_attribute_rule(self, *rule_name: str, disable_all: bool=False) -> None:
         """Disable provided attribute rules from the ruleset
         
@@ -2085,12 +2080,7 @@ class AttributeRuleManager:
         if not rule_name and disable_all:
             rule_name = tuple(self.names)
         DisableAttributeRules(str(self.parent), rule_name)
-    
-    @deprecated('Use disable_attribute_rules(*rule_name, ...) [varargs] instead')
-    def disable_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        """DEPRECATED: USE `disable_attribute_rule` instead"""
-        self.disable_attribute_rule(*rule_names)
-        
+         
     def enable_attribute_rule(self, *rule_name: str, enable_all: bool=False) -> None:
         """Enable provided attribute rules in the ruleset
         
@@ -2101,11 +2091,6 @@ class AttributeRuleManager:
         if not rule_name and enable_all:
             rule_name = tuple(self.names)
         EnableAttributeRules(str(self.parent), rule_name)
-    
-    @deprecated('Use enable_attribute_rules(*rule_name, ...) [varargs] instead')
-    def enable_attribute_rules(self, rule_names: Sequence[str]) -> None:
-        """DEPRECATED: USE `enable_attribute_rule` instead"""
-        self.enable_attribute_rule(*rule_names)
     
     def __iter__(self) -> Iterator[AttributeRule]:
         return iter(self.rules.values())
@@ -2182,6 +2167,11 @@ class AttributeRuleManager:
         
     def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
         return self.rules.get(rule_name, default)
+
+    def __bool__(self) -> bool:
+        if self.rules:
+            return True
+        return False
 
 if __name__ == '__main__':
     pass
