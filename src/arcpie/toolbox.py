@@ -22,7 +22,7 @@ class Parameter(_Parameter):
                  name: str | None = None, 
                  displayName: str | None = None, 
                  direction: None | Literal['Input', 'Output'] = None, 
-                 datatype: str | None | ParameterDatatype = None, 
+                 datatype: ParameterDatatype | list[ParameterDatatype | str] | str | None= None, 
                  parameterType: None | Literal['Required', 'Optional', 'Derived'] = None, 
                  enabled: bool | None = None, 
                  category: str | None = None, 
