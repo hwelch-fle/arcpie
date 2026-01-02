@@ -1396,6 +1396,7 @@ class Table(Generic[_Schema]):
             pass
         
         # Fallback to direct CIM update (updateConnectionProperties is buggy)
+        # TODO: Integrate cimple.cim here for typing
         try:
             definition = layer.cim
             dc = definition.featureTable.dataConnection # type: ignore
