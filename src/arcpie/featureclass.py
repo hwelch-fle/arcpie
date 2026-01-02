@@ -1,5 +1,4 @@
 from __future__ import annotations
-from warnings import deprecated
 
 # Typing imports
 import arcpy.typing.describe as dt
@@ -1383,9 +1382,32 @@ class Table(Generic[_Schema]):
         
         Args:
             layer (Layer): The layer to update connection properties for
+            
+        Raises: ValueError
         """
-        layer.updateConnectionProperties(layer.dataSource, self.path) #type:ignore
-
+        # Use the wrapped Layer from arcpie.project so workspace can be inferred
+        from .project import Layer as _Layer
+        layer = _Layer(layer)
+        # Try to update datasource using updateConnectionProperties
+        try:
+            layer.updateConnectionProperties(layer.feature_class.workspace, self.workspace)
+            return
+        except:
+            pass
+        
+        # Fallback to direct CIM update (updateConnectionProperties is buggy)
+        try:
+            definition = layer.cim
+            dc = definition.featureTable.dataConnection # type: ignore
+            dc.workspaceConnectionString = f'DATABASE={self.workspace}'
+            dc.dataset = self.name
+            # Remove missing FeatureDataset subpaths
+            if dc.featureDataset and dc.featureDataset not in Path(self.path).parts: # type: ignore
+                dc.featureDataset = None
+            layer.setDefinition(definition) # type: ignore
+        except Exception as e:
+            raise ValueError(f'Unable to bind to layer: {e}')
+        
     def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP']='AUTO_ARRANGE') -> None:
         """Add the featureclass to a map
 

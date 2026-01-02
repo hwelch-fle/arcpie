@@ -59,6 +59,8 @@ from arcpie._types import (
     PDFDefault,
 )
 
+from arcpie.schemas import SchemaLayer
+
 from arcpie.featureclass import (
     FeatureClass, 
     Table as DataTable, # Alias Table to prevent conflict with Mapping Table
@@ -185,6 +187,10 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
     @property
     def cim(self) -> CIMBaseLayer:
         return super().cim
+    
+    @property
+    def cim_dict(self) -> SchemaLayer | None: # type: ignore
+        return super().cim_dict # type: ignore
     
     def export_lyrx(self, out_dir: Path|str) -> None:
         """Export the layer to a lyrx file in the target directory
