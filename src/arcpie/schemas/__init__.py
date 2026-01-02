@@ -5,3 +5,7 @@ from .workspace import (
     SchemaField as SchemaField,
     SchemaDomain as SchemaDomain,
 )
+
+from .layer import (
+    SchemaLayer as SchemaLayer,
+)
