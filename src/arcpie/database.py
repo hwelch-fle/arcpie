@@ -17,11 +17,13 @@ from typing import (
     Literal,
     TypeVar,
     Unpack,
+    overload,
 )
 
 from arcpy import Describe  # pyright: ignore[reportUnknownVariableType]
 
 from ._types import (
+    AttributeRule,
     domain_param,
     AlterDomainOpts,
     CreateDomainOpts,
@@ -154,7 +156,7 @@ class Dataset(Generic[_Schema]):
     def schema(self) -> SchemaWorkspace:
         return json.load(convert_schema(self, 'JSON'))
 
-    def export_rules(self, rule_dir: Path|str) -> None:
+    def export_rules(self, rule_dir: Path|str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
         
         Args:
@@ -168,11 +170,17 @@ class Dataset(Generic[_Schema]):
             ```
         """
         for feature_class in self.feature_classes.values():
-            feature_class.attribute_rules.export_rules(Path(rule_dir))
+            yield from feature_class.attribute_rules.export_rules(Path(rule_dir))
 
-    def import_rules(self, rule_dir: Path|str, 
+    @overload
+    def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[True]) -> Iterator[AttributeRule | Exception]: ...
+    @overload
+    def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[False]) -> Iterator[AttributeRule]: ...
+    @overload
+    def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[False]=False) -> Iterator[AttributeRule]: ...
+    def import_rules(self, rule_dir: Path | str, 
                      *, 
-                     skip_fail: bool=False) -> None:
+                     skip_fail: bool=False) -> Iterator[AttributeRule | Exception]:
         """Import Attribute rules for the dataset from a directory
         
         Args:
@@ -191,10 +199,11 @@ class Dataset(Generic[_Schema]):
                 if not (rule_dir / feature_class.name).exists():
                     continue
                 try:
-                    feature_class.attribute_rules.import_rules(rule_dir / feature_class.name)
+                    yield from feature_class.attribute_rules.import_rules(rule_dir / feature_class.name)
                 except Exception as e:
                     if skip_fail:
                         print(f'Failed to import rules for {feature_class.name}: \n\t{e.__notes__}\n\t{e}')
+                        yield e
                     else:
                         raise e
 

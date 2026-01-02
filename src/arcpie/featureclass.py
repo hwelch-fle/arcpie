@@ -1980,7 +1980,7 @@ class AttributeRuleManager:
             for rule in self._parent.da_describe['attributeRules']
         }
     
-    def export_rules(self, out_dir: Path|str) -> None:
+    def export_rules(self, out_dir: Path|str) -> Iterator[AttributeRule]:
         """Write attribute rules out to a structured directory
         
         Args:
@@ -1997,9 +1997,10 @@ class AttributeRuleManager:
             out_file.parent.mkdir(exist_ok=True, parents=True)
             out_file.with_suffix('.js').write_text(_script)
             out_file.with_suffix('.cfg').write_text(json.dumps(rule, indent=2))
+            yield rule
         return
     
-    def import_rules(self, src_dir: Path|str, *, strict: bool=False, disable: bool=False) -> None:
+    def import_rules(self, src_dir: Path|str, *, strict: bool=False, disable: bool=False) -> Iterator[AttributeRule]:
         """Import attribute rules that were previously exported to the filesystem for editing
         
         Args:
@@ -2060,6 +2061,7 @@ class AttributeRuleManager:
             e.add_note(f'Config: {pformat(convert_rule(rule_config))}')
             e.add_note(f'Transaction reverted for {_imported_rule_names} in {self.parent.name}')
             raise e # Raise the Exception
+        yield rule_config
     
     def sync(self, target: FeatureClass|Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
