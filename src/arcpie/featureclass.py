@@ -1995,8 +1995,8 @@ class AttributeRuleManager:
             _script: str = str(rule.pop('scriptExpression', '')) # TypedDict has bugged pop typing
             out_file = out_dir / self._parent.name / rule_name
             out_file.parent.mkdir(exist_ok=True, parents=True)
-            out_file.with_suffix('.js').write_text(_script)
-            out_file.with_suffix('.cfg').write_text(json.dumps(rule, indent=2))
+            out_file.with_suffix('.js').write_text(_script, encoding='utf-8')
+            out_file.with_suffix('.cfg').write_text(json.dumps(rule, indent=2), encoding='utf-8')
             yield rule
         return
     
@@ -2047,6 +2047,8 @@ class AttributeRuleManager:
                     self.disable_attribute_rule(*to_remove)
                 else:
                     self.delete_attribute_rule(*to_remove)
+            yield from (self[rule] for rule in rule_orders)
+            
         except Exception as e:
             # Revert the import if an Exception is rasied
             for rule_name, rule in _old_rules.items():
@@ -2061,7 +2063,6 @@ class AttributeRuleManager:
             e.add_note(f'Config: {pformat(convert_rule(rule_config))}')
             e.add_note(f'Transaction reverted for {_imported_rule_names} in {self.parent.name}')
             raise e # Raise the Exception
-        yield rule_config
     
     def sync(self, target: FeatureClass|Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
