@@ -2,7 +2,7 @@
 from __future__ import annotations
 import builtins
 from collections import deque
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import reduce
 from io import BytesIO
@@ -115,6 +115,16 @@ def get_subtype_count(fc: Table | FeatureClass, drop_empty: bool=False) -> dict[
             (cnt := count(fc[where(f'{fc.subtype_field} = {code}')])) # Get count
             or drop_empty # Drop Empty counts?
         )
+    }
+
+if TYPE_CHECKING:
+    from featureclass import _GeometryType, _Schema # type: ignore
+def subtype_summary(fc: Table[_Schema] | FeatureClass[_GeometryType, _Schema], summary: Callable[[Iterator[_Schema]], Any]) -> dict[str, Any]:
+    return {
+        subtype['Name']: res
+        for code, subtype in fc.subtypes.items() 
+        if fc.subtype_field # has Subtypes
+        and (res := summary(fc[where(f'{fc.subtype_field} = {code}')]))
     }
 
 def print(*values: object,
