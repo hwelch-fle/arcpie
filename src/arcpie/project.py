@@ -833,8 +833,11 @@ class Project:
             Saving a Project as a new project will not update this instance, and instead returns a new
             Project instance targeted at the new file
         """
-        path = Path(path)
-        self.aprx.saveACopy(str(path.with_suffix(f'{path.suffix}.aprx')))
+        if not str(path).endswith('.aprx'):
+            path = Path(str(path)+'.aprx')
+        else:
+            path = Path(path)
+        self.aprx.saveACopy(str(path))
         return Project(path)
     
     def import_pagx(self, pagx: Path|str, *, reuse_existing_maps: bool=True) -> Layout:
