@@ -76,6 +76,11 @@ class Wildcard(UserString):
     """Clarify that the string passed to a Manager index is a wildcard so the type checker knows you're getting a Sequence back"""
     pass
 
+INVALID_CHARS = {'/', r'\\', ':', '*', '?', '"', '<', '>', '|'}
+def safe_name(name: str) -> str:
+    """Remove invalid filename characters from a string"""
+    return ''.join(c for c in name if c not in INVALID_CHARS)
+
 class MappingWrapper(Generic[_MapType, _CIMType]):
     """Internal wrapper class for wrapping existing objects with new functionality
     
@@ -199,7 +204,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
             out_dir (Path|str): The location to export the mapx to
         """
         out_dir = Path(out_dir)
-        target = out_dir / f'{self.longName}.lyrx'
+        target = out_dir / f'{safe_name(self.longName)}.lyrx'
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
         target.write_text(json.dumps(self.lyrx, indent=2), encoding='utf-8')
@@ -458,12 +463,18 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         lyrx_dir = Path(lyrx_dir)
         for lyrx_path in lyrx_dir.rglob('*.lyrx'):
             _lyrx_name = str(lyrx_path.relative_to(lyrx_dir).with_suffix(''))
-            if _lyrx_name in self.layers:
+            # Since layers can have invalid file names, we need to check the `safe` name as well
+            _safe_layers = {safe_name(n): n for n in self.layers.names}
+            _safe_tables = {safe_name(n): n for n in self.tables.names}
+            if _lyrx_name in self.layers or _lyrx_name in _safe_layers:
+                _lyrx_name = _safe_layers.get(_lyrx_name, _lyrx_name)
                 if self.layers[_lyrx_name].isGroupLayer and skip_groups:
                     continue
                 self.layers[_lyrx_name].import_lyrx(lyrx_path)
-            elif _lyrx_name in self.tables:
+            elif _lyrx_name in self.tables or _lyrx_name in _safe_tables:
+                _lyrx_name = _safe_tables.get(_lyrx_name, _lyrx_name)
                 self.tables[_lyrx_name].import_lyrx(lyrx_path)
+                    
     
     def import_mapx(self, mapx: Path|str) -> None:
         raise NotImplementedError()
@@ -542,7 +553,7 @@ class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
         Args:
             out_dir (Path|str): The location to export the lyrx to
         """
-        target = Path(out_dir) / f'{self.longName}.lyrx'
+        target = Path(out_dir) / f'{safe_name(self.longName)}.lyrx'
         # Make Containing directory for grouped layers
         target.parent.mkdir(exist_ok=True, parents=True)
         target.write_text(json.dumps(self.lyrx, indent=2), encoding='utf-8')
