@@ -164,7 +164,32 @@ class String(Parameter):
             self.filter.list = options
         if default is not None:
             self.value = default
-            
+
+class HiddenString(Parameter):
+    """Simple string input parameter with filter options and default passthrough"""
+    
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None, 
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPStringHidden',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default is not None:
+            self.value = default
+        
 class StringList(Parameter):
     """Simple string list with default and filter passthroughs"""
 
