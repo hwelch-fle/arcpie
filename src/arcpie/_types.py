@@ -10,6 +10,7 @@ from collections.abc import (
     Sequence,
 )
 
+from pathlib import Path
 from typing import (
     Literal,
     Self, 
@@ -278,6 +279,100 @@ class MapSeriesPDFSetting(PDFSetting, total=False):
     page_range_type: Literal['ALL', 'CURRENT', 'RANGE', 'SELECTED']
     multiple_files: Literal['PDF_MULTIPLE_FILES_PAGE_NAME', 'PDF_MULTIPLE_FILES_PAGE_NUMBER', 'PDF_SINGLE_FILE']
     page_range_string: str
+
+# New for 3.6 (mp.PDFFormat)
+class PDFFormatSetting(TypedDict):
+    clipToElements: bool
+    compressVectorGraphics: bool
+    convertMarkers: bool
+    embedColorProfile: bool
+    embedFonts: bool
+    georefInfo: bool
+    height: float
+    imageCompression: Literal['ADAPTIVE', 'DEFLATE', 'JPEG', 'JPEG2000', 'LZW', 'NONE', 'RLE']
+    imageCompressionQuality: int
+    imageQuality: Literal['BEST', 'BETTER', 'NORMAL', 'FASTER', 'FASTEST']
+    includeAccessibilityTags: bool
+    includeNonVisibleMapLayers: bool
+    layersAndAttributes: Literal['LAYERS_AND_ATTRIBUTES', 'LAYERS_ONLY', 'NONE']
+    outputAsImage: bool
+    rasterAsSingleTile: bool
+    removeLayoutBackground: bool
+    resolution: int
+    showSelectionSymbology: bool
+    simulateOverprint: bool
+    width: float
+
+DefaultPDFExport: PDFFormatSetting = {
+    'clipToElements': False,
+    'compressVectorGraphics': True,
+    'convertMarkers': False,
+    'embedColorProfile': True,
+    'embedFonts': True,
+    'georefInfo': True,
+    'height': 960,
+    'imageCompression': 'ADAPTIVE',
+    'imageCompressionQuality': 80,
+    'imageQuality': 'NORMAL',
+    'includeAccessibilityTags': True,
+    'includeNonVisibleMapLayers': False,
+    'layersAndAttributes': 'LAYERS_ONLY',
+    'outputAsImage': False,
+    'rasterAsSingleTile': False,
+    'removeLayoutBackground': False,
+    'resolution': 96,
+    'showSelectionSymbology': False,
+    'simulateOverprint': False,
+    'width': 960
+}
+
+# Utility functions to make conversion between case standards easier
+def snake_to_camel(s: str) -> str:
+    words = s.split('_')
+    words = [words[0]] + list(map(str.title, words[1:]))
+    return ''.join(words)
+
+_camel_map = {
+    'A': '_a',
+    'B': '_b',
+    'C': '_c',
+    'D': '_d',
+    'E': '_e',
+    'F': '_f',
+    'G': '_g',
+    'H': '_h',
+    'I': '_i',
+    'J': '_j',
+    'K': '_k',
+    'L': '_l',
+    'M': '_m',
+    'N': '_n',
+    'O': '_o',
+    'P': '_p',
+    'Q': '_q',
+    'R': '_r',
+    'S': '_s',
+    'T': '_t',
+    'U': '_u',
+    'V': '_v',
+    'W': '_w',
+    'X': '_x',
+    'Y': '_y',
+    'Z': '_z'
+}
+
+def camel_to_snake(s: str) -> str:
+    return ''.join([_camel_map.get(c, c) for c in s])
+
+def get_pdf_format(pdf_path: str|Path, setting: PDFFormatSetting):
+    from arcpy.mp import PDFFormat
+    fmt = PDFFormat(str(pdf_path))
+    for k, v in setting.items():
+        if not hasattr(fmt, k):
+            # allow using snake or camel (simulate_overprint == simulateOverprint)
+            k = snake_to_camel(k)
+        setattr(fmt, k, v)
+    return fmt
 
 # Allow overriding this to change global export defaults for any
 # class that uses this  
