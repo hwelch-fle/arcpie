@@ -379,6 +379,32 @@ class Folder(Parameter):
         if default is not None:
             self.value = default
 
+
+class FeatureDataset(Parameter):
+    """Simple Feature Dataset parameter with filter and default passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None,
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='DEFeatureDataset',
+            direction='Input',
+            category=category,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default is not None:
+            self.value = default
+
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):

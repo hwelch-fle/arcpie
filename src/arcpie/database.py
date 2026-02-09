@@ -119,9 +119,10 @@ class Dataset(Generic[_Schema]):
             raise ValueError('Root Dataset requires a valid gdb path!')
         self.parent = parent
         self._datasets: dict[str, Dataset[Any]] | None = None
-        self._feature_classes: dict[str, FeatureClass] | None=None
-        self._tables: dict[str, Table[Any]] | None=None
+        self._feature_classes: dict[str, FeatureClass] | None = None
+        self._tables: dict[str, Table[Any]] | None = None
         self._relationships: dict[str, Relationship]
+        self._annotation_features: dict[str, FeatureClass] | None = None
         self.walk()
 
     @property
@@ -137,6 +138,11 @@ class Dataset(Generic[_Schema]):
     def feature_classes(self) -> dict[str, FeatureClass]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
+
+    @property
+    def annotations(self) -> dict[str, FeatureClass]:
+        """A mapping of annotation names to `FeatureClass` objects"""
+        return {k: v for k, v in self.feature_classes.items() if v.describe.featureType == 'Annotation'}
 
     @property
     def tables(self) -> dict[str, Table[Any]]:
@@ -530,6 +536,10 @@ class Relationship:
         return self.describe.name
 
     @property
+    def cardinality(self) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY']:
+        return convert_cardinality(self.describe.cardinality)
+
+    @property
     def settings(self) -> RelationshipOpts:
         return RelationshipOpts(
             origin_table=self.describe.originClassNames[0],
@@ -563,9 +573,11 @@ class Relationship:
             'OriginPrimary': '',
             'OriginForeign': '',
         }
-        for f, k, _ in self.describe.originClassKeys:
-            keys['OriginForeign'] = k if f == 'OriginForeign' else ''
-            keys['OriginPrimary'] = k if f == 'OriginPrimary' else ''
+        for field, key_type, _ in self.describe.originClassKeys:
+            if key_type == 'OriginForeign':
+                keys['OriginForeign'] = field
+            elif key_type == 'OriginPrimary':
+                keys['OriginPrimary'] = field
         return keys # pyright: ignore[reportReturnType]
         
     @property
@@ -584,9 +596,11 @@ class Relationship:
             'DestinationPrimary': '',
             'DestinationForeign': '',
         }
-        for f, k, _ in self.describe.destinationClassKeys:
-            keys['DestinationForeign'] = k if f == 'DestinationForeign' else ''
-            keys['DestinationPrimary'] = k if f == 'DestinationPrimary' else ''
+        for field, key_type, _ in self.describe.destinationClassKeys:
+            if key_type == 'DestinationForeign':
+                keys['DestinationForeign'] = field
+            elif key_type == 'DestinationPrimary':
+                keys['DestinationPrimary'] = field
         return keys # pyright: ignore[reportReturnType]
     
     def add_rule(self, **options: Unpack[RelationshipAddRuleOpts]) -> None:
