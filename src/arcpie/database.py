@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from collections.abc import (
+    Callable,
     Iterator,
     Mapping,
 )
@@ -20,7 +21,9 @@ from typing import (
     overload,
 )
 
-from arcpy import Describe  # pyright: ignore[reportUnknownVariableType]
+from arcpy import Describe # pyright: ignore[reportUnknownVariableType]
+
+from arcpie.cursor import Field
 
 from ._types import (
     AttributeRule,
@@ -311,6 +314,62 @@ class Dataset(Generic[_Schema]):
     
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
+
+    def export_schema_module(self, out_loc: Path|str, 
+                           *,
+                           tables: bool = True,
+                           featureclasses: bool = True,
+                           mod_doc: str | None = None,
+                           fallback_type: type = object,
+                           docs: dict[str, str] | None = None,
+                           include_shape_token: bool = True,
+                           include_oid_token: bool = True,
+                           default_doc: Callable[[Field], str] | None = None
+        ) -> None:
+        """Export the workspace to a python schema file that uses TypedDict and Annotated 
+        to store field definitions. This is similar to Pydantic models, but these can be injested by
+        Table and FeatureClass objects to type their iterators
+        
+        Args:
+            tables: Include all table schemas in output
+            featureclasses: Include all featureclasses in output 
+            out_loc: The filepath of the output module (e.g. `<root>/schemas/db_schema.py`)
+            mod_doc: Optional module documentation to include at the top of the file (default: `{self.name} Schema`)
+        Note:
+            If the supplied out_loc is not a valid `.py` python file, a python file with the name 
+            `{self.name}_schema.py` will be generated there. Intermediate folders will be created if 
+            they do not exist. 
+        """
+        from .schemas.fields import SCHEMA_IMPORTS
+        if mod_doc:
+            mod_doc = SCHEMA_IMPORTS.format(mod_doc)
+        else:
+            mod_doc = SCHEMA_IMPORTS.format(f'{self.name} Schema')
+        
+        out_loc = Path(out_loc)
+        if out_loc.suffix != '.py':
+            out_loc = out_loc / f'{self.name}.py'
+        out_loc.parent.mkdir(exist_ok=True, parents=True)
+        
+        _items: list[FeatureClass | Table] = []
+        if featureclasses:
+            _items.extend(list(self.feature_classes.values()))
+        if tables:
+            _items.extend(list(self.tables.values()))
+            
+        with out_loc.open('wt') as fl:
+            fl.write(mod_doc)
+            for item in _items:
+                fl.write(
+                    item.get_schema(
+                        fallback_type=fallback_type, 
+                        docs=docs, 
+                        include_shape_token=include_shape_token, 
+                        include_oid_token=include_oid_token,
+                        default_doc=default_doc,
+                    )
+                )
+        
 
     def export_schema(self, out_loc: Path|str,
                       *,
