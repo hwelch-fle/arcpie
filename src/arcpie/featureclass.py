@@ -1478,6 +1478,48 @@ class Table(Generic[_Schema]):
             except Exception:
                 return
 
+    # Schema export
+    def get_schema(self,
+                   *,
+                   fallback_type: type = object,
+                   docs: dict[str, str] | None = None,
+                   include_shape_token: bool = True,
+                   include_oid_token: bool = True,
+                   default_doc: Callable[[Field], str] | None = None
+    ) -> str:
+        """Get python code for the Table/FeatureClass schema
+    
+        Args:
+            fallback_type: The default type annotation for any fields that aren't mapped properly
+            docs: Optional docs to include for each field (e.g. `{'FieldName': 'field doc', ...}`)
+            include_shape_token: Include a `SHAPE@` key with the FeatureClass shape type (no effect on Tables)
+            include_oid_token: Include the `OID@` key
+            default_doc: A function that takes a Field dictionary and retuens a formatted doc (default: `k: v\n\n...`)
+        """
+        # Deferred Import since yield_schema does an instance check on FeatureClass/Table
+        from arcpie.schemas.fields import yield_schema
+        if default_doc is None:
+            return ''.join(
+                yield_schema(
+                    self, 
+                    fallback_type=fallback_type, 
+                    docs=docs, 
+                    include_oid_token=include_oid_token, 
+                    include_shape_token=include_shape_token
+                )
+            )
+        else:
+            return ''.join(
+                yield_schema(
+                    self, 
+                    fallback_type=fallback_type, 
+                    docs=docs, 
+                    include_oid_token=include_oid_token, 
+                    include_shape_token=include_shape_token, 
+                    default_doc=default_doc  # Only override the default formatter if None is given
+                )
+            )
+
     # Factory Constructors
     @classmethod
     def from_table(cls, table: TableLayer,
