@@ -77,6 +77,7 @@ from arcpy.management import (
     CopyFeatures,  #type:ignore
     DeleteField, #type:ignore
     AddField, #type:ignore
+    AssignDefaultToField, # type: ignore
     RecalculateFeatureClassExtent, #type:ignore
     SelectLayerByAttribute, #type: ignore
     AddAttributeRule, #type: ignore
@@ -934,9 +935,12 @@ class Table(Generic[_Schema]):
                 "and must only contain alphanumeric characters and underscores"
             )
         
+        default = field.pop('field_default') if 'field_default' in field else None        
         with EnvManager(workspace=self.workspace):
-            AddField(self.path, fieldname, **field)
+            AddField(self.path, fieldname, **field) # type: ignore (field_default is popped for alteration)
             self._fields = None
+            if default is not None:
+                AssignDefaultToField(self.path, fieldname, default_value=default)
 
     def add_fields(self, fields: dict[str, Field]) -> None:
         """Provide a mapping of fieldnames to Fields

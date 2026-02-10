@@ -5,6 +5,7 @@ from collections.abc import (
 )
 
 from typing import (
+    Any,
     TypedDict,
     Literal,
     NamedTuple,
@@ -245,6 +246,7 @@ class Field(TypedDict, total=False):
     field_is_nullable: Literal['NULLABLE', 'NON_NULLABLE']
     field_is_required: Literal['REQUIRED', 'NON_REQUIRED']
     field_domain: str
+    field_default: Any
 
 def get_field_type(arc_field_type: ArcFieldType, *, strict: bool=False) -> FieldType:
     """Convert a field type flag from a describe arcpy.Field to arguments for AddField
@@ -315,4 +317,5 @@ def convert_field(arc_field: ArcField) -> Field:
         field_is_nullable='NULLABLE' if arc_field.isNullable else 'NON_NULLABLE',
         field_is_required='REQUIRED' if arc_field.required else 'NON_REQUIRED',
         field_domain=arc_field.domain,
+        field_default=arc_field.defaultValue,
     )
