@@ -258,7 +258,8 @@ def yield_schema(
             f_doc: str = docs.get(f_name) or default_doc(f_def)
         else:
             f_doc: str = default_doc(f_def)
-        yield f'    {f_doc}'
+        if f_doc: # Don't yield an empty string
+            yield f'    {f_doc}'
         yield ""
 
     

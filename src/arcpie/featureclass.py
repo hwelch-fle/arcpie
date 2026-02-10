@@ -1485,7 +1485,7 @@ class Table(Generic[_Schema]):
                    docs: dict[str, str] | None = None,
                    include_shape_token: bool = True,
                    include_oid_token: bool = True,
-                   default_doc: Callable[[Field], str] | None = None
+                   default_doc: Callable[[Field], str] | None | Literal['nodoc'] = None
     ) -> str:
         """Get python code for the Table/FeatureClass schema
     
@@ -1515,8 +1515,10 @@ class Table(Generic[_Schema]):
                     fallback_type=fallback_type, 
                     docs=docs, 
                     include_oid_token=include_oid_token, 
-                    include_shape_token=include_shape_token, 
-                    default_doc=default_doc  # Only override the default formatter if None is given
+                    include_shape_token=include_shape_token,
+                    # Only override the default formatter if None is given
+                    # if Literal 'nodoc' is supplied, use closure with empty string as doc func
+                    default_doc=(lambda f: '') if default_doc == 'nodoc' else default_doc
                 )
             )
 

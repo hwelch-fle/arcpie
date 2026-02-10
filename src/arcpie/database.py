@@ -321,10 +321,10 @@ class Dataset(Generic[_Schema]):
                            featureclasses: bool = True,
                            mod_doc: str | None = None,
                            fallback_type: type = object,
-                           docs: dict[str, str] | None = None,
+                           docs: dict[str, dict[str, str]] | None = None,
                            include_shape_token: bool = True,
                            include_oid_token: bool = True,
-                           default_doc: Callable[[Field], str] | None = None
+                           default_doc: Callable[[Field], str] | None | Literal['nodoc'] = None
         ) -> None:
         """Export the workspace to a python schema file that uses TypedDict and Annotated 
         to store field definitions. This is similar to Pydantic models, but these can be injested by
@@ -335,6 +335,11 @@ class Dataset(Generic[_Schema]):
             featureclasses: Include all featureclasses in output 
             out_loc: The filepath of the output module (e.g. `<root>/schemas/db_schema.py`)
             mod_doc: Optional module documentation to include at the top of the file (default: `{self.name} Schema`)
+            fallback_type: Default type for any fieldtype that can't be mapped to a Python type
+            docs: Optional docs for each feature class in the format `{'Feature': {'Field': 'Field Doc', ...}, ...}`
+            include_shape_token: Include @SHAPE in output schema (will inherit from FC shape)
+            include_oid_token: Include the @OID token in the output schema
+            default_doc: Optional default docstring func for fields (`'nodoc'` will exclude docstring from output)
         Note:
             If the supplied out_loc is not a valid `.py` python file, a python file with the name 
             `{self.name}_schema.py` will be generated there. Intermediate folders will be created if 
@@ -360,10 +365,12 @@ class Dataset(Generic[_Schema]):
         with out_loc.open('wt') as fl:
             fl.write(mod_doc)
             for item in _items:
+                # Extract any supplied FC docs
+                doc = docs.get(item.name) if docs else None
                 fl.write(
                     item.get_schema(
                         fallback_type=fallback_type, 
-                        docs=docs, 
+                        docs=doc, 
                         include_shape_token=include_shape_token, 
                         include_oid_token=include_oid_token,
                         default_doc=default_doc,
