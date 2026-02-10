@@ -369,6 +369,7 @@ class Dataset(Generic[_Schema]):
                         default_doc=default_doc,
                     )
                 )
+                fl.write('\n\n')
         
 
     def export_schema(self, out_loc: Path|str,

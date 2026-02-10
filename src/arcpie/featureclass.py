@@ -1499,7 +1499,7 @@ class Table(Generic[_Schema]):
         # Deferred Import since yield_schema does an instance check on FeatureClass/Table
         from arcpie.schemas.fields import yield_schema
         if default_doc is None:
-            return ''.join(
+            return '\n'.join(
                 yield_schema(
                     self, 
                     fallback_type=fallback_type, 
@@ -1509,7 +1509,7 @@ class Table(Generic[_Schema]):
                 )
             )
         else:
-            return ''.join(
+            return '\n'.join(
                 yield_schema(
                     self, 
                     fallback_type=fallback_type, 
