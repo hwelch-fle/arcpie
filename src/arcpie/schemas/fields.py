@@ -1,0 +1,264 @@
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
+from datetime import datetime, time
+from typing import Any, TypedDict
+
+from arcpy import Geometry, PointGeometry, Polygon, Polyline, Multipoint, Multipatch
+
+from ..featureclass import FeatureClass, Table
+from ..cursor import FieldType, Field
+
+__all__ = (
+    
+    # Field Annotations
+    'FA_Type', 
+    'FA_Precision', 
+    'FA_Scale', 
+    'FA_Length', 
+    'FA_Alias', 
+    'FA_Nullable', 
+    'FA_Required',
+    'FA_Domain',
+    'FA_Default',
+    
+    # Token bases
+    'GeometryShape',
+    'PolygonShape',
+    'PointShape',
+    'PolylineShape',
+    'MultiPointShape',
+    'MultiPatchShape',
+    'OIDToken',
+)
+
+# Consumable Annotations for use with building out schemas
+# e.g. 
+# 
+# class MyFeature(TypedDict):
+#     OBJECTID: Annotated[
+#         int, # Py_Type
+#         FA_Type('BIGINTEGER'),
+#         FA_Alias('MyFeatureID'),
+#     ]
+#     Name: Annotated[
+#         str,
+#         FA_Length(50),
+#         FA_Required(), # Flags default to True if included, False if not included
+#         FA_Alias('Feature Name'),
+#     ]
+#     Type: Annotated[
+#         str,
+#         FA_Length(100),
+#         FA_Required(False), # Explicitly state NotRequired
+#         FA_Domain('MyFeatureDomain')
+#     ]
+
+FIELD_TYPE_MAP: dict[FieldType, type] = {
+    'SHORT': int,
+    'LONG': int,
+    'BIGINTEGER': int,
+    'FLOAT': float,
+    'DOUBLE': float,
+    'DATE': datetime,
+    'DATEHIGHPRECISION': datetime,
+    'TIMEONLY': time,
+    'DATEONLY': datetime,
+    'BLOB': bytes,
+    'GUID': str,
+    'RASTER': bytes,
+    'SHORT': int,
+    'TEXT': str,
+}
+
+class FieldAnnotation:
+    __slots__ = ()
+
+@dataclass(frozen=True, slots=True)
+class FA_Type(FieldAnnotation):
+    type: FieldType
+
+@dataclass(frozen=True, slots=True)
+class FA_Precision(FieldAnnotation):
+    precision: int
+
+@dataclass(frozen=True, slots=True)
+class FA_Scale(FieldAnnotation):
+    scale: int
+
+@dataclass(frozen=True, slots=True)
+class FA_Length(FieldAnnotation):
+    length: int
+    
+@dataclass(frozen=True, slots=True)
+class FA_Alias(FieldAnnotation):
+    alias: str
+
+@dataclass(frozen=True, slots=True)
+class FA_Nullable(FieldAnnotation):
+    nullable: bool = True
+
+@dataclass(frozen=True, slots=True)
+class FA_Required(FieldAnnotation):
+    required: bool = True
+
+@dataclass(frozen=True, slots=True)
+class FA_Domain(FieldAnnotation):
+    domain: str
+
+@dataclass(frozen=True, slots=True)
+class FA_Default(FieldAnnotation):
+    default: Any
+
+
+# These bases can't use a Generic since the key @ required the special 
+# functional constructor for TypedDict
+
+# This is a fallback for any undefined geometry types
+GeometryShape = TypedDict('GeometryShape', {'SHAPE@': Geometry})
+
+PolygonShape = TypedDict('PolygonShape', {'SHAPE@': Polygon})
+PointShape = TypedDict('PointShape', {'SHAPE@': PointGeometry})
+PolylineShape = TypedDict('PolylineShape', {'SHAPE@': Polyline})
+MultiPointShape = TypedDict('MultiPointShape', {'SHAPE@': Multipoint})
+MultiPatchShape = TypedDict('MultiPatchShape', {'SHAPE@': Multipatch})
+
+OIDToken = TypedDict('OIDToken', {'OID@': int})
+
+
+# TODO: Add other token types? Like @CREATED or SHAPE@XY ?
+
+
+type SchemaDocs = dict[str, str]
+"""A mapping of fieldname -> field doc"""
+
+
+# NOTE: .format(doc=docstring) this with a module docstring 
+# any method/function using this should default the doc to 
+# the Dataset name if none is provided
+SCHEMA_IMPORTS = '''"""
+{}
+"""
+
+from __future__ import annotations
+
+from typing import TypedDict, Annotated
+from datetime import datetime, time
+from arcpie.schemas.fields import *
+
+
+'''
+
+
+# Internal function for adding a docstring to all fields that 
+# can be parsed by language servers like pyright
+def _default_field_doc(f_def: Field) -> str:
+    lines: list[str] = []
+    for k, v in f_def.items():
+        lines.append(rf"{k.replace('field_', '')}: {v}\n\n")
+    return '"""' + ''.join(lines) + '"""'
+
+
+def yield_schema(
+    fc: FeatureClass[Any, Any] | Table[Any], 
+    *, 
+    fallback_type: type = object, 
+    docs: SchemaDocs | None = None,
+    include_shape_token: bool = True,
+    include_oid_token: bool = True,
+    default_doc: Callable[[Field], str]=_default_field_doc,
+    ) -> Iterator[str]:
+    """Yield the code for a FeatureClass schema
+    
+    Args:
+        fc: The FeatureClass/Table to generate a schema dict for
+        fallback_type: The default type annotation for any fields that aren't mapped properly
+        docs: Optional docs to include for each field (e.g. `{'FieldName': 'field doc', ...}`)
+        include_shape_token: Include a `SHAPE@` key with the FeatureClass shape type (no effect on Tables)
+        include_oid_token: Include the `OID@` key
+        default_doc: A function that takes a Field dictionary and retuens a formatted doc (default: `k: v\n\n...`)
+    """
+    if not docs:
+        docs = {}
+        
+    bases = ['TypedDict']
+    if include_oid_token:
+        bases.append('OIDToken')
+        docs['OID@'] = '"""OID Token for `arcpy.da` Cursors"""'
+        
+    if include_shape_token and isinstance(fc, FeatureClass):
+        _shape = fc.describe.shapeType
+        if _shape == 'Polygon':
+            bases.append('PolygonShape')
+        elif _shape == 'Point':
+            bases.append('PointShape')
+        elif _shape == 'Polyline':
+            bases.append('PolylineShape')
+        elif _shape == 'Multipoint':
+            bases.append('MultiPointShape')
+        elif _shape == 'MultiPatch':
+            bases.append('MultiPatchShape')
+        else:
+            bases.append('GeometryShape')
+        
+        docs['SHAPE@'] = f'"""Shape Token for `arcpy.da` Cursors: {_shape.__class__.__name__}"""'
+    
+    if len(bases) > 1:
+        # Don't bother inheriting TypedDict directly if additional 
+        # schema tokens are inherited
+        bases = bases[1:]
+    
+    yield f"class {fc.name}({', '.join(bases)}):"
+    
+    # Sort the defs by name to make schema diffing more reliable
+    for f_name, f_def in sorted(fc.field_defs.items(), key=lambda fd: fd[0]):
+        
+        f_type = f_def.get('field_type')
+        f_pytype = fallback_type
+        if f_type:
+            f_pytype = FIELD_TYPE_MAP.get(f_type, fallback_type)
+        f_length = f_def.get('field_length')
+        f_precision = f_def.get('field_precision')
+        f_scale = f_def.get('field_scale')
+        f_alias = f_def.get('field_alias')
+        if f_alias == f_name:
+            # Only set an alias if it's different
+            f_alias = None
+        
+        # By default, fields are nullable and required
+        f_is_nullable = f_def.get('field_is_nullable', True)
+        f_is_required = f_def.get('field_is_required', True)
+        f_domain = f_def.get('field_domain')
+        f_default = f_def.get('field_default')
+        if isinstance(f_default, str):
+            f_default = repr(f_default)
+            
+        yield f"    {f_name}: Annotated[{f_pytype.__name__},"
+        if f_type:
+            yield f"        FA_Type({repr(f_type)}),"
+        if f_alias:
+            yield f"        FA_Alias({repr(f_alias)}),"
+        if f_default:
+            yield f"        FA_Default({f_default}),"
+        if f_domain:
+            yield f"        FA_Domain({repr(f_domain)}),"
+        if f_length:
+            yield f"        FA_Length({f_length}),"
+        if f_precision:
+            yield f"        FA_Precision({f_precision}),"
+        if f_scale:
+            yield f"        FA_Scale({f_scale}),"
+        if f_is_nullable:
+            yield f"        FA_Nullable(),"
+        if f_is_required:
+            yield f"        FA_Required(),"
+        yield "    ]"
+        if docs:
+            f_doc: str = docs.get(f_name) or default_doc(f_def)
+        else:
+            f_doc: str = default_doc(f_def)
+        yield f'    {f_doc}'
+        yield ""
+
+    
