@@ -122,6 +122,7 @@ from .cursor import (
     TableToken,
     TableTokens,
     GeometryType,
+    convert_field,
 )
 
 FieldName = str #| FeatureToken
@@ -453,6 +454,11 @@ class Table(Generic[_Schema]):
                 _fields = c.fields
             self._fields = replace + tuple((f for f in _fields if f not in exclude))
         return self._fields
+
+    @property
+    def field_defs(self) -> dict[FieldName, Field]:
+        """Get a mapping of Field properties to fieldnames"""
+        return {field.baseName : convert_field(field) for field in self.da_describe['fields']}
 
     @property
     def np_dtypes(self):
