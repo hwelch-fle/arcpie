@@ -330,6 +330,84 @@ class Dataset(Generic[_Schema]):
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
 
+    def create_featureclass(self, name: str, geometry_type: GeoType | None, feature_dataset: str | None = None,
+                            *,
+                            template: FeatureClass | None = None,
+                            has_m: bool | None = None,
+                            has_z: bool | None = None,
+                            spatial_reference: SpatialReference | WKID = WGS84,
+                            config_keyword: str | None = None,
+                            alias: str | None = None,
+                            oid_type: Literal['64_BIT', '32_BIT'] | None = '64_BIT',
+                            _ensure_dataset: bool = True,
+        ) -> FeatureClass:
+        """Create a new FeatureClass in the Dataset"""
+        if feature_dataset:
+            path = str(self.conn / feature_dataset)
+            # Since we're modifying the dataset, we need to re-index
+            if _ensure_dataset:
+                self.walk()
+                if feature_dataset not in self.datasets:
+                    self.create_feature_dataset(feature_dataset, spatial_reference=spatial_reference)
+        else:
+            path = str(self.conn)
+        return FeatureClass(
+            CreateFeatureclass(
+                out_path=path,
+                out_name=name,
+                geometry_type=geometry_type,
+                template=str(template.path) if template else None,
+                has_m='SAME_AS_TEMPLATE' if has_m is None and template is not None else ('ENABLED' if has_m else 'DISABLED'),
+                has_z='SAME_AS_TEMPLATE' if has_z is None and template is not None else ('ENABLED' if has_z else 'DISABLED'),
+                spatial_reference=spatial_reference,
+                config_keyword=config_keyword,
+                out_alias=alias,
+                oid_type='SAME_AS_TEMPLATE' if oid_type is None and template is not None else oid_type,
+            )[0]
+        )
+    
+    def create_table(self, name: str,
+                     *,
+                     template: Table | None = None,
+                     config_keyword: str | None = None,
+                     alias: str | None = None,
+                     oid_type: Literal["64_BIT", "32_BIT"] | None = '64_BIT',
+        ) -> Table:
+        """Create a new Table in the Dataset
+        
+        Args:
+            name: The name of the new table
+            template: A Table object to use as a template
+            config_keyword: A keyword to pass to the database engine for table setup
+            alias: An alias for the table
+            oid_type: The size of OID to use. If template is set and this is `None`, template OID type is used
+        """
+        
+        return Table(
+            CreateTable(
+                out_path=str(self.conn),
+                out_name=name,
+                template=str(template.path) if template else None,
+                config_keyword=config_keyword,
+                out_alias=alias,
+                oid_type='SAME_AS_TEMPLATE' if template and oid_type is None else oid_type
+            )[0]
+        )
+
+    def create_feature_dataset(self, name: str, *, spatial_reference: SpatialReference | WKID = WGS84) -> Dataset:
+        """Create a FeatureDataset (cannot be done if the parent Dataset is already a FeatureDataset!)
+        
+        Args:
+            name: The name for the new feature dataset (must be unique in parent dataset!)
+            spatial_reference: An optional spatial reference to use for the dataset (default `WGS84`/`EPSG:4326`)
+        
+        Returns:
+            A new Dataset object parented to this Dataset
+        """
+        if isinstance(spatial_reference, int):
+            spatial_reference = SpatialReference(spatial_reference)
+        return Dataset(CreateFeatureDataset(str(self.conn), name, spatial_reference=spatial_reference)[0], parent=self)
+
     # TODO: This whole flow is really tightly coupled. I'd like to find a better way
     def export_schema_module(self, out_loc: Path|str, 
                            *,
