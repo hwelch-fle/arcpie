@@ -130,6 +130,19 @@ OIDToken = TypedDict('OIDToken', {'OID@': int})
 # TODO: Add other token types? Like @CREATED or SHAPE@XY ?
 
 
+# Any internal schemas need to be included here 
+# so they can be filtered out when parsing a schema module
+INTERNAL_SCHEMAS = (
+    'GeometryShape',
+    'PolygonShape',
+    'PointShape',
+    'PolylineShape',
+    'MultiPointShape',
+    'MultiPatchShape',
+    'OIDToken',
+)
+
+
 type SchemaDocs = dict[str, str]
 """A mapping of fieldname -> field doc"""
 
