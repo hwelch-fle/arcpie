@@ -87,6 +87,8 @@ from arcpy.management import (
     DisableAttributeRules, #type: ignore
     ReorderAttributeRule, #type: ignore
     Delete, #type: ignore
+    AppendAnnotation, # type: ignore
+    AddGlobalIDs, # type: ignore
 )
 
 from arcpy._mp import ( 
@@ -1010,6 +1012,13 @@ class Table(Generic[_Schema]):
         """
         with self.where(clause):
             self.clear()
+    
+    def add_globalids(self) -> None:
+        if 'GlobalID' in self.fields:
+            # Already have GlobalID field
+            return
+        else:
+            AddGlobalIDs(str(self.path))
     
     # Magic Methods
     
