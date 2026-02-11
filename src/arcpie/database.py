@@ -133,7 +133,7 @@ class Dataset(Generic[_Schema]):
         self.conn = Path(conn)
         
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
-        if not parent and self.conn.suffix != '.gdb':
+        if parent is None and self.conn.suffix != '.gdb':
             raise ValueError('Root Dataset requires a valid gdb path!')
         self.parent = parent
         self._datasets: dict[str, Dataset[Any]] | None = None
