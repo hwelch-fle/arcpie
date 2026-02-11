@@ -77,39 +77,39 @@ class FieldAnnotation:
 
 @dataclass(frozen=True, slots=True)
 class FA_Type(FieldAnnotation):
-    type: FieldType
+    field_type: FieldType
 
 @dataclass(frozen=True, slots=True)
 class FA_Precision(FieldAnnotation):
-    precision: int
+    field_precision: int
 
 @dataclass(frozen=True, slots=True)
 class FA_Scale(FieldAnnotation):
-    scale: int
+    field_scale: int
 
 @dataclass(frozen=True, slots=True)
 class FA_Length(FieldAnnotation):
-    length: int
+    field_length: int
     
 @dataclass(frozen=True, slots=True)
 class FA_Alias(FieldAnnotation):
-    alias: str
+    field_alias: str
 
 @dataclass(frozen=True, slots=True)
 class FA_Nullable(FieldAnnotation):
-    nullable: bool = True
+    field_is_nullable: bool = True
 
 @dataclass(frozen=True, slots=True)
 class FA_Required(FieldAnnotation):
-    required: bool = True
+    field_is_required: bool = True
 
 @dataclass(frozen=True, slots=True)
 class FA_Domain(FieldAnnotation):
-    domain: str
+    field_domain: str
 
 @dataclass(frozen=True, slots=True)
 class FA_Default(FieldAnnotation):
-    default: Any
+    field_default: Any
 
 
 # These bases can't use a Generic since the key @ required the special 
