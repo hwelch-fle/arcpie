@@ -234,6 +234,7 @@ def yield_schema(fc: FeatureClass[Any, Any] | Table[Any],
         bases = bases[1:]
     
     yield f"class {fc.name}({', '.join(bases)}):"
+    yield f'    """{getattr(fc.describe, 'featureType', 'Table')}"""'
     
     # Sort the defs by name to make schema diffing more reliable
     for f_name, f_def in sorted(fc.field_defs.items(), key=lambda fd: fd[0]):
