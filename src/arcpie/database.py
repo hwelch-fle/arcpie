@@ -50,16 +50,19 @@ from arcpy.da import (
 )
 
 from arcpy.management import (
-    DeleteDomain,  # pyright: ignore[reportUnknownVariableType]
-    CreateDomain,  # pyright: ignore[reportUnknownVariableType]
-    AlterDomain,   # pyright: ignore[reportUnknownVariableType]
-    CreateFileGDB, # pyright: ignore[reportUnknownVariableType]
-    ConvertSchemaReport, # pyright: ignore[reportUnknownVariableType]
-    ImportXMLWorkspaceDocument, # pyright: ignore[reportUnknownVariableType]
-    Delete, # pyright: ignore[reportUnknownVariableType]
-    CreateRelationshipClass, # pyright: ignore[reportUnknownVariableType]
-    AddRuleToRelationshipClass, # pyright: ignore[reportUnknownVariableType]
-    RemoveRuleFromRelationshipClass, # pyright: ignore[reportUnknownVariableType]
+    DeleteDomain,  # type: ignore (incorrect hinting from arcpy)
+    CreateDomain,  # type: ignore (incorrect hinting from arcpy)
+    AlterDomain,   # type: ignore (incorrect hinting from arcpy)
+    CreateFileGDB, # type: ignore (incorrect hinting from arcpy)
+    ConvertSchemaReport, # type: ignore (incorrect hinting from arcpy)
+    ImportXMLWorkspaceDocument, # type: ignore (incorrect hinting from arcpy)
+    Delete, # type: ignore (incorrect hinting from arcpy)
+    CreateRelationshipClass, # type: ignore (incorrect hinting from arcpy)
+    AddRuleToRelationshipClass, # type: ignore (incorrect hinting from arcpy)
+    RemoveRuleFromRelationshipClass, # type: ignore (incorrect hinting from arcpy)
+    CreateFeatureclass, # type: ignore (incorrect hinting from arcpy)
+    CreateTable, # type: ignore (incorrect hinting from arcpy)
+    CreateFeatureDataset, # type: ignore (incorrect hinting from arcpy)
 )
 
 if TYPE_CHECKING:
