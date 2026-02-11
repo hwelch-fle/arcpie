@@ -8,9 +8,12 @@ from tempfile import TemporaryDirectory
 
 from collections.abc import (
     Callable,
+    Generator,
     Iterator,
     Mapping,
+    Sequence,
 )
+from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,7 +24,7 @@ from typing import (
     overload,
 )
 
-from arcpy import Describe # pyright: ignore[reportUnknownVariableType]
+from arcpy import Describe, SpatialReference # type: ignore (incorrect hinting from arcpy)
 
 from arcpie.cursor import Field
 
@@ -35,6 +38,7 @@ from ._types import (
     RelationshipAddRuleOpts,
 )
 from arcpie.schemas.workspace import SchemaWorkspace
+from arcpie.schemas.fields import GeoType
 
 from .featureclass import (
     Table,
@@ -75,7 +79,15 @@ if TYPE_CHECKING: # 3.13 features (default for TypeVar)
     _Schema = TypeVar('_Schema', default=Mapping[str, Any])
 else:
     _Schema = TypeVar('_Schema')
-    
+
+
+# Type Alias to allow setting Spatial Reference using WKID int
+type WKID = int
+
+WGS84 = SpatialReference(4326)
+
+SYSTEM_FIELDS = ['objectid', 'shape', 'shape_area', 'shape_length']
+
 class Dataset(Generic[_Schema]):
     """A Container for managing workspace connections.
     
@@ -318,24 +330,28 @@ class Dataset(Generic[_Schema]):
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
 
+    # TODO: This whole flow is really tightly coupled. I'd like to find a better way
     def export_schema_module(self, out_loc: Path|str, 
                            *,
-                           tables: bool = True,
-                           featureclasses: bool = True,
+                           tables: bool | Sequence[str] = True,
+                           featureclasses: bool | Sequence[str] = True,
+                           datasets: bool | Sequence[str] = True,
                            mod_doc: str | None = None,
                            fallback_type: type = object,
                            docs: dict[str, dict[str, str]] | None = None,
                            include_shape_token: bool = True,
                            include_oid_token: bool = True,
-                           default_doc: Callable[[Field], str] | None | Literal['nodoc'] = None
+                           default_doc: Callable[[Field], str] | None | Literal['nodoc'] = None,
+                           skip_annotations: bool = False,
         ) -> None:
         """Export the workspace to a python schema file that uses TypedDict and Annotated 
         to store field definitions. This is similar to Pydantic models, but these can be injested by
         Table and FeatureClass objects to type their iterators
         
         Args:
-            tables: Include all table schemas in output
-            featureclasses: Include all featureclasses in output 
+            tables: Include table schemas in output (Only specified names if a sequence is provided)
+            featureclasses: Include featureclasses in output (Only specified names if a sequence is provided)
+            datasets: Include schemas for datasets in the output (Only specified names if a sequence is provided)
             out_loc: The filepath of the output module (e.g. `<root>/schemas/db_schema.py`)
             mod_doc: Optional module documentation to include at the top of the file (default: `{self.name} Schema`)
             fallback_type: Default type for any fieldtype that can't be mapped to a Python type
@@ -343,6 +359,7 @@ class Dataset(Generic[_Schema]):
             include_shape_token: Include @SHAPE in output schema (will inherit from FC shape)
             include_oid_token: Include the @OID token in the output schema
             default_doc: Optional default docstring func for fields (`'nodoc'` will exclude docstring from output)
+            skip_annotations: Don't export schema for Annotation Features
         Note:
             If the supplied out_loc is not a valid `.py` python file, a python file with the name 
             `{self.name}_schema.py` will be generated there. Intermediate folders will be created if 
@@ -360,13 +377,49 @@ class Dataset(Generic[_Schema]):
         out_loc.parent.mkdir(exist_ok=True, parents=True)
         
         _items: list[FeatureClass | Table] = []
+        
+        # Gather all requested FeatureClasses and Tables
+        _features = []
         if featureclasses:
-            _items.extend(list(self.feature_classes.values()))
+            # Skip annotations since they have additional interfaces that aren't modeled
+            if isinstance(featureclasses, Sequence):
+                _features = [
+                    fc 
+                    for fc in self.feature_classes.values()
+                    if fc.name in featureclasses
+                ]
+            else:
+                _features = list(self.feature_classes.values())
+            _items.extend(_features)
+        
+        _tables = []
         if tables:
-            _items.extend(list(self.tables.values()))
-            
+            if isinstance(tables, Sequence):
+                _tables = [
+                    tbl
+                    for tbl in self.tables.values()
+                    if tbl.name in tables
+                ]
+            else:
+                _tables = list(self.tables.values())
+            _items.extend(_tables)
+        
+        _datasets = []
+        if datasets:
+            if isinstance(datasets, Sequence):
+                _datasets = [
+                    ds 
+                    for ds in self.datasets.values() 
+                    if ds.name in datasets
+                ]
+            else:
+                _datasets = list(self.datasets.values())
         with out_loc.open('wt') as fl:
             fl.write(mod_doc)
+            
+            # Notate root for later parsing operations
+            fl.write("# Entry Point for parser\n")
+            fl.write(f'SCHEMA_ROOT = "{self.name}"\n\n')
             for item in _items:
                 # Extract any supplied FC docs
                 doc = docs.get(item.name) if docs else None
@@ -380,8 +433,30 @@ class Dataset(Generic[_Schema]):
                     )
                 )
                 fl.write('\n\n')
-        
-
+            
+            if _datasets:
+                fl.write('# Dataset Definitons\n\n')
+            
+            ds_items: set[str] = set()
+            for ds in _datasets:
+                _ds_children = list(filter(lambda i: i.name in ds, _items))
+                fl.write(f"class {ds.name}(TypedDict):\n")
+                fl.write('    """FeatureDataset"""')
+                for item in _ds_children:
+                    fl.write(f"    {item.name}: {item.name}\n")
+                    ds_items.add(item.name)
+                fl.write('\n\n')
+            
+            fl.write("# Root Schema\n\n")
+            
+            fl.write(f"class {self.name}(TypedDict):\n")
+            fl.write('    """Dataset"""')
+            for item in filter(lambda i: i.name not in ds_items, _items):
+                fl.write(f"    {item.name}: {item.name}\n")
+            for ds in _datasets:
+                fl.write(f"    {ds.name}: {ds.name}\n")
+            fl.write('\n')
+    
     def export_schema(self, out_loc: Path|str,
                       *,
                       schema_name: str|None=None, 
