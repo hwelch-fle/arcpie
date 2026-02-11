@@ -173,14 +173,13 @@ def _default_field_doc(f_def: Field) -> str:
     return '"""' + ''.join(lines) + '"""'
 
 
-def yield_schema(
-    fc: FeatureClass[Any, Any] | Table[Any], 
-    *, 
-    fallback_type: type = object, 
-    docs: SchemaDocs | None = None,
-    include_shape_token: bool = True,
-    include_oid_token: bool = True,
-    default_doc: Callable[[Field], str]=_default_field_doc,
+def yield_schema(fc: FeatureClass[Any, Any] | Table[Any],
+                 *, 
+                 fallback_type: type = object, 
+                 docs: SchemaDocs | None = None,
+                 include_shape_token: bool = True,
+                 include_oid_token: bool = True,
+                 default_doc: Callable[[Field], str]=_default_field_doc,
     ) -> Iterator[str]:
     """Yield the code for a FeatureClass schema
     
@@ -191,6 +190,9 @@ def yield_schema(
         include_shape_token: Include a `SHAPE@` key with the FeatureClass shape type (no effect on Tables)
         include_oid_token: Include the `OID@` key
         default_doc: A function that takes a Field dictionary and retuens a formatted doc (default: `k: v\n\n...`)
+        
+    Note:
+        The schema type will be added as a __doc__ attribute to the definition
     """
     if not docs:
         docs = {}
