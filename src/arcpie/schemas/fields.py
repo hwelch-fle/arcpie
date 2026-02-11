@@ -1,11 +1,20 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime, time
-from typing import Any, TypedDict
 
-from arcpy import Geometry, PointGeometry, Polygon, Polyline, Multipoint, Multipatch
+# TODO: Change this to annotationlib when 3.15 is adopted
+from typing import Any, Literal, TypedDict, ForwardRef, get_type_hints
+
+from arcpy import (
+    Geometry,
+    PointGeometry,
+    Polygon,
+    Polyline,
+    Multipoint,
+    Multipatch,
+)
 
 from ..featureclass import FeatureClass, Table
 from ..cursor import FieldType, Field
