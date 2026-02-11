@@ -2023,6 +2023,43 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             shape_token=self.shape_token,
         )
 
+    def create_annotations(self, name: str, reference_scale: float, 
+                           *,
+                           single_class: bool = False,
+                           require_symbol: bool = False,
+                           auto_create: bool = True,
+                           auto_update: bool = True,
+        ) -> FeatureClass:
+        """Create an AnnotationClass for the Features (requires a linked Layer object)
+        
+        Args:
+            name: The name of the annotation feature layer (can include a dataset, e.g. `dataset/anno_50`)
+            reference_scale: The reference scale of the output annotation features
+            single_class: Merge all annotations will be merged into one class
+            require_symbol: Symbol must be selected from the symbol collection
+            auto_create: Create a new annotation when a new feature is created
+            auto_update: Update the annotation when the linked feature is modified
+        
+        Note:
+            If the output Annotation Features already exist, the new annotations will be appended
+        """
+        if self.layer is None:
+            raise ValueError(
+                f'Raw FeatureClasses cannot be used to create Annotations, '
+                'requires a linked Layer'
+            )
+        return FeatureClass(
+            AppendAnnotation(
+                input_features=self.layer,
+                output_featureclass=str(Path(self.path) / name),
+                reference_scale=reference_scale,
+                create_single_class='ONE_CLASS_ONLY' if single_class else 'CREATE_CLASSES',
+                require_symbol_from_table='REQUIRE_SYMBOL' if require_symbol else 'NO_SYMBOL_REQUIRED',
+                create_annotation_when_feature_added='AUTO_CREATE' if auto_create else 'NO_AUTO_CREATE',
+                update_annotation_when_feature_modified='AUTO_UPDATE' if auto_update else 'NO_AUTO_UPDATE',
+            )[0]
+        )
+
 class AttributeRuleManager:
     """Handler for interacting with AttributeRules on a FeatureClass or Table"""
     def __init__(self, parent: Table[Any]|FeatureClass) -> None:
