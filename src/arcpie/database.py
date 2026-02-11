@@ -752,7 +752,7 @@ class Relationship:
     
     @cached_property
     def describe(self) -> RelationshipClass:
-        return Describe(str(self.path)) # pyright: ignore[reportUnknownVariableType]
+        return Describe(str(self.path)) # type: ignore (incorrect hinting from arcpy)
 
     @property
     def name(self) -> str:
