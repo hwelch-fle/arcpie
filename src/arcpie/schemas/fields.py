@@ -274,9 +274,9 @@ def yield_schema(fc: FeatureClass[Any, Any] | Table[Any],
             yield f"        FA_Precision({f_precision}),"
         if f_scale:
             yield f"        FA_Scale({f_scale}),"
-        if f_is_nullable:
+        if f_is_nullable == 'NULLABLE':
             yield f"        FA_Nullable(),"
-        if f_is_required:
+        if f_is_required == 'REQUIRED':
             yield f"        FA_Required(),"
         yield "    ]"
         if docs:
