@@ -220,7 +220,7 @@ class Layer(MappingWrapper[_Layer, CIMBaseLayer], _Layer):
             layer via a Project, use `project.save()` after importing the layerfile
         """
         _lyrx = LayerFile(str(lyrx))
-        _lyrx_layers = {l.name: l for l in _lyrx.listLayers()}
+        _lyrx_layers = {l.name: l for l in _lyrx.listLayers() if hasattr(l, 'name')}
         if not (_lyrx_layer := _lyrx_layers.get(self.name)):
             print(f'{self.name} not found in {str(lyrx)}')
         else:
