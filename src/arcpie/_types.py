@@ -537,21 +537,22 @@ class AddRuleOpts(TypedDict, total=False):
     tags: str
     triggering_fields: Sequence[str]
 
-NumericType = int | float
-DateType = datetime | date | time
-ValueType = str | NumericType | DateType
+type Description = str
+type NumericType = int | float
+type DateType = datetime | date | time
+type CodeType = str | NumericType | DateType
 _DomainType = Literal["CodedValue", "Range"]
 _DomainFieldType = Literal["Short", "Long", "BigInteger", "Float", "Double", "Text", "Date", "DateOnly", "TimeOnly"]
 _DomainMergePolicy = Literal["AreaWeighted", "DefaultValue", "SumValues"]
 _DomainSplitPolicy = Literal["DefaultValue", "Duplicate", "GeometryRatio"]
 class SystemDomain(TypedDict):
-    codedValues: dict[ValueType, str]
-    description: str
+    codedValues: dict[CodeType, Description]
+    description: Description
     domainType: _DomainType
     mergePolicy: _DomainMergePolicy
     name: str
     owner: str
-    range: tuple[ValueType, ValueType]
+    range: tuple[CodeType, CodeType]
     splitPolicy: _DomainSplitPolicy
     type: _DomainFieldType
 
