@@ -546,13 +546,13 @@ _DomainFieldType = Literal["Short", "Long", "BigInteger", "Float", "Double", "Te
 _DomainMergePolicy = Literal["AreaWeighted", "DefaultValue", "SumValues"]
 _DomainSplitPolicy = Literal["DefaultValue", "Duplicate", "GeometryRatio"]
 class SystemDomain(TypedDict):
-    codedValues: dict[CodeType, Description]
+    codedValues: dict[CodeType, Description] | None
     description: Description
     domainType: _DomainType
     mergePolicy: _DomainMergePolicy
     name: str
     owner: str
-    range: tuple[CodeType, CodeType]
+    range: tuple[CodeType, CodeType] | None
     splitPolicy: _DomainSplitPolicy
     type: _DomainFieldType
 
