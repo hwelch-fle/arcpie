@@ -525,7 +525,7 @@ class Dataset(Generic[_Schema]):
             for ds in _datasets:
                 _ds_children = list(filter(lambda i: i.name in ds, _items))
                 fl.write(f"class {ds.name}(TypedDict):\n")
-                fl.write('    """FeatureDataset"""')
+                fl.write('    """FeatureDataset"""\n\n')
                 for item in _ds_children:
                     fl.write(f"    {item.name}: {item.name}\n")
                     ds_items.add(item.name)
@@ -534,7 +534,7 @@ class Dataset(Generic[_Schema]):
             fl.write("# Root Schema\n\n")
             
             fl.write(f"class {self.name}(TypedDict):\n")
-            fl.write('    """Dataset"""')
+            fl.write('    """Dataset"""\n\n')
             for item in filter(lambda i: i.name not in ds_items, _items):
                 fl.write(f"    {item.name}: {item.name}\n")
             for ds in _datasets:
