@@ -113,8 +113,9 @@ class FA_Required(FieldAnnotation):
     field_is_required: bool = True
 
 @dataclass(frozen=True, slots=True)
-class FA_Domain(FieldAnnotation):
-    field_domain: str
+class FA_Domain[T: str](FieldAnnotation):
+    """Accepts a TypeVar Literal with valid domains"""
+    field_domain: T
 
 @dataclass(frozen=True, slots=True)
 class FA_Default(FieldAnnotation):
@@ -163,12 +164,31 @@ SCHEMA_IMPORTS = '''"""
 {}
 """
 
-from __future__ import annotations
 
 from typing import TypedDict, Annotated
 from datetime import datetime, time
 from arcpie.schemas.fields import *
 
+# If a domain module is included, these will be 
+# added before the schema to allow domain linking
+# in fields
+try:
+    import domains
+except ImportError:
+    domains = None
+    
+DOMAINS = domains and domains.DOMAINS
+
+TYPE_CHECKING = False
+if TYPE_CHECKING:
+    # This allows autocompletion 
+    # if you have a generated domains module
+    assert domains
+    DomainNames = domains.DomainNames
+    FA_Domain = FA_Domain[DomainName]
+    
+else:
+    DomainNames = None
 
 '''
 
