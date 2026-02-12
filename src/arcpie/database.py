@@ -429,7 +429,7 @@ class Dataset(Generic[_Schema]):
                            skip_annotations: bool = False,
         ) -> None:
         """Export the workspace to a python schema file that uses TypedDict and Annotated 
-        to store field definitions. This is similar to Pydantic models, but these can be injested by
+        to store field definitions. This is similar to Pydantic models, but these can be ingested by
         Table and FeatureClass objects to type their iterators
         
         Args:
@@ -519,7 +519,7 @@ class Dataset(Generic[_Schema]):
                 fl.write('\n\n')
             
             if _datasets:
-                fl.write('# Dataset Definitons\n\n')
+                fl.write('# Dataset Definitions\n\n')
             
             ds_items: set[str] = set()
             for ds in _datasets:
@@ -740,7 +740,7 @@ class Dataset(Generic[_Schema]):
         return ds
         
 # NOTE: The ESRI/arcpy Domain API is a total dumpster fire. Every function expects different
-# arguments and different flags. This attemps to re-map a lot of that annoying ambiguity
+# arguments and different flags. This attempts to re-map a lot of that annoying ambiguity
 
 # Ideally ESRI would spend the time to update their Domain system to be more logical
 # e.g.:
@@ -754,7 +754,7 @@ class Dataset(Generic[_Schema]):
 #   DeleteDomain: To Delete a domain from the workspace
 #   CreateDomain: To Create a domain (takes different args from what a domain object has)
 #   AlterDomain: To update *some* attributes of a domain (with different param names from create)
-#   SortCodedValueDomain: This should be depricated in favor of direct dictionary interaction (dicts are sorted now)
+#   SortCodedValueDomain: This should be deprecated in favor of direct dictionary interaction (dicts are sorted now)
 #   AddCodedValueToDomain: Again, this should be handled by updating the codedValues dict 
 #   DeleteCodedValueFromDomain, See above
 #   SetValueForRangeDomain: Just let us do domain.range = range(x, y) // domain.range = (datetime(...), datetime(...))
@@ -868,7 +868,7 @@ class DomainManager:
         if new_type != old_domain.domainType:
             raise ValueError(f'Cannot update domain of type {old_domain.domainType} with {new_type} domain.')
         if new_field_type != old_domain.type:
-            raise ValueError(f'Cannot udpate domain of field type {old_domain.type} with {new_field_type}.')
+            raise ValueError(f'Cannot update domain of field type {old_domain.type} with {new_field_type}.')
         alterations: AlterDomainOpts = {}
         
         # Alterable props
