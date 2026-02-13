@@ -40,7 +40,7 @@ from ._types import (
     RelationshipAddRuleOpts,
 )
 from arcpie.schema.workspace import SchemaWorkspace
-from arcpie.schema.fields import GeoType
+from arcpie.schema.field import GeoType
 
 from .featureclass import (
     Table,
