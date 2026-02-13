@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time
 from functools import cached_property
 import json
 from pathlib import Path
@@ -18,9 +17,7 @@ from types import ModuleType
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
     Literal,
-    TypeVar,
     Unpack,
     overload,
 )
@@ -31,16 +28,13 @@ from arcpie.cursor import Field
 
 from ._types import (
     AttributeRule,
-    SystemDomain,
-    domain_param,
-    AlterDomainOpts,
-    CreateDomainOpts,
     RelationshipOpts,
     RelationshipRemoveRuleOpts,
     RelationshipAddRuleOpts,
 )
 from arcpie.schema.workspace import SchemaWorkspace
 from arcpie.schema.field import GeoType
+from arcpie.schema.domain import DomainManager
 
 from .featureclass import (
     Table,
@@ -51,19 +45,10 @@ from .utils import patch_schema_rules, convert_schema
 
 from arcpy.da import (
     Walk,
-    ListDomains,
-    Domain,
     Editor,
 )
 
 from arcpy.management import (
-    DeleteDomain,  # type: ignore (incorrect hinting from arcpy)
-    CreateDomain,  # type: ignore (incorrect hinting from arcpy)
-    AlterDomain,   # type: ignore (incorrect hinting from arcpy)
-    SortCodedValueDomain, # type: ignore (incorrect hinting from arcpy)
-    AddCodedValueToDomain, # type: ignore (incorrect hinting from arcpy)
-    DeleteCodedValueFromDomain, # type: ignore (incorrect hinting from arcpy)
-    SetValueForRangeDomain, # type: ignore (incorrect hinting from arcpy)
     CreateFileGDB, # type: ignore (incorrect hinting from arcpy)
     ConvertSchemaReport, # type: ignore (incorrect hinting from arcpy)
     ImportXMLWorkspaceDocument, # type: ignore (incorrect hinting from arcpy)
@@ -81,13 +66,6 @@ if TYPE_CHECKING:
 else:
     RelationshipClass = object
 
-_Default = TypeVar('_Default')
-if TYPE_CHECKING: # 3.13 features (default for TypeVar)
-    _Schema = TypeVar('_Schema', default=Mapping[str, Any])
-else:
-    _Schema = TypeVar('_Schema')
-
-
 # Type Alias to allow setting Spatial Reference using WKID int
 type WKID = int
 
@@ -95,7 +73,7 @@ WGS84 = SpatialReference(4326)
 
 SYSTEM_FIELDS = ['objectid', 'shape', 'shape_area', 'shape_length']
 
-class Dataset(Generic[_Schema]):
+class Dataset[_S = Mapping[str, Any]]:
     """A Container for managing workspace connections.
     
     A Dataset is initialized using `arcpy.da.Walk` and will discover all child datasets, tables, and featureclasses.
@@ -744,327 +722,7 @@ class Dataset(Generic[_Schema]):
                     yield fc
         return ds
         
-# NOTE: The ESRI/arcpy Domain API is a total dumpster fire. Every function expects different
-# arguments and different flags. This attempts to re-map a lot of that annoying ambiguity
-
-# Ideally ESRI would spend the time to update their Domain system to be more logical
-# e.g.:
-# for domain in ListDomains(workspace):
-#     if domain.type == 'Range':
-#         domain.range = domain.range[0]+1, domain.range[1]+1
-#     if domain.type == 'CodedValues':
-#         domain.codedValues.update({3, 'The Third Option'})
-#
-# As it stands, there are 7 functions for Domain interaction that all have different signatures
-#   DeleteDomain: To Delete a domain from the workspace
-#   CreateDomain: To Create a domain (takes different args from what a domain object has)
-#   AlterDomain: To update *some* attributes of a domain (with different param names from create)
-#   SortCodedValueDomain: This should be deprecated in favor of direct dictionary interaction (dicts are sorted now)
-#   AddCodedValueToDomain: Again, this should be handled by updating the codedValues dict 
-#   DeleteCodedValueFromDomain, See above
-#   SetValueForRangeDomain: Just let us do domain.range = range(x, y) // domain.range = (datetime(...), datetime(...))
-#
-# See arcpie._types for the futile attempt at properly mapping/typing this circuitous workflow
-class DomainManager:
-    """Handler for interacting with domains defined on a dataset"""
-    
-    def __init__(self, dataset: Dataset[Any]) -> None:
-        self._dataset = dataset
         
-    @property
-    def dataset(self) -> Dataset[Any]:
-        """Get the parent Dataset object"""
-        return self._dataset
-    
-    @property
-    def workspace(self) -> Path:
-        """Get a path to the root workspace that the domains live in"""
-        if self.dataset.parent is None:
-            return self.dataset.conn
-        else:
-            return self.dataset.parent.conn
-    
-    @property
-    def domain_map(self) -> dict[str, Domain]:
-        """A mapping of domain names to domain objects"""
-        if self.dataset.parent:
-            return self.dataset.parent.domains.domain_map
-        return {d.name: d for d in ListDomains(str(self.dataset.conn))}
-    
-    @property
-    def unused(self) -> dict[str, Domain]:
-        usage = self.usage()
-        return {
-            name: domain
-            for name, domain in self.domain_map.items() 
-            if name not in usage
-            or not usage[name]
-        }
-    
-    def json(self, indent: int=4) -> str:
-        """Export the Domains as JSON """
-        d_json: dict[str, Any] = {}
-        for d_name, dom in self.domain_map.items():
-            d_json[d_name] = {
-                a: getattr(dom, a) 
-                for a in dir(dom) 
-                if not a.startswith('_')
-            }
-        # Use str as default to allow ISO conversion of date/time
-        return json.dumps(d_json, indent=indent, sort_keys=True, default=str)
-    
-    def from_json(self, domain_file: Path | str) -> None:
-        domain_file = Path(domain_file)
-        new_domains: dict[str, SystemDomain] = json.loads(domain_file.read_text())
-        for domain, new_domain in new_domains.items():
-            if domain in self.domain_map:
-                self.delete_domain(domain)
-            self.add_domain(type('d', (object,), new_domain)) # type: ignore (mocked Domain)
-    
-    # Generate a stub file that allows literal typing (names are not valid)
-    def literals(self) -> None: ...
-    
-    def __len__(self) -> int:
-        return len(self.domain_map)
-    
-    def __iter__(self) -> Iterator[Domain]:
-        """Iterate all domains"""
-        yield from self.domain_map.values()
-    
-    def __getitem__(self, name: str) -> Domain:
-        return self.domain_map[name]
-    
-    def __setitem__(self, name: str, updates: SystemDomain) -> None:
-        updates['name'] = name
-        if name in self:
-            self.update_domain(name, **updates)
-        else:
-            # Re-Map input to args expected by CreateDomain
-            create: CreateDomainOpts = {
-                'domain_name': updates['name'],
-                'domain_description': updates['description'],
-                'domain_type': domain_param(updates['domainType']),
-                'field_type': domain_param(updates['type']),
-                'merge_policy': domain_param(updates['mergePolicy']),
-                'split_policy': domain_param(updates['splitPolicy']),
-            }
-            self.add_domain(**create)
-        
-    def update_domain(self, name: str, /, strict: bool=False, **domain: Unpack[SystemDomain]) -> None:
-        """Update a domain using a dictionary of new values
-        
-        Args:
-            name: The name of the domain to update
-            strict: If setting CodedValues, this is passed to `DomainManager.set_coded_values`
-            **domain: kwargs for all domain values that you wish to update
-        """
-        old_domain = self[name]
-        new_type = domain.get('domainType', old_domain.domainType)
-        new_field_type = domain.get('type', old_domain.type)
-        new_name = domain.get('name', old_domain.name)
-        new_desc = domain.get('description', old_domain.description)
-        new_owner = domain.get('owner', old_domain.owner)
-        new_merge_policy = domain.get('mergePolicy', old_domain.mergePolicy)
-        new_split_policy = domain.get('splitPolicy', old_domain.splitPolicy)
-        
-        new_vals = domain.get('codedValues')
-        new_range = domain.get('range')
-        
-        if new_type != old_domain.domainType:
-            raise ValueError(f'Cannot update domain of type {old_domain.domainType} with {new_type} domain.')
-        if new_field_type != old_domain.type:
-            raise ValueError(f'Cannot update domain of field type {old_domain.type} with {new_field_type}.')
-        alterations: AlterDomainOpts = {}
-        
-        # Alterable props
-        if new_name != old_domain.name:
-            alterations['new_domain_name'] = new_name
-        if new_desc != old_domain.description:
-            alterations['new_domain_description'] = new_desc
-        if new_owner != old_domain.owner:
-            alterations['new_domain_owner'] = new_owner
-        if new_merge_policy != old_domain.mergePolicy:
-            alterations['merge_policy'] = domain_param(new_merge_policy)
-        if new_split_policy != old_domain.splitPolicy:
-            alterations['split_policy'] = domain_param(new_split_policy)
-        if alterations:
-            self.alter_domain(name, **alterations)
-        
-        # Update domain mappings
-        if old_domain.domainType == 'CodedValue' and new_vals:
-            self.set_coded_values(name, codes=new_vals, strict=strict)
-        elif old_domain.domainType == 'Range' and new_range:
-            self.set_range_domain(name, value_range=new_range)
-        
-    if TYPE_CHECKING:
-        from ._types import CodeType, Description
-    def set_coded_values(self, domain: str, codes: dict[CodeType, Description], *, strict: bool=False) -> None:
-        """Set the Coded Values for a Coded Value domain
-        
-        Args:
-            domain: The name of the domain to update
-            codes: A mapping of CodeType (numeric, str, datetime, time) to description
-            strict: If set to `True`, only the provided codes will be included all others will be removed
-        
-        Note:
-            All codes must be of the same type, and type must match existing domain FieldType 
-            If the domain does not exist or is a Range domain, nothing will happen <br>
-            If using `strict` mode, only the provided codes will be included in the output 
-            otherwise, matching codes will be updated and new codes will be added.
-        """
-        # Validate existing/existing field type
-        if domain not in self or self[domain].domainType == 'Range':
-            return
-        old_domain = self[domain]
-        
-        # Validate Type
-        if not len(_types := {type(code) for code in codes}) == 1:
-            raise ValueError('All codes must be of the same type!')
-        _type = _types.pop()
-        if _type not in (str, int, float, datetime, time):
-            raise ValueError(f'Invalid code type: {_type}. Must be one of str | int | float | datetime | time')
-        
-        # Validate existing field type and provided types
-        if old_domain.type in ('Float', 'Double') and _type != float:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected float')
-        elif old_domain.type in ('Short', 'Long', 'BigInteger') and _type != int:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected int')
-        elif old_domain.type == 'Date' and _type != datetime:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected datetime')
-        elif old_domain.type == 'TimeOnly' and _type != time:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected time')
-        elif old_domain.type == 'DateOnly' and _type != date:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected date')
-        elif old_domain.type == 'Text' and _type != str:
-            raise ValueError(f'{domain} has field type of {old_domain.type}, was given {_type}, but expected str')
-        
-        existing_codes = old_domain.codedValues
-        if not strict:
-            # Apply the passed codes dict as an update to the existing codes
-            _temp = existing_codes.copy()
-            _temp.update(codes)
-            codes = _temp
-
-        # Delete all existing
-        for code in existing_codes:
-            DeleteCodedValueFromDomain(in_workspace=str(self.workspace), domain_name=domain, code=code)
-        # Re-Create using updated codes map (includes existing if strict is not set)
-        for code, desc in codes.items():
-            AddCodedValueToDomain(in_workspace=str(self.workspace), domain_name=domain, code=code, code_description=desc)
-       
-    def sort_coded_domain(self, domain: str, by: Literal['code', 'description']='code', order: Literal['asc', 'desc']='desc') -> None:
-        """Sort a coded value domain with the given parameters
-        
-        Args:
-            domain: The name of the domain to sort
-            by: The attribute to sort the coded values by
-            order: The order to (lexographically) sort the domain by
-        
-        Note:
-            If this is run on a Range domain, nothing will happen
-        """
-        if domain in self and self[domain].domainType == 'CodedValue':
-            SortCodedValueDomain(
-                in_workspace=str(self.workspace),
-                domain_name=domain, 
-                sort_by='CODE' if by == 'code' else 'DESCRIPTION', 
-                sort_order='ASCENDING' if order == 'asc' else 'DESCENDING'
-            )
-    
-    def set_range_domain(self, domain: str, value_range: range | tuple[CodeType, CodeType]) -> None:
-        """Set the value range for a Range domain
-        
-        Args:
-            domain: The name of the range domain to set
-            value_range: A range object or 2-item tuple with the new range (`step` is ignored)
-            
-        Note:
-            If this is run on a coded value domain, nothing will happen
-        """
-        if domain in self and self[domain].domainType == 'Range':
-            min_val, max_val, *_ = value_range
-            SetValueForRangeDomain(
-                in_workspace=str(self.workspace),
-                domain_name=domain,
-                min_value=min_val,
-                max_value=max_val,
-            )
-    
-    def get(self, name: str, default: _Default) -> Domain | _Default:
-        try:
-            return self[name]
-        except KeyError:
-            return default
-    
-    def __contains__(self, domain: str) -> bool:
-        return domain in self.domain_map
-    
-    def usage(self, *domain_names: str) -> dict[str, dict[str, list[str]]]:
-        """A mapping of domains to features to fields that shows usage of a domain in a dataset
-        
-        Args:
-            *domain_names (str): Varargs of all domain names to include in the output mapping
-        
-        Returns:
-            ( dict[str, dict[str, list[str]]] ) : A Nested mapping of `Domain Name -> Feature Class -> [Field Name, ...]`
-        """
-        
-        if not domain_names:
-            domain_names = tuple(self.domain_map)
-        schema = self.dataset.schema
-        fc_usage: dict[str, dict[str, list[str]]] = {}
-        for ds in schema['datasets']:
-            if 'datasets' in ds:
-                ds = ds['datasets']
-            else:
-                ds = [ds]
-            for fc in filter(lambda f: 'fields' in f, ds):
-                for field in filter(lambda fld: 'domain' in fld, fc['fields']['fieldArray']):
-                    assert 'domain' in field
-                    if (dn := field['domain']['domainName']) in domain_names:
-                        fc_usage.setdefault(dn, {}).setdefault(fc['name'], [])
-                        fc_usage[dn][fc['name']].append(field.get('name', '??'))
-        return fc_usage
-    
-    def add_domain(self, domain: Domain|None=None, **opts: Unpack[CreateDomainOpts]) -> None:
-        """Add a domain to the parent dataset or the root dataset (gdb)
-        
-        Args:
-            domain (Domain): The domain object to add to the managed Dataset (optional)
-            **opts (CreateDomainOpts): Additional overrides that will be applied to the create domain call
-        """
-        
-        if domain:
-            args: CreateDomainOpts = {
-                'domain_name': domain.name,
-                'domain_description': domain.description,
-                'domain_type': domain_param(domain.domainType),
-                'field_type': domain_param(domain.type),
-                'merge_policy': domain_param(domain.mergePolicy),
-                'split_policy': domain_param(domain.splitPolicy),
-            }
-            # Allow overrides
-            args.update(opts)
-        else:
-            args = opts
-        CreateDomain(in_workspace=str(self.workspace), **args)
-        
-    def delete_domain(self, domain: str) -> None:
-        """Delete a domain from the workspace
-        
-        Args:
-            domain (str): The name of the domain to delete
-        """
-        DeleteDomain(str(self.workspace), domain)
-    
-    def alter_domain(self, domain: str, **opts: Unpack[AlterDomainOpts]) -> None:
-        """Alter a domain using the given domain values
-        
-        Args:
-            **opts (AlterDomainOpts): Passthrough for AlterDomain function
-        """
-        AlterDomain(in_workspace=str(self.workspace), domain_name=domain, **opts)
-
 def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY']:
     if arg == 'OneToOne':
         return 'ONE_TO_ONE'

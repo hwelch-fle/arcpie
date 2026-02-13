@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
-from typing import Any, Literal, Self, get_args, overload
+from collections.abc import Iterator
+from typing import Any, Literal, Self, TypedDict, get_args, overload
 from builtins import range as py_range
 
 from arcpy import da
@@ -34,8 +35,8 @@ from ..featureclass import FeatureClass, Table
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from .field import FieldType
     from ..database import Dataset
+    from .field import FieldType
 
 
 __all__ = ('Domain', 'CodedValueDomain', 'RangeDomain')
@@ -97,6 +98,19 @@ VALID_FIELD_TYPES_FOR: dict[DomainFieldType, set[FieldType]] = {
     'Date': {'DATE', 'DATEHIGHPRECISION', 'DATEONLY', 'TIMEONLY'}, 
 }
 
+
+class DomainSchema(TypedDict):
+    name: str
+    domainType: DomainType
+    type: DomainFieldType
+    description: Description
+    codedValues: CodedValues | None
+    range: RangeValue | None
+    mergePolicy: MergePolicy
+    splitPolicy: SplitPolicy
+    owner: str
+
+
 class BaseDomain:
     """Base class for interacting with Domains.
     
@@ -114,9 +128,15 @@ class BaseDomain:
                     raise TypeError(f'Domain of type {_dtype} is not supported')
         return object.__new__(cls)
         
-    def __init__(self, wrapped: da.Domain, workspace: str | Path | None = None) -> None:
+    def __init__(self, wrapped: da.Domain, workspace: str | Path | Dataset) -> None:
+        from ..database import Dataset
         self._domain = wrapped
-        self.workspace: str = str(workspace)
+        if not isinstance(workspace, Dataset):
+            self.dataset = Dataset(workspace)
+            self.workspace = str(workspace)
+        else:
+            self.dataset = workspace
+            self.workspace = str(workspace)
 
     def sync(self) -> None:
         """Sync the domain with the workspace"""
@@ -186,11 +206,33 @@ class BaseDomain:
         AlterDomain(self.workspace, self.name, new_domain_owner=owner)
         self.sync()
 
+
+type FieldUsage = dict[str, list[str]]
+
+
 class Domain(BaseDomain):
     """General Domain object"""
 
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.name})'
+
+    def to_dict(self) -> DomainSchema:
+        """Use with json.dump/dumps"""
+        return {
+            'name': self.name,
+            'domainType': self.domainType,
+            'type': self.type,
+            'description': self.description,
+            'codedValues': self.codedValues,
+            'range': self.range,
+            'mergePolicy': self.mergePolicy,
+            'splitPolicy': self.splitPolicy,
+            'owner': self.owner,
+        }
+
+    def used_by(self) -> FieldUsage:
+        """Get a mapping of FeatureClass/Table -> [Field, ...] usage for the domain"""
+        return self.dataset.domains.usage(self.name)[self.name]
 
     def assign_to(self, table: Table | FeatureClass, field: str,
                  *,
@@ -274,12 +316,13 @@ class Domain(BaseDomain):
     # Range props
     @property 
     def range(self) -> tuple[ValueType, ValueType] | None:
-        """Range Only"""
+        return self._domain.range
     
     # CodedValue props
     @property
     def codedValues(self) -> CodedValues | None:
-        """CodedValue Only"""
+        return self._domain.codedValues
+    
     def sort(self, by: Literal['code', 'value'], order: Literal['asc', 'desc']) -> None:
         """CodedValue Only"""
     
@@ -395,7 +438,7 @@ class RangeDomain(Domain):
     
     if TYPE_CHECKING:
         # Narrow type for __new__
-        def __new__(cls, wrapped: da.Domain, workspace: str | Path | None = None) -> Self: ...
+        def __new__(cls, wrapped: da.Domain, workspace: str | Path | Dataset[Any]) -> Self: ...
     
     @property
     def range(self) -> tuple[ValueType, ValueType]:
@@ -419,7 +462,7 @@ class CodedValueDomain(Domain):
     
     if TYPE_CHECKING:
         # Narrow type for __new__
-        def __new__(cls, wrapped: da.Domain, workspace: str | Path | None = None) -> Self: ...
+        def __new__(cls, wrapped: da.Domain, workspace: str | Path | Dataset[Any]) -> Self: ...
     
     @property
     def codedValues(self) -> CodedValues:
@@ -448,7 +491,7 @@ class CodedValueDomain(Domain):
         """
         codes: CodedValuesNullable = {**self.codedValues, **update_values}
         for code, description in codes.items():
-            # Delete existing Code
+            # Delete existing code
             if code in self.codedValues:
                 DeleteCodedValueFromDomain(self.workspace, self.name, code)
             # Add the code if the description is not flagged for deletion
@@ -468,3 +511,102 @@ class CodedValueDomain(Domain):
             sort_order='ASCENDING' if order == 'asc' else 'DESCENDING',
         )
     
+
+type DomainUsageMap = dict[str, FieldUsage]
+
+
+class DomainManager:
+    """Container for managing dataset domains"""
+    
+    def __init__(self, dataset: Dataset[Any]) -> None:
+        self.dataset = dataset
+        self.workspace = str(dataset)
+    
+    def __repr__(self) -> str:
+        return (
+            f'{self.__class__.__name__}'
+            f'({self.dataset.name}, '
+            f'RangeDomains: {len(self.range_domains)} , '
+            f'CodedValueDomains: {len(self.coded_value_domains)})'
+        )
+    
+    @property
+    def domains(self) -> list[Domain]:
+        return [
+            Domain(d, self.dataset)
+            for d in da.ListDomains(self.workspace)
+        ]
+    
+    @property
+    def coded_value_domains(self) -> list[CodedValueDomain]:
+        return [
+            d for d in self.domains
+            if isinstance(d, CodedValueDomain)
+        ]
+    
+    @property
+    def range_domains(self) -> list[RangeDomain]:
+        return [
+            d for d in self.domains
+            if isinstance(d, RangeDomain)
+        ]
+    
+    @property
+    def domain_names(self) -> list[str]:
+        return [d.name for d in self.domains]
+    
+    def __iter__(self) -> Iterator[Domain]:
+        return iter(self.domains)
+    
+    def __len__(self) -> int:
+        return len(self.domains)
+    
+    def __contains__(self, domain: str) -> bool:
+        return domain in self.domain_names
+    
+    def __getitem__(self, domain: str) -> Domain:
+        for d in self.domains:
+            if d.name == domain:
+                return d
+        raise KeyError(f'{domain} is not a domain in {self.dataset.name}')
+    
+    def get[D](self, domain: str, default: D = None) -> Domain | D:
+        try:
+            return self[domain]
+        except KeyError:
+            return default
+    
+    def usage(self, *domain_names: str) -> DomainUsageMap:
+        """A mapping of domains to features to fields that shows usage of a domain in a dataset
+        
+        Args:
+            *domain_names: Varargs of all domain names to include in the output mapping
+        
+        Returns:
+            A Nested mapping of `Domain Name -> Feature Class -> [Field Name, ...]`
+        """
+        
+        if not domain_names:
+            domain_names = tuple(self.domain_names)
+        
+        schema = self.dataset.schema
+        fc_usage: DomainUsageMap = {}
+        for dataset in schema['datasets']:
+            features = dataset.get('datasets') or [dataset]
+            for feature in features:
+                if 'fields' not in feature:
+                    continue
+                for field in feature['fields']['fieldArray']:
+                    if 'domain' not in field:
+                        continue
+                    field_domain = field['domain']['domainName']
+                    fc_usage.setdefault(field_domain, {})
+                    if field_domain in domain_names:
+                        fc_usage[field_domain].setdefault(feature['name'], [])
+                        fc_usage[field_domain][feature['name']].append(field.get('name', '...'))
+        return fc_usage
+    
+    def to_dict(self) -> dict[str, DomainSchema]:
+        """Use with json.dump/dumps"""
+        return {d.name: d.to_dict() for d in self.domains}
+        
