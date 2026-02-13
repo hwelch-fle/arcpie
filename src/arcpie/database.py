@@ -53,6 +53,7 @@ from arcpy.da import (
     Walk,
     ListDomains,
     Domain,
+    Editor,
 )
 
 from arcpy.management import (
@@ -185,6 +186,10 @@ class Dataset(Generic[_Schema]):
     @property
     def schema(self) -> SchemaWorkspace:
         return json.load(convert_schema(self, 'JSON'))
+
+    @property
+    def editor(self) -> Editor:
+        return Editor(str(self.conn))
 
     def export_rules(self, rule_dir: Path|str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
