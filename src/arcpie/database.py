@@ -138,7 +138,7 @@ class Dataset[_S = Mapping[str, Any]]:
         return self._datasets or {}
     
     @property
-    def feature_classes(self) -> dict[str, FeatureClass]:
+    def feature_classes(self) -> dict[str, FeatureClass[Any, Any]]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
 
@@ -161,7 +161,7 @@ class Dataset[_S = Mapping[str, Any]]:
     def domains(self) -> DomainManager:
         return DomainManager(self)
 
-    @property
+    @cached_property
     def schema(self) -> SchemaWorkspace:
         return json.load(convert_schema(self, 'JSON'))
 
@@ -266,13 +266,17 @@ class Dataset[_S = Mapping[str, Any]]:
         for root, ds, _ in Walk(str(self.conn), datatype=['FeatureDataset']):
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
+        
+        # Clear the schema cache
+        if hasattr(self, 'schema'):
+            del self.schema
     
-    def __getitem__(self, key: str) -> FeatureClass | Table[Any] | Dataset[Any] | Relationship:
+    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
         if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
             return ret
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
         
-    def get(self, key: str, default: _Default=None) -> FeatureClass | Table[Any] | Dataset[Any] | Relationship | _Default:
+    def get[D](self, key: str, default: D=None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | D:
         try:
             return self[key]
         except KeyError:
@@ -285,7 +289,7 @@ class Dataset[_S = Mapping[str, Any]]:
         except KeyError:
             return False
         
-    def __iter__(self) -> Iterator[FeatureClass | Table[Any] | Dataset[Any] | Relationship]:
+    def __iter__(self) -> Iterator[FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship]:
         for feature_class in self.feature_classes.values():
             yield feature_class
             
@@ -309,7 +313,8 @@ class Dataset[_S = Mapping[str, Any]]:
             f"Features: {len(self.feature_classes)}, "
             f"Tables: {len(self.tables)}, "
             f"Datasets: {len(self.datasets)}, "
-            f"Relationships: {len(self.relationships)}"
+            f"Relationships: {len(self.relationships)}, "
+            f"Domains: {len(self.domains)}"
             "})"
         )
     
@@ -870,7 +875,7 @@ class RelationshipManager:
             return self.relationships[key]
         raise KeyError(f'{key} not found in {self.parent.name} Relationships')
     
-    def get(self, key: str, default: _Default=None) -> Relationship | _Default:
+    def get[D](self, key: str, default: D=None) -> Relationship | D:
         try:
             return self[key]
         except KeyError:
