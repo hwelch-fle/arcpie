@@ -150,7 +150,7 @@ nav:
       - toolbox: modules/toolbox.md
       - utils: modules/utils.md
       - diff: modules/diff.md
-      - schemas: modules/schemas.md
+      - schema: modules/schema.md
   - Examples:
       - Getting Started: examples/1_getting-started.md
       - Feature Interaction: examples/2_feature-interaction.md

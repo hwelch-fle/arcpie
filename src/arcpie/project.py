@@ -59,7 +59,7 @@ from arcpie._types import (
     PDFDefault,
 )
 
-from arcpie.schemas import SchemaLayer
+from arcpie.schema import SchemaLayer
 
 from arcpie.featureclass import (
     FeatureClass, 

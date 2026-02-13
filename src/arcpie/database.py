@@ -39,8 +39,8 @@ from ._types import (
     RelationshipRemoveRuleOpts,
     RelationshipAddRuleOpts,
 )
-from arcpie.schemas.workspace import SchemaWorkspace
-from arcpie.schemas.fields import GeoType
+from arcpie.schema.workspace import SchemaWorkspace
+from arcpie.schema.fields import GeoType
 
 from .featureclass import (
     Table,
@@ -449,7 +449,7 @@ class Dataset(Generic[_Schema]):
             `{self.name}_schema.py` will be generated there. Intermediate folders will be created if 
             they do not exist. 
         """
-        from .schemas.fields import SCHEMA_IMPORTS
+        from .schema.fields import SCHEMA_IMPORTS
         if mod_doc:
             mod_doc = SCHEMA_IMPORTS.format(mod_doc)
         else:
@@ -648,7 +648,7 @@ class Dataset(Generic[_Schema]):
             >>> new_ds = Dataset.from_schema_module('new_database.gdb', my_database_schema, 3857)
         """
         # Defer imports
-        from .schemas.fields import parse_hierarchy
+        from .schema.fields import parse_hierarchy
         from typing import is_typeddict
         schema_root = getattr(schema_module, 'SCHEMA_ROOT', None)
         if not schema_root:

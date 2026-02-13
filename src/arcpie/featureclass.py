@@ -1506,7 +1506,7 @@ class Table(Generic[_Schema]):
             default_doc: A function that takes a Field dictionary and retuens a formatted doc (default: `k: v\n\n...`)
         """
         # Deferred Import since yield_schema does an instance check on FeatureClass/Table
-        from arcpie.schemas.fields import yield_schema
+        from arcpie.schema.fields import yield_schema
         if default_doc is None:
             return '\n'.join(
                 yield_schema(

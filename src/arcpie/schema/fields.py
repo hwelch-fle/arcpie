@@ -167,7 +167,7 @@ SCHEMA_IMPORTS = '''"""
 
 from typing import TypedDict, Annotated
 from datetime import datetime, time
-from arcpie.schemas.fields import *
+from arcpie.schema.field import *
 
 # If a domain module is included, these will be 
 # added before the schema to allow domain linking
