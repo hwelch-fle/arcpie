@@ -164,16 +164,16 @@ def domain_diff(source: Dataset, target: Dataset) -> Diff:
     """
     _diff: Diff = {}
     _to_check: list[str] = ['codedValues', 'description', 'domainType', 'mergePolicy', 'splitPolicy', 'type']
-    _diff['added'] = [d for d in target.domains if d not in source.domains]
-    _diff['removed'] = [d for d in source.domains if d not in target.domains]
+    _diff['added'] = [d.name for d in target.domains if d not in source.domains]
+    _diff['removed'] = [d.name for d in source.domains if d not in target.domains]
     _diff['updated'] = [
-        {name : changes}
-        for name, source_domain in source.domains.items()
-        if name in target.domains
+        {source_domain.name : changes}
+        for source_domain in source.domains
+        if source_domain.name in target.domains
         and (changes := {
-            attr: f"{getattr(source_domain, attr, None)} -> {getattr(target.domains[name], attr, None)}"
+            attr: f"{getattr(source_domain, attr, None)} -> {getattr(target.domains[source_domain.name], attr, None)}"
             for attr in _to_check
-            if str(getattr(source_domain, attr, None)) != str(getattr(target.domains[name], attr, None))
+            if str(getattr(source_domain, attr, None)) != str(getattr(target.domains[source_domain.name], attr, None))
         })
     ]
     return _diff
