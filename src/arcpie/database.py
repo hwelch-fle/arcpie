@@ -163,7 +163,10 @@ class Dataset[_S = Mapping[str, Any]]:
 
     @cached_property
     def schema(self) -> SchemaWorkspace:
-        return json.load(convert_schema(self, 'JSON'))
+        try:
+            return json.load(convert_schema(self, 'JSON'))
+        except Exception as e:
+            raise RuntimeError(f'Unable to load schema for {self.name}: {e}') from e
 
     @property
     def editor(self) -> Editor:
