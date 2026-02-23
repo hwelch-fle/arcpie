@@ -268,7 +268,7 @@ class Domain(BaseDomain):
     
     def add_to(self, workspace: Dataset) -> None:
         """Add the domain to a root workspace/Dataset"""
-        if workspace.parent:
+        if workspace.parent is not None:
             raise ValueError(f'Domains can only be added to the root Dataset!')
         CreateDomain(
             in_workspace=workspace, 
@@ -610,3 +610,58 @@ class DomainManager:
         """Use with json.dump/dumps"""
         return {d.name: d.to_dict() for d in self.domains}
         
+    def export_module(self, path: str | Path) -> None:
+        """Export the workspace domain to a Python module that contains literals and dictionary mappings.
+        
+        Args:
+            path: The export path to the module file
+        """
+        
+        path = Path(path)
+        _domains = self.to_dict()
+        
+        if not path.suffix.endswith('.py'):
+            path = (path / 'domains.py')
+            
+        path.parent.mkdir(exist_ok=True, parents=True)
+        
+        def _(val: Any) -> str:
+            if val is None:
+                return 'None'
+            return repr(val)
+        
+        with path.open('wt', encoding='utf-8') as fl:
+            fl.write(f'"""{self.dataset.name} domains module"""')
+            fl.write('\n\n')
+            fl.write('from typing import Literal, TYPE_CHECKING')
+            fl.write('\n\n')
+            fl.write('if TYPE_CHECKING:\n')
+            fl.write('    from arcpie._types import SystemDomain\n')
+            fl.write('else:\n')
+            fl.write('    SystemDomain = None\n')
+            fl.write('\n\n')
+            fl.write('DomainName = Literal[\n')
+            for domain in _domains:
+                fl.write(f"\n    '{domain}',")
+            fl.write('\n]\n\n')
+            fl.write('DOMAINS: dict[DomainName, SystemDomain] = {')
+            for domain, domain_val in _domains.items():
+                fl.write("\n"f"    '{domain}': ""{")
+                fl.write(f"\n        'name': {_(domain_val['name'])},")
+                fl.write(f"\n        'domainType': {_(domain_val['domainType'])},")
+                fl.write("\n        'codedValues': {\n")
+                if domain_val['codedValues']:
+                    fl.write('            ')
+                    fl.write('\n            '.join(f"'{k}': '{v}'," for k, v in domain_val['codedValues'].items()))
+                    fl.write('\n        },')
+                else:
+                    fl.write('},')
+                fl.write(f"\n        'range': {_(domain_val['range'])},")
+                fl.write(f"\n        'type': {_(domain_val['type'])},")
+                fl.write(f"\n        'description': {_(domain_val['description'])},")
+                fl.write(f"\n        'splitPolicy': {_(domain_val['splitPolicy'])},")
+                fl.write(f"\n        'mergePolicy': {_(domain_val['mergePolicy'])},")
+                fl.write(f"\n        'owner': {_(domain_val['owner'])},")
+                fl.write('\n    },')
+            fl.write('\n}\n')
+                
