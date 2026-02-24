@@ -332,7 +332,9 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         _settings = MapseriesPDFDefault.copy()
         _settings.update(settings)
         with NamedTemporaryFile() as tmp:
-            return BytesIO(Path(self.exportToPDF(tmp.name, **_settings)).open('rb').read())
+            _pdf = self.exportToPDF(tmp.name, **_settings)
+            with Path(_pdf).open('rb') as fl:
+                return BytesIO(fl.read())
     
     def __iter__(self) -> Iterator[MapSeries]:
         _orig_page = self.currentPageNumber
@@ -525,7 +527,9 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
                 if val := settings.get(arg):
                     _settings[arg] = val
             pdf = self.exportToPDF(tmp.name, **_settings)
-            return BytesIO(Path(pdf).open('rb').read())
+            with Path(pdf).open('rb') as fl:
+                return BytesIO(fl.read())
+
 
 class Table(MappingWrapper[_Table, CIMStandaloneTable], _Table):
     @property
