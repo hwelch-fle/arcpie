@@ -872,7 +872,7 @@ class RelationshipManager:
     
     @property
     def relationships(self) -> dict[str, Relationship]:
-        return self.parent._relationships # pyright: ignore[reportPrivateUsage]
+        return self.parent._relationships or {} # pyright: ignore[reportPrivateUsage]
     
     @property
     def names(self) -> list[str]:
