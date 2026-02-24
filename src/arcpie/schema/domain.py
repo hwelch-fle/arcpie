@@ -519,6 +519,8 @@ class DomainManager:
     """Container for managing dataset domains"""
     
     def __init__(self, dataset: Dataset[Any]) -> None:
+        if dataset.parent is not None:
+            dataset = dataset.parent
         self.dataset = dataset
         self.workspace = str(dataset)
     

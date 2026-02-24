@@ -124,9 +124,12 @@ class Dataset[_S = Mapping[str, Any]]:
         self._datasets: dict[str, Dataset[Any]] | None = None
         self._feature_classes: dict[str, FeatureClass] | None = None
         self._tables: dict[str, Table[Any]] | None = None
-        self._relationships: dict[str, Relationship]
+        self._relationships: dict[str, Relationship] | None = None
         self._annotation_features: dict[str, FeatureClass] | None = None
-        self.walk()
+        # Optimization for FeatureDatasets. They inherit walked features from parent
+        if parent is None:
+            self.walk()
+        #self.walk()
 
     @property
     def name(self) -> str:
@@ -269,6 +272,26 @@ class Dataset[_S = Mapping[str, Any]]:
         for root, ds, _ in Walk(str(self.conn), datatype=['FeatureDataset']):
             root = Path(root)
             self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
+        
+        # Walking datasets is SLOW, use pre-cached values
+        for d in self._datasets.values():
+            d._feature_classes = {
+                name: fc 
+                for name, fc in self._feature_classes.items() 
+                if d.name == Path(fc.path).parts[-2]
+            }
+            d._tables = {
+                name: tb 
+                for name, tb in self._tables.items() 
+                if d.name == Path(tb.path).parts[-2]
+            }
+            d._relationships = {
+                name: rel 
+                for name, rel in self._relationships.items() 
+                if d.name == Path(rel.path).parts[-2]
+            }
+            d._datasets = {}
+            
         
         # Clear the schema cache
         if hasattr(self, 'schema'):
@@ -740,7 +763,8 @@ def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_
         return 'MANY_TO_MANY'
     else:
         raise ValueError(f'{arg} is not a valid relationsip type')
-  
+
+
 class Relationship:
     def __init__(self, parent: Dataset[Any], path: Path|str) -> None:
         self.parent = parent
@@ -840,6 +864,7 @@ class Relationship:
         self.delete()
         rel_opts.update(options)
         CreateRelationshipClass(**rel_opts)
+
 
 class RelationshipManager:
     def __init__(self, parent: Dataset[Any]) -> None:
