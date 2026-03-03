@@ -50,21 +50,15 @@ class ToolABC(ABC):
     def postExecute(self, parameters: Parameters | list[Parameter]) -> None: ...
 
 class Tool(ToolABC):
-    _current_project: Project | None = None
     
     @property
-    def project(self) -> Project | None:
+    def project(self) -> Project:
         """Get the current project that the tool is running in if it exists (otherwise: None)"""
-        if __class__._current_project is None:
-            try:
-                __class__._current_project = Project('CURRENT')
-            except Exception:
-                pass
-        return __class__._current_project
-    
+        return Project('CURRENT')
+
     @property
     def active_map(self) -> Map | None:
-        if self.project and self.project.aprx.activeMap:
+        if self.project.aprx.activeMap:
             return Map(self.project.aprx.activeMap, parent=self.project)
 
 _Default = TypeVar('_Default')
