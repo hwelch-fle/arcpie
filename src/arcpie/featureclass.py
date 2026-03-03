@@ -64,6 +64,8 @@ from ._types import (
 
 from arcpy import (
     Geometry,
+    Index,
+    ListIndexes,
     ListTransformations,
     Polygon,
     Extent,
@@ -1672,6 +1674,10 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             _fields = c.fields
         self._fields = replace + tuple((f for f in _fields if f not in exclude))
         return self._fields
+
+    @property
+    def indexes(self) -> list[Index]:
+        return ListIndexes(str(self))
 
     @property
     def shapes(self) -> Iterator[_GeometryType]:
