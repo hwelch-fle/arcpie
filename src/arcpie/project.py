@@ -742,6 +742,10 @@ class Project:
     def __repr__(self) -> str:
         return f"Project({Path(self.aprx.filePath).stem}.aprx)"
     
+    def start(self) -> None:
+        import os
+        os.startfile(self.aprx.filePath)
+    
     @property
     def name(self) -> str:
         """Get the file name of the wrapped aprx minus the file extension"""
