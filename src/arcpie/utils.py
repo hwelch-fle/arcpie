@@ -419,7 +419,7 @@ def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyli
         for measure in measures + [line.length]:
             if prev_measure == measure:
                 continue
-            yield line.segmentAlongLine(prev_measure, measure)
+            yield line.segmentAlongLine(prev_measure, measure).projectAs(line.spatialReference)
             prev_measure = measure
         
 
