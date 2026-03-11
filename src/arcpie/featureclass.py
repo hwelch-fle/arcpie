@@ -1982,7 +1982,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def from_layer(cls, layer: Layer,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> FeatureClass:
+                   ignore_def_query: bool = False,) -> FeatureClass[Any, Any]:
         """Build a FeatureClass object from a layer applying the layer's current selection to the stored cursors
         
         Args:
