@@ -372,6 +372,11 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
         return LayerManager(Layer(l, self) for l in self.listLayers() or [])
 
     @cached_property
+    def local_layers(self) -> LayerManager:
+        """Get a LayerManager for all non-web layers in the Map"""
+        return LayerManager(Layer(l, self) for l in self.listLayers() or [] if l.isFeatureLayer and not l.isWebLayer)
+
+    @cached_property
     def tables(self) -> TableManager:
         """Get a TableManager for all tables in the Map"""
         return TableManager(Table(t, self) for t in self.listTables() or [])
