@@ -733,6 +733,7 @@ def iter_points(line: Polyline, start: bool = True, end: bool = True, *, flatten
         
     """
     
+    
 
 type Scalar = int | float
 
@@ -741,8 +742,8 @@ type Scalar = int | float
 class Vector:
     """Simple Vector implementation that takes a start and end point (uses Spherical notation for theta and phi).\n
     
-    If `PointGeometries` are passed as the start and end points, the end point
-    will inherit the reference of the start point
+    If `PointGeometries` are passed as the head and tail points, the head
+    will inherit the reference of the tail
     
     Attributes:
         x (float): The X component of the vector
@@ -752,6 +753,7 @@ class Vector:
         phi (float)L The angle between the vector and the z-axis
         dist (float): The magnitute of the vector (distance b/w start and end)
         mid (Point): The midpoint of the vector along its magnitude
+        ref (SpatialReference | None): Ano optional spatial reference for all Vector geometry to inherit
         
     Methods:
         translate(point, mag): Translate a point along the Vector (Vector tail is set to point location)
@@ -771,28 +773,23 @@ class Vector:
         __mul__: Implements `*` operator for Vectors. RHS can be Vector (cross product) or Scalar
         __matmul__: Implements `@` to determine *accute* angle between two vectors
     """
-    __slots__ = 'head', 'tail', 'x', 'y', 'z', 'dist', 'theta', 'phi', 'mid', 'is_null'
+    #__slots__ = 'head', 'tail', 'ref', 'x', 'y', 'z', 'dist', 'theta', 'phi', 'mid', 'is_null', 
+    
     tail: Point | PointGeometry
     head: Point | PointGeometry
+    ref: SpatialReference | None = None
     
     def __post_init__(self) -> None:
-        self.x: float
-        self.y: float
-        self.z: float
-        self.dist: float
-        self.theta: float
-        self.phi: float
-        self.mid: Point | PointGeometry
         
-        
-        _ref = None
         if isinstance(self.tail, PointGeometry):
-            _ref = self.tail.spatialReference
-            self.tail = self.tail.centroid
+            _ref = self.ref or self.tail.spatialReference
+            self.tail = self.tail.projectAs(_ref).centroid
+            self.ref = _ref
+        
         if isinstance(self.head, PointGeometry):
-            if _ref and self.head.spatialReference != _ref:
-                self.head = self.head.projectAs(_ref)
-            self.head = self.head.centroid
+            _ref = self.ref or self.head.spatialReference
+            self.head = self.head.projectAs(_ref).centroid
+            self.ref = _ref
         
         self.is_null = (
             self.head.X == self.tail.X
@@ -815,7 +812,8 @@ class Vector:
         # Midpoint
         self.mid = self.translate(self.tail, self.dist/2) if not self.is_null else self.tail
     
-    def as_polyline(self) -> Polyline:
+    @property
+    def polyline(self) -> Polyline:
         _ref = None
         start = self.tail
         end = self.head
@@ -826,6 +824,21 @@ class Vector:
             _ref = _ref or end.spatialReference
             end = end.centroid
         return Polyline(Array([start, end]), _ref)
+    
+    @property
+    def head_geom(self) -> PointGeometry:
+        """Get a point geometry object for the vector head (end)"""
+        return self.head if isinstance(self.head, PointGeometry) else PointGeometry(self.head)
+    
+    @property
+    def tail_geom(self) -> PointGeometry:
+        """Get a point geometry object for the vector tail (start)"""
+        return self.tail if isinstance(self.tail, PointGeometry) else PointGeometry(self.tail)
+    
+    @property
+    def mid_geom(self) -> PointGeometry:
+        """Get a point geometry object for the vector midpoint (inherits reference from head/tail)"""
+        return self.mid if isinstance(self.mid, PointGeometry) else PointGeometry(self.mid)
     
     def __repr__(self) -> str:
         return f'Vector(x={self.x}, y={self.y}, z={self.z}, tail={self.tail})'
@@ -860,6 +873,10 @@ class Vector:
     
     def cross(self, other: Vector) -> Vector:
         """Cross product of two vectors originating at LHS (`*`)"""
+        if self.is_null:
+            return self
+        if other.is_null: # Null vector at own tail
+            return Vector(self.tail, self.tail)
         other = Vector(self.tail, other >> self.tail)
         targ = Point(
             X = self.y*other.z - self.z*other.y,
@@ -931,6 +948,9 @@ class Vector:
     
     def __len__(self) -> float:
         return self.dist
+    
+    def __bool__(self) -> bool:
+        return self.is_null
     
     @overload
     def translate(self, point: Point, mag: float | None = None) -> Point: ...
