@@ -672,6 +672,68 @@ def center_circle(center: Point|PointGeometry, radius: float, ref: SpatialRefere
     return two_point_circle(center, Point(center.X, center.Y+radius), ref)
 
 
+def vectors_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.01, snap: bool = False) -> tuple[Vector, Vector]:
+    """Get the vector of the line at the given point (p-delta -> p+delta)
+    
+    Args:
+        line: The line to get a Vector for
+        point: The PointGeometry specifying the vector location (projects to line reference)
+        delta: The distance (meters) to traverse the line (default: `0.01`)
+        snap: If the input point is disjoint from the line, snap it to the line (default: 'False')
+    
+    Returns:
+        A tuple of Vectors representing the bearing to start and end at distance delta from point
+        
+    Note:
+        If the in point is a start/end point on the line, one of the Vectors will be a null vector!
+    """
+    ref = line.spatialReference
+    mpu = ref.metersPerUnit
+    if isinstance(point, Point):
+        point = PointGeometry(point, ref)
+    else:
+        point.projectAs(ref)
+    
+    if line.disjoint(point):
+        if snap:
+            point = line.snapToLine(point)
+        else:
+            raise ValueError('Vector point must not be disjoint from line (use `snap=True` to snap point to line)')
+        
+    pt_meas = line.measureOnLine(point)*mpu
+    plus = line.positionAlongLine((pt_meas + delta)/mpu)
+    minus = line.positionAlongLine((pt_meas - delta)/mpu)
+    
+    return Vector(point, plus), Vector(point, minus)
+
+
+def vector_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.01, snap: bool = False) -> Vector:
+    """Get the vector of the line at the given point (p-delta -> p+delta)
+    
+    Args:
+        line: The line to get a Vector for
+        point: The PointGeometry specifying the vector location (projects to line reference)
+        delta: The distance (meters) to traverse the line in both directions (default: `0.01`)
+        snap: If the input point is disjoint from the line, snap it to the line (default: 'False')
+    
+    Returns:
+        A Vector of length delta*2 that describes the slope of the line at the provided point
+    """
+    v1, v2 = vectors_at(line, point, delta=delta, snap=snap)
+    return v1 + v2
+
+
+def iter_points(line: Polyline, start: bool = True, end: bool = True, *, flatten: bool = True) -> Iterator[PointGeometry]:
+    """Get a point iterator for a Polyline
+    
+    Args:
+        line: The Polyline to iterate points for
+        start: Include the line startpoint (default: True)
+        end: Include the line endpoint (default: True)
+        
+    """
+    
+
 type Scalar = int | float
 
 
@@ -709,7 +771,7 @@ class Vector:
         __mul__: Implements `*` operator for Vectors. RHS can be Vector (cross product) or Scalar
         __matmul__: Implements `@` to determine *accute* angle between two vectors
     """
-    __slots__ = 'head', 'tail', 'x', 'y', 'z', 'dist', 'theta', 'phi', 'mid'
+    __slots__ = 'head', 'tail', 'x', 'y', 'z', 'dist', 'theta', 'phi', 'mid', 'is_null'
     tail: Point | PointGeometry
     head: Point | PointGeometry
     
@@ -722,6 +784,7 @@ class Vector:
         self.phi: float
         self.mid: Point | PointGeometry
         
+        
         _ref = None
         if isinstance(self.tail, PointGeometry):
             _ref = self.tail.spatialReference
@@ -731,20 +794,26 @@ class Vector:
                 self.head = self.head.projectAs(_ref)
             self.head = self.head.centroid
         
+        self.is_null = (
+            self.head.X == self.tail.X
+            and self.head.Y == self.tail.Y
+            and self.head.Z == self.tail.Z
+        )
+        
         # Normalized Components
         self.x = self.head.X - self.tail.X
         self.y = self.head.Y - self.tail.Y
         self.z = (self.head.Z or 0) - (self.tail.Z or 0)
         
         # Magnitude
-        self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2)
+        self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2) if not self.is_null else 0
         
         # Angle components
-        self.theta = math.atan2(self.y, self.x)
-        self.phi = math.acos(self.z/self.dist)
+        self.theta = math.atan2(self.y, self.x) if not self.is_null else 0
+        self.phi = math.acos(self.z/self.dist) if not self.is_null else 0
         
         # Midpoint
-        self.mid = self.translate(self.tail, self.dist/2)
+        self.mid = self.translate(self.tail, self.dist/2) if not self.is_null else self.tail
     
     def as_polyline(self) -> Polyline:
         _ref = None
@@ -791,7 +860,7 @@ class Vector:
     
     def cross(self, other: Vector) -> Vector:
         """Cross product of two vectors originating at LHS (`*`)"""
-        other = Vector(self.tail, other.translate(self.tail))
+        other = Vector(self.tail, other >> self.tail)
         targ = Point(
             X = self.y*other.z - self.z*other.y,
             Y = self.z*other.x - self.x*other.z,
@@ -799,9 +868,14 @@ class Vector:
         )
         return Vector(self.tail, targ)
     
-    def scale(self, other: Scalar) -> Vector:
-        """Scalar multiplication of vector (`*`)"""
-        return Vector(self.tail, self.translate(self.tail, other * self.dist))
+    def scale(self, scale: Scalar) -> Vector:
+        """Scalar multiplication of vector (`*`)
+         
+        Note: Scaling by Zero will return a null vector located at the vector tail
+        """
+        if scale == 0: # Special case for creating a spatially aware null vector
+            return Vector(self.tail, self.tail)
+        return Vector(self.tail, self.translate(self.tail, scale*self.dist))
     
     def __mul__(self, other: Vector | Scalar) -> Vector:
         if isinstance(other, Vector):
@@ -815,15 +889,21 @@ class Vector:
     
     def dot(self, other: Vector) -> float:
         """Dot product of two vectors originating at LHS (`@`)"""
-        other = Vector(self.tail, other.translate(self.tail))
+        other = Vector(self.tail, other >> self.tail)
         return self.x * other.x + self.y * other.y + self.z * other.z
     
     def __xor__(self, other: Vector):
         return self.dot(other)
     
     def angle(self, other: Vector, order: Literal['accute', 'obtuse'] = 'accute') -> float:
-        """Get the angle in radians between two vectors (order can be `accute` or `obtuse`)"""
-        other = Vector(self.tail, other.translate(self.tail))
+        """Get the angle in radians between two vectors (order can be `accute` or `obtuse`)
+        
+        Note: When checking angle against a null vector, 0 is returned
+        """
+        if self.is_null or other.is_null:
+            return 0
+        
+        other = Vector(self.tail, other >> self.tail)
         ang = round(math.acos((self^other)/(self.dist*other.dist)), 15)
         rad = round(math.pi/2, 15)
         if ang == 0:
@@ -845,7 +925,7 @@ class Vector:
     
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Vector):
-            other = Vector(self.tail, other.translate(self.tail))
+            other = Vector(self.tail, other >> self.tail)
             return self^other == self.dist**2
         return super().__eq__(other)
     
@@ -874,6 +954,10 @@ class Vector:
                 trans_point = vec >> point
             ```
         """
+        
+        if self.is_null or mag == 0:
+            return point
+        
         if not isinstance(point, (Point, PointGeometry)):
             raise TypeError(f'point must be Point or PointGeometry not {type(point)}')
         
