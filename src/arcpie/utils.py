@@ -15,7 +15,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
-    TypeVar,
     overload,
 )
 
@@ -672,70 +671,244 @@ def center_circle(center: Point|PointGeometry, radius: float, ref: SpatialRefere
         center = center.centroid 
     return two_point_circle(center, Point(center.X, center.Y+radius), ref)
 
-_PointType = TypeVar('_PointType', bound=Point|PointGeometry)
+
+type Scalar = int | float
+
+
 @dataclass
 class Vector:
-    """Simple Vector implementation that takes a start and end point.\n
+    """Simple Vector implementation that takes a start and end point (uses Spherical notation for theta and phi).\n
     
     If `PointGeometries` are passed as the start and end points, the end point
     will inherit the reference of the start point
     
     Attributes:
-        x1 (float): The X coordinate of the startpoint
-        y1 (float): The Y coordinate of the startpoint
-        x2 (float): The X coordiante of the endpoint
-        y2 (float): The Y coordiante of the endpoint
-        ang (float): The angle of the vector in radians
+        x (float): The X component of the vector
+        y (float): The Y component of the vector
+        z (float): The Z component of the vector
+        theta (float): The angle between the vector and the x-axis
+        phi (float)L The angle between the vector and the z-axis
         dist (float): The magnitute of the vector (distance b/w start and end)
-        cos (float): the cos of the vector angle in radians
-        sin (float): The sin of the vector angle in radians
         mid (Point): The midpoint of the vector along its magnitude
+        
+    Methods:
+        translate(point, mag): Translate a point along the Vector (Vector tail is set to point location)
+        reverse: Reverse the Vector
+        add(other): Vector addition (LHS is origin)
+        subtract(other): Vector subtraction (LHS is origin)
+        dot(other): Dot product of two vectors (LHS is origin)
+        cross(other): Cross product of two vectors (LHS is origin)
+        scale(scalar): Scale a vector using a scalar
+        angle(other, order[`accute`|`obtuse`]=`accute`): Get angle between two vectors
+        
+        __rshift__: Implements `>>` for use in translating points (vector must be LHS)
+        __neg__: Implements unary `-` operator for Vectors. Same as .reverse()
+        __add__: Implements `+` operator for Vectors. RHS Vector will be used as anchor
+        __sub__: Implements `-` operator for Vectors. RHS Vector will be used as anchor
+        __xor__: Implements `^` operator for Vectors (dot product).
+        __mul__: Implements `*` operator for Vectors. RHS can be Vector (cross product) or Scalar
+        __matmul__: Implements `@` to determine *accute* angle between two vectors
     """
-    start: Point | PointGeometry
-    end: Point | PointGeometry
+    __slots__ = 'head', 'tail', 'x', 'y', 'z', 'dist', 'theta', 'phi', 'mid'
+    tail: Point | PointGeometry
+    head: Point | PointGeometry
     
     def __post_init__(self) -> None:
-        _ref = None
-        if isinstance(self.start, PointGeometry):
-            _ref = self.start.spatialReference
-            self.start = self.start.centroid
-        if isinstance(self.end, PointGeometry):
-            if _ref and self.end.spatialReference != _ref:
-                self.end = self.end.projectAs(_ref)
-            self.end = self.end.centroid
-        self.x1: float = self.start.X
-        self.x2: float = self.end.X
-        self.y1: float = self.start.Y
-        self.y2: float = self.end.Y
-        self.ang: float = math.atan2(self.y2-self.y1, self.x2-self.x1)
-        self.dist: float = ((self.x2-self.x1)**2+(self.y2-self.y1)**2)**0.5
-        self.cos = math.cos(self.ang)
-        self.sin = math.sin(self.ang)
-        self.mid: Point = self.translate(self.start, self.dist/2)
+        self.x: float
+        self.y: float
+        self.z: float
+        self.dist: float
+        self.theta: float
+        self.phi: float
+        self.mid: Point | PointGeometry
         
-    def translate(self, point: _PointType, dist: float|None=None) -> _PointType:
-        """Translate the provided point along the vector direction.
+        _ref = None
+        if isinstance(self.tail, PointGeometry):
+            _ref = self.tail.spatialReference
+            self.tail = self.tail.centroid
+        if isinstance(self.head, PointGeometry):
+            if _ref and self.head.spatialReference != _ref:
+                self.head = self.head.projectAs(_ref)
+            self.head = self.head.centroid
+        
+        # Normalized Components
+        self.x = self.head.X - self.tail.X
+        self.y = self.head.Y - self.tail.Y
+        self.z = (self.head.Z or 0) - (self.tail.Z or 0)
+        
+        # Magnitude
+        self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2)
+        
+        # Angle components
+        self.theta = math.atan2(self.y, self.x)
+        self.phi = math.acos(self.z/self.dist)
+        
+        # Midpoint
+        self.mid = self.translate(self.tail, self.dist/2)
+    
+    def as_polyline(self) -> Polyline:
+        _ref = None
+        start = self.tail
+        end = self.head
+        if isinstance(start, PointGeometry):
+            _ref = start.spatialReference
+            start = start.centroid
+        if isinstance(end, PointGeometry):
+            _ref = _ref or end.spatialReference
+            end = end.centroid
+        return Polyline(Array([start, end]), _ref)
+    
+    def __repr__(self) -> str:
+        return f'Vector(x={self.x}, y={self.y}, z={self.z}, tail={self.tail})'
+    
+    def reverse(self) -> Vector:
+        """Reversed vector"""
+        return Vector(self.head, self.tail)
+    
+    def __neg__(self) -> Vector:
+        return self.reverse()
+    
+    def norm(self) -> Vector:
+        """Normal vector originating at tail"""
+        return Vector(self.tail, self.translate(self.tail, 1))
+    
+    def __abs__(self):
+        return self.norm()
+    
+    def add(self, other: Vector) -> Vector:
+        """Vector addition originating at LHS (`+`)"""
+        return Vector(self.tail, other >> self.head)
+        
+    def __add__(self, other: Vector):
+        return self.add(other)
+    
+    def subtract(self, other: Vector) -> Vector:
+        """Vector subtraction originating at LHS (`-`)"""
+        return self + (-other)
+    
+    def __sub__(self, other: Vector):
+        return self.subtract(other)
+    
+    def cross(self, other: Vector) -> Vector:
+        """Cross product of two vectors originating at LHS (`*`)"""
+        other = Vector(self.tail, other.translate(self.tail))
+        targ = Point(
+            X = self.y*other.z - self.z*other.y,
+            Y = self.z*other.x - self.x*other.z,
+            Z = self.x*other.y - self.y*other.x,
+        )
+        return Vector(self.tail, targ)
+    
+    def scale(self, other: Scalar) -> Vector:
+        """Scalar multiplication of vector (`*`)"""
+        return Vector(self.tail, self.translate(self.tail, other * self.dist))
+    
+    def __mul__(self, other: Vector | Scalar) -> Vector:
+        if isinstance(other, Vector):
+            return self.cross(other)
+        return self.scale(other)
+    
+    def __rmul__(self, other: Vector | Scalar) -> Vector:
+        if isinstance(other, Vector):
+            return other.cross(self)
+        return self.scale(other)
+    
+    def dot(self, other: Vector) -> float:
+        """Dot product of two vectors originating at LHS (`@`)"""
+        other = Vector(self.tail, other.translate(self.tail))
+        return self.x * other.x + self.y * other.y + self.z * other.z
+    
+    def __xor__(self, other: Vector):
+        return self.dot(other)
+    
+    def angle(self, other: Vector, order: Literal['accute', 'obtuse'] = 'accute') -> float:
+        """Get the angle in radians between two vectors (order can be `accute` or `obtuse`)"""
+        other = Vector(self.tail, other.translate(self.tail))
+        ang = round(math.acos((self^other)/(self.dist*other.dist)), 15)
+        rad = round(math.pi/2, 15)
+        if ang == 0:
+            return ang
+        if ang > rad and order == 'accute':
+            return round(ang - rad, 15)
+        elif ang < rad and order == 'obtuse':
+            return round(ang + rad, 15)
+        return ang
+    
+    def __matmul__(self, other: Vector) -> float:
+        return self.angle(other)
+    
+    def __lt__(self, other: Vector) -> bool:
+        return self.dist < other.dist
+    
+    def __gt__(self, other: Vector) -> bool:
+        return self.dist > other.dist
+    
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Vector):
+            other = Vector(self.tail, other.translate(self.tail))
+            return self^other == self.dist**2
+        return super().__eq__(other)
+    
+    def __len__(self) -> float:
+        return self.dist
+    
+    @overload
+    def translate(self, point: Point, mag: float | None = None) -> Point: ...
+    @overload
+    def translate(self, point: PointGeometry, mag: float | None = None) -> PointGeometry: ...
+    def translate(self, point: Any, mag: float | None = None) -> Any:
+        """Translate the provided point along the vector direction. `>>`
         
         The Point will be moved from its original location along the vector angle the provided distance.
         The location of the `Vector` object is not taken into account, only angle and magnitude
         
         Args:
-            point (Point|PointGeometry): The point to translate along the given vector
-            dist (float|None): The distance to translate the point (default: `self.dist`)
+            point: The point to translate along the given vector
+            mag: The distance to translate the point (default: `self.mag`)
         
         Returns:
-            (Point|PointGeometry): Return the provided geometry back translated
+            A translated Point/PointGeometry
             
-        Note:
-            Whatever point type you provide will be given back to you
+        Example:
+            ```python
+                trans_point = vec >> point
+            ```
         """
-        ref: SpatialReference | None = getattr(point, 'spatialReference', None)
-        if isinstance(point, Point):
-            target = point
-        else:
-            target = point.centroid
-        dist = dist or self.dist
-        target = Point(target.X+dist*self.cos, target.Y+dist*self.sin, target.Z, target.M, target.ID)
-        if isinstance(point, PointGeometry):
-            return PointGeometry(target, ref) # pyright: ignore[reportReturnType]
-        return target   # pyright: ignore[reportReturnType]
+        if not isinstance(point, (Point, PointGeometry)):
+            raise TypeError(f'point must be Point or PointGeometry not {type(point)}')
+        
+        target = point
+        ref = None
+        
+        if isinstance(target, PointGeometry):
+            ref = target.spatialReference
+            target = target.centroid
+        
+        mag = mag or self.dist
+        target = Point(
+            target.X + (mag*self.x)/self.dist, 
+            target.Y + (mag*self.y)/self.dist, 
+            target.Z + (mag*self.z)/self.dist if target.Z is not None else None, 
+            target.M, 
+            target.ID,
+        )
+        
+        return (
+            PointGeometry(
+                target, 
+                ref, 
+                has_z = target.Z is not None, 
+                has_m = target.M is not None, 
+                has_id = bool(target.ID), 
+            ) 
+            if isinstance(point, PointGeometry)
+            else target
+        )
+    
+    @overload
+    def __rshift__(self, point: Point) -> Point: ...
+    @overload
+    def __rshift__(self, point: PointGeometry) -> PointGeometry: ...
+    def __rshift__(self, point: Point | PointGeometry) -> Point | PointGeometry:
+        return self.translate(point)
+    
