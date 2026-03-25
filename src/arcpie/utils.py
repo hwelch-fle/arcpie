@@ -683,27 +683,39 @@ def vectors_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0
     
     Returns:
         A tuple of Vectors representing the bearing to start and end at distance delta from point
-        
+    
+    Raises:
+        ValueError if the point is disjoint from the line and `snap` is unset
+    
     Note:
         If the in point is a start/end point on the line, one of the Vectors will be a null vector!
     """
     ref = line.spatialReference
     mpu = ref.metersPerUnit
-    if isinstance(point, Point):
+    if isinstance(point, Point): 
         point = PointGeometry(point, ref)
-    else:
+    else: 
         point.projectAs(ref)
     
     if line.disjoint(point):
-        if snap:
+        if snap: 
             point = line.snapToLine(point)
-        else:
+        else: 
             raise ValueError('Vector point must not be disjoint from line (use `snap=True` to snap point to line)')
-        
+    
     pt_meas = line.measureOnLine(point)*mpu
+    
+    # Handle firstPoint
+    if pt_meas < delta:
+        pt_meas = delta
+        point = line.positionAlongLine(pt_meas)
+    # Handle lastPoint
+    elif pt_meas == line.length:
+        pt_meas = line.length - delta
+        point = line.positionAlongLine(pt_meas)
+        
     plus = line.positionAlongLine((pt_meas + delta)/mpu)
     minus = line.positionAlongLine((pt_meas - delta)/mpu)
-    
     return Vector(point, plus), Vector(point, minus)
 
 
