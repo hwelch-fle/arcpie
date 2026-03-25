@@ -723,17 +723,40 @@ def vector_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.
     return v1 + v2
 
 
-def iter_points(line: Polyline, start: bool = True, end: bool = True, *, flatten: bool = True) -> Iterator[PointGeometry]:
+def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterator[PointGeometry]:
     """Get a point iterator for a Polyline
     
     Args:
         line: The Polyline to iterate points for
-        start: Include the line startpoint (default: True)
-        end: Include the line endpoint (default: True)
-        
+        start: Include the line startpoint (default: `True`)
+        end: Include the line endpoint (default: `True`)
+    Yields:
+        PointGeometries for all points in the line
     """
+    section = slice(0 if start else 1, None if end else -1)
+    yield from (
+        PointGeometry(point, line.spatialReference)
+        for part in line
+        for point in list[Point](part)[section] # type: ignore
+    )
+
+
+def iter_parts(line: Polyline, start: bool = True, end: bool = True) -> Iterator[Iterator[PointGeometry]]:
+    """Get a part iterator for a Polyline
     
+    Args:
+        line: The Polyline to iterate parts for
+        start: Include the line startpoint (default: `True`)
+        end: Include the line endpoint (default: `True`)
     
+    Yields:
+        Iterators of part PointGeometries for all parts in the line
+    """
+    yield from (
+        iter_points(Polyline(part, line.spatialReference, start, end)) 
+        for part in line
+    )
+
 
 type Scalar = int | float
 
