@@ -825,6 +825,14 @@ class Vector:
         self.y = self.head.Y - self.tail.Y
         self.z = (self.head.Z or 0) - (self.tail.Z or 0)
         
+        # nan checks
+        if math.isnan(self.x):
+            self.x = 0
+        if math.isnan(self.y):
+            self.y = 0
+        if math.isnan(self.z):
+            self.z = 0
+        
         # Magnitude
         self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2) if not self.is_null else 0
         
@@ -930,13 +938,13 @@ class Vector:
     def dot(self, other: Vector) -> float:
         """Dot product of two vectors originating at LHS (`@`)"""
         other = Vector(self.tail, other >> self.tail)
-        return self.x * other.x + self.y * other.y + self.z * other.z
+        return self.x*other.x + self.y*other.y + self.z*other.z
     
     def __xor__(self, other: Vector):
         return self.dot(other)
     
-    def angle(self, other: Vector, order: Literal['accute', 'obtuse'] = 'accute') -> float:
-        """Get the angle in radians between two vectors (order can be `accute` or `obtuse`)
+    def angle(self, other: Vector) -> float:
+        """Get the angle in radians between two vectors
         
         Note: When checking angle against a null vector, 0 is returned
         """
@@ -944,14 +952,8 @@ class Vector:
             return 0
         
         other = Vector(self.tail, other >> self.tail)
-        ang = round(math.acos((self^other)/(self.dist*other.dist)), 15)
-        rad = round(math.pi/2, 15)
-        if ang == 0:
-            return ang
-        if ang > rad and order == 'accute':
-            return round(ang - rad, 15)
-        elif ang < rad and order == 'obtuse':
-            return round(ang + rad, 15)
+        v = round((self^other)/(self.dist*other.dist), 15)
+        ang = round(math.acos(v), 15)        
         return ang
     
     def __matmul__(self, other: Vector) -> float:
