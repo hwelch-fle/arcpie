@@ -846,7 +846,11 @@ class Vector:
             self.z = 0
         
         # Magnitude
-        self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2) if not self.is_null else 0
+        self.dist = math.sqrt(self.x**2 + self.y**2 + self.z**2)
+        
+        # Secondary condition for null vector
+        if self.dist == 0:
+            self.is_null = True
         
         # Angle components
         self.theta = math.atan2(self.y, self.x) if not self.is_null else 0
