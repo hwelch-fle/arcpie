@@ -2,7 +2,7 @@
 from __future__ import annotations
 import builtins
 from collections import deque
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import reduce
 from io import BytesIO
@@ -15,6 +15,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    SupportsIndex,
     overload,
 )
 
@@ -925,10 +926,10 @@ class Vector:
         if other.is_null: # Null vector at own tail
             return Vector(self.tail, self.tail)
         other = Vector(self.tail, other >> self.tail)
-        targ = Point(
-            X = self.y*other.z - self.z*other.y,
-            Y = self.z*other.x - self.x*other.z,
-            Z = self.x*other.y - self.y*other.x,
+        targ = self.tail_geom.move(
+            dx=self.y*other.z - self.z*other.y,
+            dy=self.z*other.x - self.x*other.z,
+            dz=self.x*other.y - self.y*other.x,
         )
         return Vector(self.tail, targ)
     
@@ -1057,3 +1058,87 @@ class Vector:
     def __rshift__(self, point: Point | PointGeometry) -> Point | PointGeometry:
         return self.translate(point)
     
+    
+class PolylineEditor:
+    def __init__(self, polyline: Polyline) -> None:
+        self.orig_polyline = polyline
+        self.polyline = polyline
+    
+    @property
+    def original(self) -> Polyline:
+        return self.orig_polyline
+    
+    @property
+    def first_point(self) -> PointGeometry:
+        return PointGeometry(self.polyline.firstPoint, self.polyline.spatialReference)
+    
+    @property
+    def last_point(self) -> PointGeometry:
+        return PointGeometry(self.polyline.lastPoint, self.polyline.spatialReference)
+    
+    @property
+    def parts(self) -> list[Polyline]:
+        return [
+            Polyline(Array([p.centroid for p in part]), self.polyline.spatialReference) 
+            for part in iter_parts(self.polyline)
+        ]
+    
+    def __repr__(self) -> str:
+        return f'PolylineEditor({repr(self.polyline)})'
+    
+    def __len__(self) -> int:
+        return self.polyline.pointCount
+
+    def __iter__(self) -> Iterator[PointGeometry]:
+        return iter_points(self.polyline)
+    
+    def __contains__(self, item: Point | PointGeometry) -> bool:
+        return not item.disjoint(self.polyline)
+    
+    @overload
+    def __getitem__(self, key: slice) -> list[PointGeometry]: ...
+    @overload
+    def __getitem__(self, key: SupportsIndex) -> PointGeometry: ...
+    def __getitem__(self, key: SupportsIndex | slice):
+        _points = list(self)
+        return _points[key]
+    
+    @overload
+    def __setitem__(self, key: slice, value: Iterable[Point] | Iterable[PointGeometry]) -> None: ...
+    @overload
+    def __setitem__(self, key: SupportsIndex, value: Point | PointGeometry) -> None: ...
+    def __setitem__(self, key: SupportsIndex | slice, value: Point | PointGeometry | Iterable[Point] | Iterable[PointGeometry]) -> None:
+        part_lens: list[int] = [len(PolylineEditor(part)) for part in self.parts]
+        _points = list(self)
+        
+        if isinstance(value, Point):
+            value = PointGeometry(value, self.polyline.spatialReference)
+        elif isinstance(value, PointGeometry): ...
+        else:
+            value = [PointGeometry(p if isinstance(p, Point) else p.centroid, self.polyline.spatialReference) for p in value]
+        
+        if isinstance(key, slice) and isinstance(value, list):
+            _points[key] = value
+        elif isinstance(key, SupportsIndex) and isinstance(value, PointGeometry):
+            _points[key] = value
+        else:
+            raise ValueError(f'Unsupported types for key: {type(key)}, value: {type(value)}')
+
+        parts = [
+            PolylineEditor.from_points(_points[start:stop], self.polyline.spatialReference) 
+            for start, stop in list(zip(part_lens, part_lens[1:])) or [(None, None)]
+        ]
+        self.polyline = PolylineEditor.merge_lines(*parts)
+    
+    @classmethod
+    def merge_lines(cls, *lines: Polyline) -> Polyline:
+        return reduce(lambda acc, l: acc.union(l), lines) # type: ignore
+    
+    @classmethod 
+    def from_points(cls, points: Iterable[Point | PointGeometry], ref: SpatialReference | None = None) -> Polyline:
+        points = [
+            PointGeometry(p if isinstance(p, Point) else p.centroid, ref)
+            for p in points
+        ]
+        return Polyline(Array([p.centroid for p in points]), ref)
+        
