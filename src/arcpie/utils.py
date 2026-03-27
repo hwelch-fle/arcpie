@@ -1060,6 +1060,7 @@ class Vector:
     
     
 class PolylineEditor:
+    """Allow simple polyline editing using indexes and slices"""
     def __init__(self, polyline: Polyline) -> None:
         self.orig_polyline = polyline
         self.polyline = polyline
@@ -1125,16 +1126,57 @@ class PolylineEditor:
             raise ValueError(f'Unsupported types for key: {type(key)}, value: {type(value)}')
 
         parts = [
-            PolylineEditor.from_points(_points[start:stop], self.polyline.spatialReference) 
+            self.from_points(_points[start:stop], self.polyline.spatialReference) 
             for start, stop in list(zip(part_lens, part_lens[1:])) or [(None, None)]
         ]
-        self.polyline = PolylineEditor.merge_lines(*parts)
+        self.polyline = self.merge_lines(*parts)
+    
+    def pop(self, index: SupportsIndex = -1, /) -> None:
+        """Remove the last point from a polyline"""
+        # TODO: Respect Parts
+        _points = list(self)
+        _points.pop(index)
+        self.polyline = self.from_points(_points)
+    
+    def insert(self, index: SupportsIndex, point: Point | PointGeometry) -> None:
+        # TODO: Respect Parts
+        if isinstance(point, Point):
+            point = PointGeometry(point, self.polyline.spatialReference)
+        _points = list(self)
+        _points.insert(index, point)
+        self.polyline = self.from_points(_points)
+        
+    def index(self, point: Point | PointGeometry, start: SupportsIndex = 0, stop: SupportsIndex | None = None) -> int:
+        for idx, p in enumerate(list(self)[start:stop]):
+            if not point.disjoint(p):
+                return idx
+        raise ValueError(f'Point {point} not found in polyline')
+    
+    def append(self, point: Point | PointGeometry) -> None:
+        _points = list(PolylineEditor(self.parts[-1]))
+        if isinstance(point, Point):
+            point = PointGeometry(point, self.polyline.spatialReference)
+        _points.append(point)
+        _parts = self.parts[:-1]
+        _parts.append(self.from_points(_points))
+        self.polyline = self.merge_lines(_parts)
+        
+    def extend(self, points: Iterable[Point | PointGeometry]) -> None:
+        _points = list(PolylineEditor(self.parts[-1]))
+        points = (PointGeometry(p, self.polyline.spatialReference) if isinstance(p, Point) else p for p in points)
+        _points.extend(points)
+        _parts = self.parts[:-1]
+        _parts.append(self.from_points(_points))
+        self.polyline = self.merge_lines(_parts)
+    
+    def reverse(self) -> None:
+        self.polyline = self.merge_lines(self.from_points(reversed(list(PolylineEditor(part)))) for part in self.parts)
     
     @classmethod
-    def merge_lines(cls, *lines: Polyline) -> Polyline:
+    def merge_lines(cls, lines: Iterable[Polyline]) -> Polyline:
         return reduce(lambda acc, l: acc.union(l), lines) # type: ignore
     
-    @classmethod 
+    @classmethod
     def from_points(cls, points: Iterable[Point | PointGeometry], ref: SpatialReference | None = None) -> Polyline:
         points = [
             PointGeometry(p if isinstance(p, Point) else p.centroid, ref)
