@@ -159,6 +159,18 @@ class String(Parameter):
         if default is not None:
             self.value = default
 
+class TextBox(String):
+    """Simple multiline text box parameter with filter options and default passthrough"""
+    
+    def __init__(self, displayName: str, 
+                 options: list[str] | None = None, 
+                 default: str | None = None, 
+                 required: bool = True, 
+                 name: str | None = None, 
+                 category: str | None = None) -> None:
+        super().__init__(displayName, options, default, required, name, category)
+        self.controlCLSID = '{E5456E51-0C41-4797-9EE4-5269820C6F0E}'
+
 class HiddenString(Parameter):
     """Simple string input parameter with filter options and default passthrough"""
     
