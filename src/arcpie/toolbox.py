@@ -246,6 +246,31 @@ class FilePath(Parameter):
         if default is not None:
             self.value = default
 
+class MultiFilePath(Parameter):
+    """Simple milti-filepath input with default and filter passthroughs"""
+    def __init__(self, displayName: str, 
+                 options: list[str]|None=None, 
+                 default: str|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='DEFile',
+            direction='Input',
+            category=category,
+            multiValue=True,
+        )
+        if self.filter and options:
+            self.filter.list = options
+        if default is not None:
+            self.value = default
+
 class Integer(Parameter):
     """Simple Integer number parameter with default and filter passthroughs"""
     __name__ = 'Parameter'
