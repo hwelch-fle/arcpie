@@ -1454,17 +1454,18 @@ class PolylineEditor:
             units: Specify the units of the provided angle and tolerance
             tolerance: +/- of target angle to trigger a split (default: `0.1rad`/`~5.7deg`)
         """
+        ang = abs(ang)
+        tolerance = abs(tolerance)
         if units == 'degrees':
             ang = abs(math.radians(ang)%math.pi)
             tolerance = abs(math.radians(tolerance))
         
-        ang = math.pi - ang
         segs: list[Polyline] = []
         for part in self.part_editors:
             last_split = 0
             for idx, point in enumerate(part[1:-1], start=1):
                 l, r = vectors_at(part.polyline, point)
-                if ang - tolerance < abs(abs(l@r) - math.pi) < ang + tolerance:
+                if abs(l@r) < ang + tolerance:
                     segs.append(self.from_points(part[last_split:idx+1]))
                     last_split = idx
                 
