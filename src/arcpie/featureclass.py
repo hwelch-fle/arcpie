@@ -210,15 +210,16 @@ def norm(val: Any) -> str:
         return f"'{val}'"
     return val
 
-def where(where_clause: str) -> WhereClause:
+def where(*clauses: str, mode: Literal['AND', 'OR'] = 'AND') -> WhereClause:
     """Wrap a string in a WhereClause object to use with indexing
     
     Args:
-        where_clause (str): A where clause string to mark as a clause
+        clauses: Varargs of clause string to mark as a clause
+        mode: Join statment for multiple clauses (AND/OR) (default: `AND`)
     
     Returns:
         WhereClause
-        
+
     Example:
         ```python
         >>> for row in features[where('SHAPE_LENGTH > 10')]:
@@ -229,7 +230,7 @@ def where(where_clause: str) -> WhereClause:
         ...
         ```
     """
-    return WhereClause(where_clause)
+    return WhereClause(f' {mode} '.join(filter(lambda c: bool(c), clauses)))
 
 def filter_fields(*fields: FieldName) -> Callable[[FilterFunc[RowRecord]], FilterFunc[RowRecord]]:
     """Decorator for filter functions that limits fields checked by the SearchCursor
@@ -328,13 +329,13 @@ class Table(Generic[_Schema]):
     Tokens = TableTokens
     
     def __init__(
-            self, path: str|Path,
+            self, path: str | Path,
             *,
-            search_options: SearchOptions|None=None, 
-            update_options: UpdateOptions|None=None, 
-            insert_options: InsertOptions|None=None,
-            clause: SQLClause|None=None,
-            where: str|None=None,
+            search_options: SearchOptions | None = None, 
+            update_options: UpdateOptions | None = None, 
+            insert_options: InsertOptions | None = None,
+            clause: SQLClause | None = None,
+            where: str | None = None,
         ) -> None:
         self._path = str(path)
         self._clause = clause or SQLClause(None, None)
@@ -347,9 +348,10 @@ class Table(Generic[_Schema]):
             self._search_options['where_clause'] = where
             self._update_options['where_clause'] = where
         
-        self._layer: Layer|None=None
-        self._in_edit_session=False
-        self._fields: tuple[TableToken | str, ...]|None=None
+        self._layer: Layer | None = None
+        self._in_edit_session = False
+        self._fields: tuple[TableToken | str, ...] | None = None
+        self.all_fields: tuple[TableToken | str, ...] | None = None
 
     # rw Properties
     
@@ -457,6 +459,10 @@ class Table(Generic[_Schema]):
             with self.search_cursor('*') as c:
                 _fields = c.fields
             self._fields = replace + tuple((f for f in _fields if f not in exclude))
+        
+        # Store all fields so when in limited field context we can stil validate queries
+        if self.all_fields is None:
+            self.all_fields = self._fields
         return self._fields
 
     @property
@@ -1107,7 +1113,7 @@ class Table(Generic[_Schema]):
 
             # Conditional Requests
             case wc if isinstance(wc, WhereClause):
-                if not wc.validate(self.fields):
+                if self.all_fields and not wc.validate(self.all_fields):
                     raise KeyError(f'Invalid Where Clause: {wc}, fields not found in {self.name}')
                 with self.search_cursor(*self.fields, where_clause=wc.where_clause) as cur:
                     yield from (row for row in self.as_dict(cur))
