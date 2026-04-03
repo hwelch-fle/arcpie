@@ -75,6 +75,11 @@ from arcpy import (
     EnvManager,
 )
 
+from arcpy.analysis import (
+    PairwiseBuffer, # type: ignore
+    PairwiseDissolve, # type: ignore
+)
+
 from arcpy.management import (
     CopyFeatures,  #type:ignore
     DeleteField, #type:ignore
@@ -1652,6 +1657,16 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     # ro Properties
 
     @property
+    def is_geographic(self) -> bool:
+        """True if the features are in a Geographic coordinate system"""
+        return self.spatial_reference.GCS == self.spatial_reference
+
+    @property
+    def is_currently_geographic(self) -> bool:
+        """True if the features are CURRENTLY in a Geographic coordiante system (respects `reference_as`)"""
+        return self.current_reference.GCS == self.current_reference
+
+    @property
     def shape_type(self) -> type[_GeometryType]:
         for shape in self.shapes:
             return type(shape)
@@ -1691,9 +1706,17 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         yield from ( shape for shape, in self.search_cursor('SHAPE@'))
 
     @property
-    def spatial_reference(self):
+    def spatial_reference(self) -> SpatialReference:
         """The SpatialReference object for the FeatureClass"""
         return self.describe.spatialReference
+
+    @property
+    def current_reference(self) -> SpatialReference:
+        """The CURRENT SpatialReference object for the FeatureClass (using `reference_as` will update this value)"""
+        _cur_ref = self.search_options.get('spatial_reference')
+        if _cur_ref and not isinstance(_cur_ref, SpatialReference):
+            _cur_ref = SpatialReference(_cur_ref)
+        return _cur_ref or self.spatial_reference
 
     @property
     def units(self) -> str:
@@ -1738,30 +1761,63 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     # Data Operations
     
     @overload
-    def footprint(self, buffer: float) -> Polygon | None: ...
+    def footprint(self, buffer: float, pairwise: bool) -> Polygon | None: ...
     @overload
-    def footprint(self, buffer: None) -> _GeometryType | None: ...
+    def footprint(self, buffer: None, pairwise: bool) -> _GeometryType | None: ...
     @overload
     def footprint(self, /) -> _GeometryType | None: ...
-    def footprint(self, buffer: float|None=None) -> _GeometryType | Polygon | None:
+    
+    def _footprint(self, buffer: float | None = None) -> _GeometryType | Polygon | None:
+        if buffer:
+            _buffered = PairwiseBuffer(
+                    in_features=list(self.shapes), 
+                    out_feature_class='memory/_buffer',
+                    buffer_distance_or_field=buffer, 
+                    dissolve_option='NONE',
+                    dissolve_field=None, 
+                    method='GEODESIC' if self.is_geographic else 'PLANAR',
+                    max_deviation=0,
+                )[0]
+            _dissolved = PairwiseDissolve(
+                in_features=_buffered,
+                out_feature_class='memory/_dissolve', 
+                multi_part='MULTI_PART'
+            )[0]
+            
+            footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)        
+        else:
+            _dissolved = PairwiseDissolve(
+                in_features=list(self.shapes),
+                out_feature_class='memory/_dissolve', 
+                multi_part='MULTI_PART'
+            )[0]
+            footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)
+            
+        Delete('memory')
+        return footprint or None #type: ignore
+    
+    def footprint(self, buffer: float | None = None, pairwise: bool = True) -> _GeometryType | Polygon | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
         as a spatial filter on other FeatureClasses
         
         Args:
-            buffer (float | None): Optional buffer (in feature units, respects projection context) to buffer by (default: None)
+            buffer: Optional buffer (in feature units, respects projection context) to buffer by (default: None)
+            pairwise: Will use the PairwiseBuffer and PairwiseDissolve functions to generate the footprint (default: `True`)
 
         Returns:
-            (GeometryType | None): A merged Multi-Geometry of all feature geometries or `None` if no features in FeatureClass
+            A merged Multi-Geometry of all feature geometries or `None` if no features in FeatureClass
+        
+        Note: If you have issues with footprint geometry, you can disable `pairwise` since that uses Pairwise functions.
+            when `pairwise == False`, an iterative geometry union is done with a buffer applied to the result (this can be exponentially slower)
         """
         if len(self) == 0:
             return None
 
+        if pairwise:
+            return self._footprint(buffer)
+        
         def merge(acc: _GeometryType | Polygon, nxt: _GeometryType | Polygon) -> _GeometryType | Polygon:
-            # Return type of union is Geometry for all types which is incorrect, it is Polygon
-            if buffer:
-                return acc.union(nxt.buffer(buffer)) # pyright: ignore[reportReturnType]
-            else:
-                return acc.union(nxt) # pyright: ignore[reportReturnType]
+            return acc.union(nxt) # pyright: ignore[reportReturnType]
         
         # Consume the shape generator popping off the first shape and applying the buffer, 
         # Then buffering each additional shape and merging it into the accumulator (starting with _first)
@@ -1772,9 +1828,9 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             return None
         
         if buffer:
-            _first = _first.buffer(buffer)
-        
-        return reduce(merge, _shapes, _first)
+            return reduce(merge, _shapes, _first).buffer(buffer)
+        else:
+            return reduce(merge, _shapes, _first)
     
     def recalculate_extent(self) -> None:
         """Recalculate the FeatureClass Extent"""
@@ -1801,7 +1857,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     @overload
     def __getitem__(self, field: GeometryType | Extent) -> Iterator[_Schema]: ...
     
-    def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]:
+    def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]: # pyright: ignore[reportIncompatibleMethodOverride]
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -1878,7 +1934,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     @overload
     def get(self, field: GeometryType | Extent, default: _T) -> Iterator[_Schema] | _T: ...
     
-    def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T=None) -> Iterator[Any] | _T:
+    def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T=None) -> Iterator[Any] | _T: # pyright: ignore[reportIncompatibleMethodOverride]
         """Allows safe indexing of a FeatureClass, see `Table.get` for more information"""
         try:
             return self[field]
