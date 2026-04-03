@@ -33,6 +33,7 @@ from arcpy import (
     AddError,
     Array,
     AsShape,
+    Multipoint,
     Point,
     PointGeometry,
     Polygon,
@@ -1472,6 +1473,27 @@ class PolylineEditor:
             if last_split != len(part)-1:
                 segs.append(self.from_points(part[last_split:]))
         return segs
+    
+    def intersections(self, other: Polyline | PolylineEditor) -> Iterator[PointGeometry]:
+        """Iterable of Point Intersections between this line and the other
+        
+        Note: Intersections are de-duplicated and returned as PointGeometry objects
+        """
+        if isinstance(other, PolylineEditor):
+            other = other.polyline
+        
+        intersection = self.polyline.intersect(other, 1)
+        if isinstance(intersection, PointGeometry) and intersection.isMultipart:
+            intersection = Multipoint(Array([p for p in intersection]), self.polyline.spatialReference)
+            
+        if isinstance(intersection, Multipoint):
+            seen: list[PointGeometry] = []
+            for p in (PointGeometry(p, self.polyline.spatialReference) for p in intersection):
+                if not any(p == s for s in seen):
+                    yield p
+                    seen.append(p)
+        else:
+            yield PointGeometry(intersection.centroid, self.polyline.spatialReference)
     
     # Constructors
     
