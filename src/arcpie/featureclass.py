@@ -1769,12 +1769,14 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     @overload
     def footprint(self, buffer: None, /) -> _GeometryType | None: ...
     @overload
+    def footprint(self, *, pairwise: bool) -> _GeometryType | None: ...
+    @overload
     def footprint(self, /) -> _GeometryType | None: ...
     
-    def _footprint(self, buffer: float | None = None) -> _GeometryType | Polygon | None:
+    def _footprint_pairwise(self, _feats: list[_GeometryType], buffer: float | None = None) -> _GeometryType | Polygon | None:
         if buffer:
             _buffered = PairwiseBuffer(
-                    in_features=list(self.shapes), 
+                    in_features=_feats, 
                     out_feature_class='memory/_buffer',
                     buffer_distance_or_field=buffer, 
                     dissolve_option='NONE',
@@ -1791,7 +1793,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)        
         else:
             _dissolved = PairwiseDissolve(
-                in_features=list(self.shapes),
+                in_features=_feats,
                 out_feature_class='memory/_dissolve', 
                 multi_part='MULTI_PART'
             )[0]
@@ -1814,28 +1816,30 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         Note: If you have issues with footprint geometry, you can disable `pairwise` since that uses Pairwise functions.
             when `pairwise == False`, an iterative geometry union is done with a buffer applied to the result (this can be exponentially slower)
         """
-        if len(self) == 0:
+        _feats = list(self.shapes)
+        _count = len(_feats)
+        if _count == 0:
             return None
 
-        if pairwise:
-            return self._footprint(buffer)
+        # Only use pairwise if the feature count is moderately large
+        
+        # NOTE: The cutoff for pairwise being faster depends on shape complexity
+        # ~200 to 250 seems to be the sweetspot though. Direct merge is linear 
+        # while pairwise is logarithmic with a base time of ~100ms while Geometry.merge
+        # is ~0.1ms per feature, but increases as the feature gains points
+        if pairwise and _count > 230:
+            return self._footprint_pairwise(_feats, buffer)
         
         def merge(acc: _GeometryType | Polygon, nxt: _GeometryType | Polygon) -> _GeometryType | Polygon:
             return acc.union(nxt) # pyright: ignore[reportReturnType]
         
         # Consume the shape generator popping off the first shape and applying the buffer, 
         # Then buffering each additional shape and merging it into the accumulator (starting with _first)
-        _shapes = self.shapes
-        for _first in _shapes:
-            break
-        else:
-            return None
-        
+        footprint = reduce(merge, _feats)
         if buffer:
-            return reduce(merge, _shapes, _first).buffer(buffer)
-        else:
-            return reduce(merge, _shapes, _first)
-    
+            footprint = footprint.buffer(buffer)
+        return footprint
+            
     def recalculate_extent(self) -> None:
         """Recalculate the FeatureClass Extent"""
         RecalculateFeatureClassExtent(self.path, 'STORE_EXTENT')
