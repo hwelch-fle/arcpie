@@ -1472,6 +1472,16 @@ class PolylineEditor:
                 
             if last_split != len(part)-1:
                 segs.append(self.from_points(part[last_split:]))
+        
+        if self.polyline.hasCurves:
+            # Use segment measure to preserve curves
+            segs = [
+                self.polyline.segmentAlongLine(
+                    self.polyline.measureOnLine(seg.firstPoint), 
+                    self.polyline.measureOnLine(seg.lastPoint)
+                )
+                for seg in segs
+            ]
         return segs
     
     def intersections(self, other: Polyline | PolylineEditor) -> Iterator[PointGeometry]:
