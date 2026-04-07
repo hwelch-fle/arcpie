@@ -1547,5 +1547,7 @@ class PolylineEditor:
             PointGeometry(p if isinstance(p, Point) else p.centroid, ref)
             for p in points
         ]
+        if ref is None and points:
+            ref = points[0].spatialReference
         return Polyline(Array([p.centroid for p in points]), ref)
         
