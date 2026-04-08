@@ -436,6 +436,35 @@ class FeatureDataset(Parameter):
         if default is not None:
             self.value = default
 
+class ValueTable(Parameter):
+    """Simple ValueTable parameter with filter and default passthroughs"""
+    __name__ = 'Parameter'
+    def __init__(self, displayName: str, 
+                 columns: dict[str, ParameterDatatype],
+                 filters: dict[str, list[Any]]|None=None,
+                 defaults: list[dict[str, str]]|None=None,
+                 required: bool=True,
+                 name: str|None=None,
+                 category: str|None=None) -> None:
+        
+        self.__class__.__name__ =  __name__ = 'Parameter'
+        super().__init__(
+            displayName=displayName,
+            # Snake Case the name
+            name=name or displayName.lower().replace(' ', '_'),
+            parameterType='Required' if required else 'Optional',
+            datatype='GPValueTable',
+            direction='Input',
+            category=category,
+        )
+        self.columns = [[v, k] for k, v in columns.items()]
+        if filters:
+            for i, k in enumerate(columns):
+                if k in filters:
+                    self.filters[i].list = filters[k]
+        if defaults is not None:
+            self.values = defaults
+
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):
