@@ -1176,7 +1176,7 @@ class Table(Generic[_Schema]):
         """
         return field in self.fields
 
-    def __iter__(self) -> Iterator[_Schema] | Iterator[Any]:
+    def __iter__(self) -> Iterator[_Schema]:
         """Iterate all rows in the Table or FeatureClass yielding mappings of field name to field value
         
         Note:
