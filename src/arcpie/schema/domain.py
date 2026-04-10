@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, time
 from pathlib import Path
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from typing import Any, Literal, Self, TypedDict, get_args, overload
 from builtins import range as py_range
 
@@ -31,6 +31,8 @@ from arcpy.management import (
     DeleteCodedValueFromDomain, # type: ignore
 )
 
+from arcpie._types import SystemDomain
+
 from ..featureclass import FeatureClass, Table
 
 TYPE_CHECKING = False
@@ -46,12 +48,12 @@ type NumericType = int | float
 type DateType = datetime | date | time
 type ValueType = str | NumericType | DateType
 type Description = str
-type CodedValues = dict[ValueType, Description]
+type CodedValues = Mapping[ValueType, Description]
 type RangeValue = tuple[ValueType, ValueType] | py_range
 
 # Used for CodedValueDomain.codedValues.setter
 # None signals code deletion
-type CodedValuesNullable = dict[ValueType, Description | None]
+type CodedValuesNullable = Mapping[ValueType, Description | None]
 
 
 # Argument maps given by Domain attribute -> expected by Domain funcs
@@ -271,7 +273,7 @@ class Domain(BaseDomain):
         if workspace.parent is not None:
             raise ValueError(f'Domains can only be added to the root Dataset!')
         CreateDomain(
-            in_workspace=workspace, 
+            in_workspace=str(workspace.conn.resolve()), 
             domain_name=self.name, 
             domain_description=self.description,
             field_type=_DOMAIN_FIELD_TYPE_MAP[self.type],
@@ -279,6 +281,11 @@ class Domain(BaseDomain):
             split_policy=_DOMAIN_SPLIT_POLICY_MAP[self.splitPolicy],
             merge_policy=_DOMAIN_MERGE_POLICY_MAP[self.mergePolicy],
         )
+        if isinstance(self, CodedValueDomain):
+            for code, value in self.codedValues.items():
+                AddCodedValueToDomain(str(workspace), self.name, code, value)
+        if isinstance(self, RangeDomain):
+            SetValueForRangeDomain(str(workspace), self.name, *self.range)
     
     def to_table(self, table_name: str, 
                  *,
@@ -429,6 +436,11 @@ class Domain(BaseDomain):
         )
         return CodedValueDomain([d for d in da.ListDomains(workspace) if d.name == name].pop(), workspace)
 
+    @classmethod
+    def from_dict(cls, definition: SystemDomain, workspace: str| None = None) -> Domain:
+        """Create a Domain object from a system domain definition"""
+        dom: da.Domain = type(f'__domain', (object,), {k: v for k,v in definition.items()})
+        return cls(dom, workspace)
 
 class RangeDomain(Domain):
     """Domain with a Range component"""
@@ -452,7 +464,7 @@ class RangeDomain(Domain):
     @property
     def domainType(self) -> Literal['Range']:
         return 'Range'
-
+    
 
 class CodedValueDomain(Domain):
     """Domain with a CodedValue component"""
@@ -512,7 +524,7 @@ class CodedValueDomain(Domain):
         )
     
 
-type DomainUsageMap = dict[str, FieldUsage]
+type DomainUsageMap = Mapping[str, FieldUsage]
 
 
 class DomainManager:
@@ -666,4 +678,21 @@ class DomainManager:
                 fl.write(f"\n        'owner': {_(domain_val['owner'])},")
                 fl.write('\n    },')
             fl.write('\n}\n')
-                
+              
+    def import_domains(self, domains: dict[str, SystemDomain], *, overwrite: bool = False) -> None:
+        """Import domains from a domain mapping (DOMAINS global in exported module)"""
+        
+        for d_name, d_vals in domains.items():
+            if d_name in self:
+                if overwrite:
+                    self[d_name].delete()
+                else:
+                    continue
+            if d_vals['domainType'] == 'CodedValue':
+                dom = CodedValueDomain.from_dict(d_vals, self.workspace)       
+            elif d_vals['domainType'] == 'Range':
+                dom = RangeDomain.from_dict(d_vals, self.workspace)
+            else:
+                raise ValueError(f'Invalid domain type {d_vals["domainType"]}')
+            dom.add_to(self.dataset)
+            
