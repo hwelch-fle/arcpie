@@ -321,9 +321,9 @@ def parse_hierarchy(root: type | ForwardRef, skip_annos: bool = True) -> dict[st
     _parsed: dict[str, Any] = {}
     root_types = get_type_hints(root, include_extras=True)
     for item, item_type in root_types.items():
-        if (item_type.__doc__ or '').startswith('Feature Dataset'):
+        if (item_type.__doc__ or '').startswith('FeatureDataset'):
             _parsed[item] = parse_hierarchy(item_type)
-        if not (item_type.__doc__ or '').startswith('Feature Dataset'):
+        if not (item_type.__doc__ or '').startswith('FeatureDataset'):
             if (item_type.__doc__ or '').startswith('Annotation') and skip_annos:
                 continue
             _parsed[item] = parse_fields(item_type)
