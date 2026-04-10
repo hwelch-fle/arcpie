@@ -448,6 +448,11 @@ class Table(Generic[_Schema]):
             return Path(self.path).name
 
     @property
+    def parent(self) -> str:
+        """The parent of the Table/FeatureClass (either a Dataset or a Database)"""
+        return Path(self.path).parent.name
+
+    @property
     def oid_field_name(self) -> str:
         """ObjectID fieldname (ususally FID or OID or ObjectID)"""
         return self.describe.OIDFieldName
