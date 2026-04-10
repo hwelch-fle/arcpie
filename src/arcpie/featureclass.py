@@ -440,7 +440,12 @@ class Table(Generic[_Schema]):
     @property
     def name(self) -> str:
         """The common name of the FeatureClass/Table"""
-        return self.describe.name
+        try:
+            return self.describe.name
+        except OSError:
+            # Fallback if the FeatureClass was initialized with a non
+            # existent source
+            return Path(self.path).name
 
     @property
     def oid_field_name(self) -> str:
