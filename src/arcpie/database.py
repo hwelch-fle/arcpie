@@ -639,6 +639,7 @@ class Dataset[_S = Mapping[str, Any]]:
                            *,
                            spatial_reference: SpatialReference | WKID = WGS84,
                            overwrite: bool = False,
+                           domain_module: ModuleType | None = None
                            ) -> Generator[FeatureClass | Table, None, Dataset[Any]]:
         """Build a new GDB from an existing schema module generated with `export_schema_module`
         
@@ -647,6 +648,7 @@ class Dataset[_S = Mapping[str, Any]]:
             schema_module: The module containing all table definitions
             spatial_reference: The Spatial Reference to generate the database in (default: `WGS84`/`EPSG:4326`)
             overwrite: If the target database exists, overwrite it
+            domain_module: An optional domain module that will be used to create domains in the new dataset
         
         Yields:
             FeatureClasses/Tables as they are created for monitoring purposes
@@ -697,6 +699,9 @@ class Dataset[_S = Mapping[str, Any]]:
         # Create and bind the GDB
         CreateFileGDB(str(out_loc.parent), out_loc.name, 'CURRENT')
         ds = cls(out_loc)
+        
+        if domain_module:
+            ds.domains.import_domains(getattr(domain_module, 'DOMAINS'), overwrite=overwrite)
         
         hierarchy = parse_hierarchy(root_dict, skip_annos=True)
         for child_name, child_def in hierarchy.items():
