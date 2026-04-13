@@ -1784,19 +1784,23 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def footprint(self, /) -> _GeometryType | None: ...
     
     def _footprint_pairwise(self, _feats: list[_GeometryType], buffer: float | None = None) -> _GeometryType | Polygon | None:
+        _unique = id(self) # For any multiprocessing operations (out_fc is global)
+        _dissolve_layer = f'memory/_dissolve_{_unique}'
+        _buffer_layer = f'memory/_buffer_{_unique}'
         if buffer:
             _buffered = PairwiseBuffer(
                     in_features=_feats, 
-                    out_feature_class='memory/_buffer',
+                    out_feature_class=_buffer_layer,
                     buffer_distance_or_field=buffer, 
                     dissolve_option='NONE',
                     dissolve_field=None, 
                     method='GEODESIC' if self.is_geographic else 'PLANAR',
                     max_deviation=0,
                 )[0]
+            Delete(_buffer_layer)
             _dissolved = PairwiseDissolve(
                 in_features=_buffered,
-                out_feature_class='memory/_dissolve', 
+                out_feature_class=_dissolve_layer, 
                 multi_part='MULTI_PART'
             )[0]
             
@@ -1804,12 +1808,11 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         else:
             _dissolved = PairwiseDissolve(
                 in_features=_feats,
-                out_feature_class='memory/_dissolve', 
+                out_feature_class=_dissolve_layer, 
                 multi_part='MULTI_PART'
             )[0]
             footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)
-            
-        Delete('memory')
+        Delete(_dissolve_layer)
         return footprint or None #type: ignore
     
     def footprint(self, buffer: float | None = None, pairwise: bool = True) -> _GeometryType | Polygon | None:
