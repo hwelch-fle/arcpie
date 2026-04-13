@@ -1787,33 +1787,31 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         _unique = id(self) # For any multiprocessing operations (out_fc is global)
         _dissolve_layer = f'memory/_dissolve_{_unique}'
         _buffer_layer = f'memory/_buffer_{_unique}'
-        if buffer:
-            _buffered = PairwiseBuffer(
-                    in_features=_feats, 
-                    out_feature_class=_buffer_layer,
-                    buffer_distance_or_field=buffer, 
-                    dissolve_option='NONE',
-                    dissolve_field=None, 
-                    method='GEODESIC' if self.is_geographic else 'PLANAR',
-                    max_deviation=0,
-                )[0]
+        if Exists(_dissolve_layer):
+            Delete(_dissolve_layer)
+        if Exists(_buffer_layer):
             Delete(_buffer_layer)
-            _dissolved = PairwiseDissolve(
-                in_features=_buffered,
-                out_feature_class=_dissolve_layer, 
-                multi_part='MULTI_PART'
+        _target = _feats if not buffer else PairwiseBuffer(
+                in_features=_feats, 
+                out_feature_class=_buffer_layer,
+                buffer_distance_or_field=buffer, 
+                dissolve_option='NONE',
+                dissolve_field=None, 
+                method='GEODESIC' if self.is_geographic else 'PLANAR',
+                max_deviation=0,
             )[0]
-            
-            footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)        
-        else:
-            _dissolved = PairwiseDissolve(
-                in_features=_feats,
-                out_feature_class=_dissolve_layer, 
-                multi_part='MULTI_PART'
-            )[0]
-            footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)
-        Delete(_dissolve_layer)
-        return footprint or None #type: ignore
+
+        _dissolved = PairwiseDissolve(
+            in_features=_target,
+            out_feature_class=_dissolve_layer, 
+            multi_part='MULTI_PART'
+        )[0]
+        footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)
+        if Exists(_dissolve_layer):
+            Delete(_dissolve_layer)
+        if Exists(_buffer_layer):
+            Delete(_buffer_layer)
+        return footprint or None # type: ignore
     
     def footprint(self, buffer: float | None = None, pairwise: bool = True) -> _GeometryType | Polygon | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
