@@ -3,7 +3,7 @@ from __future__ import annotations
 from functools import cached_property
 import json
 from pathlib import Path
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from tempfile import TemporaryDirectory
 
 from collections.abc import (
@@ -22,7 +22,7 @@ from typing import (
     overload,
 )
 
-from arcpy import Describe, SpatialReference # type: ignore (incorrect hinting from arcpy)
+from arcpy import Describe, EnvManager, ListFeatureClasses, SpatialReference # type: ignore (incorrect hinting from arcpy)
 
 from arcpie.cursor import Field
 
@@ -48,6 +48,9 @@ from arcpy.da import (
     Editor,
 )
 
+# da.Walk needs to be primed in the main thread
+for _ in Walk(__file__): break
+
 from arcpy.management import (
     CreateFileGDB, # type: ignore (incorrect hinting from arcpy)
     ConvertSchemaReport, # type: ignore (incorrect hinting from arcpy)
@@ -66,12 +69,38 @@ if TYPE_CHECKING:
 else:
     RelationshipClass = object
 
+
 # Type Alias to allow setting Spatial Reference using WKID int
 type WKID = int
 
+
 WGS84 = SpatialReference(4326)
 
+
 SYSTEM_FIELDS = ['objectid', 'shape', 'shape_area', 'shape_length']
+
+
+def _walk(ds: str, dtype: str | None = None):
+    """walk a dataset filtering on the supplied datatype"""
+    _is_dataset = dtype and dtype.endswith('Dataset')
+    _walker = Walk(ds, datatype=dtype)
+    return [
+        Path(root) / itm
+        for root, datasets, items in _walker
+        for itm in (items if not _is_dataset else datasets)
+    ]
+
+
+def _extract_types(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
+    """Extract paths from a dataset grouped by type"""
+    ds = str(ds)
+    data: dict[str, list[Path]] = {}
+    with ThreadPoolExecutor(max_workers=len(dtypes)) as executor:
+        futures = {executor.submit(_walk, ds, dtype): dtype for dtype in dtypes}
+        for future in as_completed(futures):
+            data[futures[future]] = future.result()
+    return data
+
 
 class Dataset[_S = Mapping[str, Any]]:
     """A Container for managing workspace connections.
@@ -114,22 +143,23 @@ class Dataset[_S = Mapping[str, Any]]:
         ['fc3', 'fc4', 'fc5', 'fc6']
         ```
     """
-    def __init__(self, conn: str|Path, *, parent: Dataset[Any]|None=None) -> None:
+        
+    def __init__(self, conn: str|Path, *, parent: Dataset[Any] | None = None) -> None:
         self.conn = Path(conn)
+        self.parent = parent
+        
+        self._datasets = {}
+        self._feature_classes = {}
+        self._tables = {}
+        self._relationships = {}
+        self._annotations = {}
         
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
-        if parent is None and self.conn.suffix != '.gdb':
+        if self.parent is None and self.conn.suffix != '.gdb':
             raise ValueError('Root Dataset requires a valid gdb path!')
-        self.parent = parent
-        self._datasets: dict[str, Dataset[Any]] | None = None
-        self._feature_classes: dict[str, FeatureClass] | None = None
-        self._tables: dict[str, Table[Any]] | None = None
-        self._relationships: dict[str, Relationship] | None = None
-        self._annotation_features: dict[str, FeatureClass] | None = None
-        # Optimization for FeatureDatasets. They inherit walked features from parent
-        if parent is None:
-            self.walk()
-        #self.walk()
+
+        # Traverse the dataset or its parent (all child datasets are subsets of their parent)
+        self.walk() if self.parent is None else self._walk_parent()
 
     @property
     def name(self) -> str:
@@ -148,7 +178,7 @@ class Dataset[_S = Mapping[str, Any]]:
     @property
     def annotations(self) -> dict[str, FeatureClass]:
         """A mapping of annotation names to `FeatureClass` objects"""
-        return {k: v for k, v in self.feature_classes.items() if v.describe.featureType == 'Annotation'}
+        return self._annotations or {}
 
     @property
     def tables(self) -> dict[str, Table[Any]]:
@@ -226,6 +256,30 @@ class Dataset[_S = Mapping[str, Any]]:
                     else:
                         raise e
 
+    def _walk_parent(self) -> None:
+        """For child datasets, walk the parent dataset to discover features"""
+        assert self.parent
+        self._feature_classes = {
+            name: fc
+            for name, fc in self.parent.feature_classes.items()
+            if Path(fc.path).is_relative_to(self.conn)
+        }
+        self._tables = {
+            name: tbl
+            for name, tbl in self.parent.tables.items()
+            if Path(tbl.path).is_relative_to(self.conn)
+        }
+        self._relationships = {
+            rel.name: rel
+            for rel in self.parent.relationships
+            if Path(rel.path).is_relative_to(self.conn)
+        }
+        self._datasets = {
+            name: ds
+            for name, ds in self.parent.datasets.items()
+            if ds.conn.is_relative_to(self.conn)
+        }
+
     def walk(self) -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
         
@@ -237,65 +291,26 @@ class Dataset[_S = Mapping[str, Any]]:
             If the contents of a dataset change during its lifetime, you may need to call walk again. All 
             children that are already initialized will be skipped and only new children will be initialized
         """
-        self._feature_classes = {}
-        for root, _, fcs in Walk(str(self.conn), datatype=['FeatureClass']):
-            root = Path(root)
-            for fc in fcs:
-                # Backlink Datasets to parent
-                if self.parent is not None and fc in self.parent:
-                    self._feature_classes[fc] = self.parent.feature_classes[fc]
-                else:
-                    self._feature_classes[fc] = FeatureClass(root / fc)
-                    
-        self._tables = {}
-        for root, _, tbls in Walk(str(self.conn), datatype=['Table']):
-            root = Path(root)
-            for tbl in tbls:
-                # Backlink Datasets to parent (Should never hit since tables are in root only)
-                if self.parent and tbl in self.parent:
-                    self._tables[tbl] = self.parent.tables[tbl]
-                else:
-                    self._tables[tbl] = Table(root / tbl)
         
-        self._relationships = {}
-        for root, _, rels in Walk(str(self.conn), datatype=['RelationshipClass']):
-            root = Path(root)
-            for rel in rels:
-                # Backlink Datasets to parent
-                if self.parent and rel in self.parent:
-                    self._relationships[rel] = self.parent.relationships[rel]
-                else:
-                    self._relationships[rel] = Relationship(self, root / rel)
+        datatypes = _extract_types(self.conn, ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset'])
         
-        # Handle datasets last to allow for backlinking     
-        self._datasets = {}
-        for root, ds, _ in Walk(str(self.conn), datatype=['FeatureDataset']):
-            root = Path(root)
-            self._datasets.update({d: Dataset(root / d, parent=self) for d in ds})
+        self._feature_classes = {path.name: FeatureClass(path) for path in datatypes['FeatureClass']}
+        self._tables = {path.name: Table(path) for path in datatypes['Table']}
+        self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
+        self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}
         
-        # Walking datasets is SLOW, use pre-cached values
-        for d in self._datasets.values():
-            d._feature_classes = {
-                name: fc 
-                for name, fc in self._feature_classes.items() 
-                if d.name == Path(fc.path).parts[-2]
+        # Annotations are a subtype of FeatureClass, so we need to access them differently
+        with EnvManager(workspace=str(self.conn)):
+            self._annotations = {
+                anno: FeatureClass(self.conn / ds / anno)
+                for ds in [''] + list(self._datasets) # include root
+                for anno in ListFeatureClasses(feature_type='Annotation', feature_dataset=ds)
             }
-            d._tables = {
-                name: tb 
-                for name, tb in self._tables.items() 
-                if d.name == Path(tb.path).parts[-2]
-            }
-            d._relationships = {
-                name: rel 
-                for name, rel in self._relationships.items() 
-                if d.name == Path(rel.path).parts[-2]
-            }
-            d._datasets = {}
-            
         
-        # Clear the schema cache
-        if hasattr(self, 'schema'):
+        try:
             del self.schema
+        except AttributeError:
+            pass
     
     def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
         if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
