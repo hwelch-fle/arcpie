@@ -915,6 +915,13 @@ class Table(Generic[_Schema]):
         """Check if the Table or FeatureClass actually exists (check for deletion or initialization with bad path)"""
         return Exists(str(self))
 
+    def is_empty(self) -> bool:
+        """Check if a Table/FeatureClass is empty"""
+        for _ in self:
+            return False
+        else:
+            return True
+
     def has_field(self, fieldname: str) -> bool:
         """Check if the field exists in the featureclass or is a valid Token (@[TOKEN])"""
         return fieldname in self.fields or fieldname in self.Tokens
