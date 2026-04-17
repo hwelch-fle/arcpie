@@ -366,7 +366,7 @@ class Table(Generic[_Schema]):
         return self._search_options.copy()
     
     @search_options.setter
-    def search_options(self, search_options: SearchOptions) -> None:
+    def search_options(self, search_options: SearchOptions | None) -> None:
         """Default SearchCursor options setter"""
         self._search_options = search_options or SearchOptions()
 
@@ -376,7 +376,7 @@ class Table(Generic[_Schema]):
         return self._insert_options.copy()
     
     @insert_options.setter
-    def insert_options(self, insert_options: InsertOptions) -> None:
+    def insert_options(self, insert_options: InsertOptions | None) -> None:
         """Default InsertCursor options setter"""
         self._insert_options = insert_options or InsertOptions()
 
@@ -386,7 +386,7 @@ class Table(Generic[_Schema]):
         return self._update_options.copy() # pyright: ignore[reportReturnType]
     
     @update_options.setter
-    def update_options(self, update_options: UpdateOptions) -> None:
+    def update_options(self, update_options: UpdateOptions | None) -> None:
         """Default UpdateCursor options setter"""
         self._update_options = update_options or UpdateOptions()
 
