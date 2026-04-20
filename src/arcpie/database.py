@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from functools import cached_property
 import json
 from pathlib import Path
@@ -65,9 +66,12 @@ from arcpy.management import (
 )
 
 if TYPE_CHECKING:
-    from arcpy.typing.describe import RelationshipClass
+    from arcpy.typing.describe import RelationshipClass, Workspace
+    from arcpy.typing.describe.base import Base
 else:
     RelationshipClass = object
+    Workspace = object
+    Base = object
 
 
 # Type Alias to allow setting Spatial Reference using WKID int
@@ -90,8 +94,13 @@ def _walk(ds: str, dtype: str | None = None):
         for itm in (items if not _is_dataset else datasets)
     ]
 
+def _extract_types_sync(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
+    """Extract paths from a dataset grouped by type"""
+    ds = str(ds)
+    return {dtype: _walk(ds, dtype) for dtype in dtypes}
 
-def _extract_types(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
+
+def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
     """Extract paths from a dataset grouped by type"""
     ds = str(ds)
     data: dict[str, list[Path]] = {}
@@ -101,6 +110,61 @@ def _extract_types(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
             data[futures[future]] = future.result()
     return data
 
+def _get_workspace(ds: Path | str) -> Workspace:
+    return Describe(ds) # type: ignore
+
+def _extract_types_describe(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
+    ds = str(ds)
+    data: dict[str, list[Path]] = defaultdict(list)
+    desc: Workspace = _get_workspace(ds)
+    for child in desc.children:
+        child_type = child.datatype # type: ignore
+        child_path = Path(child.catalogPath)
+        if child_type not in dtypes:
+            continue
+        if hasattr(child, 'children'):
+            _data = _extract_types_describe(child.catalogPath, dtypes)
+            for dtype, paths in _data.items():
+                data[dtype].extend(paths)
+        data[child_type].append(child_path)
+    return data
+            
+
+TAG_MAP = {
+    'FeatureDataset': b'<DEFeatureDataset',
+    'FeatureClass': b'<DEFeatureClassInfo',
+    'Table': b'<DETableInfo',
+    'RelationshipClass': b'<DERelationshipClassInfo',
+}
+PATH_TAGS = b'<CatalogPath>', b'</CatalogPath>'
+# Currently NetworkDataset topologies are captured as FeatureClasses
+# This can be used to filter them out, but it's not critical
+TYPE_TAGS = b'<DatasetType>', b'</DatasetType>'
+TABLE_FILE = 'a00000004.gdbtable'
+
+# Read the raw table info from the a00000004 file
+def _extract_types_a00000004(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
+    a4_table = Path(ds) / TABLE_FILE
+    data: dict[str, list[Path]] = defaultdict(list)
+    with a4_table.open('rb') as a4_file:
+        for line in a4_file.readlines()[1:]:
+            types_on_line: list[tuple[str, bytes]] = []
+            for dtype in dtypes:
+                if TAG_MAP[dtype] in line:
+                    types_on_line.append((dtype, TAG_MAP[dtype]))     
+            for dtype, open_tag in types_on_line:
+                catalog_path = line.split(
+                    open_tag
+                )[1].split(
+                    PATH_TAGS[0]
+                )[1].split(
+                    PATH_TAGS[1]
+                )[0].decode()[1:]
+                if catalog_path.endswith('.gdb'):
+                    continue
+                data[dtype].append(Path(ds) / catalog_path)
+        return data
+    
 
 class Dataset[_S = Mapping[str, Any]]:
     """A Container for managing workspace connections.
@@ -144,10 +208,9 @@ class Dataset[_S = Mapping[str, Any]]:
         ```
     """
         
-    def __init__(self, conn: str|Path, *, parent: Dataset[Any] | None = None) -> None:
+    def __init__(self, conn: str|Path, *, parent: Dataset[Any] | None = None, _walk_method: Literal['sync', 'threaded', 'describe', 'raw'] = 'sync') -> None:
         self.conn = Path(conn)
         self.parent = parent
-        
         self._datasets = {}
         self._feature_classes = {}
         self._tables = {}
@@ -159,7 +222,8 @@ class Dataset[_S = Mapping[str, Any]]:
             raise ValueError('Root Dataset requires a valid gdb path!')
 
         # Traverse the dataset or its parent (all child datasets are subsets of their parent)
-        self.walk() if self.parent is None else self._walk_parent()
+        self._walk_method = _walk_method
+        self.walk(_method=self._walk_method) if self.parent is None else self._walk_parent()
 
     @property
     def name(self) -> str:
@@ -280,7 +344,7 @@ class Dataset[_S = Mapping[str, Any]]:
             if ds.conn.is_relative_to(self.conn)
         }
 
-    def walk(self) -> None:
+    def walk(self, *, _method: Literal['sync', 'threaded', 'describe', 'raw'] = 'sync') -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
         
         Note:
@@ -291,9 +355,19 @@ class Dataset[_S = Mapping[str, Any]]:
             If the contents of a dataset change during its lifetime, you may need to call walk again. All 
             children that are already initialized will be skipped and only new children will be initialized
         """
+        features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset']
         
-        datatypes = _extract_types(self.conn, ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset'])
-        
+        if _method == 'sync':
+            datatypes = _extract_types_sync(self.conn, features)
+        elif _method == 'threaded':
+            datatypes = _extract_types_threaded(self.conn, features)
+        elif _method == 'describe':
+            datatypes = _extract_types_describe(self.conn, features)
+        elif _method == 'raw':
+            datatypes = _extract_types_a00000004(self.conn, features)
+        else:
+            raise ValueError(f"Invalid walk method '{_method}', must be one of ['sync', 'threaded', 'describe', 'raw']")
+                
         self._feature_classes = {path.name: FeatureClass(path) for path in datatypes['FeatureClass']}
         self._tables = {path.name: Table(path) for path in datatypes['Table']}
         self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
