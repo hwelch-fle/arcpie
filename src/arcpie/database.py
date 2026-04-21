@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tempfile import TemporaryDirectory
+from xml.etree import ElementTree as ET
 
 from collections.abc import (
     Callable,
@@ -66,12 +67,9 @@ from arcpy.management import (
 )
 
 if TYPE_CHECKING:
-    from arcpy.typing.describe import RelationshipClass, Workspace
-    from arcpy.typing.describe.base import Base
+    from arcpy.typing.describe import RelationshipClass
 else:
     RelationshipClass = object
-    Workspace = object
-    Base = object
 
 
 # Type Alias to allow setting Spatial Reference using WKID int
@@ -110,61 +108,62 @@ def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list
             data[futures[future]] = future.result()
     return data
 
-def _get_workspace(ds: Path | str) -> Workspace:
-    return Describe(ds) # type: ignore
-
-def _extract_types_describe(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
-    ds = str(ds)
-    data: dict[str, list[Path]] = defaultdict(list)
-    desc: Workspace = _get_workspace(ds)
-    for child in desc.children:
-        child_type = child.datatype # type: ignore
-        child_path = Path(child.catalogPath)
-        if child_type not in dtypes:
-            continue
-        if hasattr(child, 'children'):
-            _data = _extract_types_describe(child.catalogPath, dtypes)
-            for dtype, paths in _data.items():
-                data[dtype].extend(paths)
-        data[child_type].append(child_path)
-    return data
-            
 
 TAG_MAP = {
-    'FeatureDataset': b'<DEFeatureDataset',
-    'FeatureClass': b'<DEFeatureClassInfo',
-    'Table': b'<DETableInfo',
-    'RelationshipClass': b'<DERelationshipClassInfo',
+    'FeatureDataset': b'DEFeatureDataset',
+    'FeatureClass': b'DEFeatureClassInfo',
+    'Table': b'DETableInfo',
+    'RelationshipClass': b'DERelationshipClassInfo',
 }
-PATH_TAGS = b'<CatalogPath>', b'</CatalogPath>'
-# Currently NetworkDataset topologies are captured as FeatureClasses
-# This can be used to filter them out, but it's not critical
-TYPE_TAGS = b'<DatasetType>', b'</DatasetType>'
 TABLE_FILE = 'a00000004.gdbtable'
 
 # Read the raw table info from the a00000004 file
 def _extract_types_a00000004(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
-    a4_table = Path(ds) / TABLE_FILE
+    tags = {k: v for k, v in TAG_MAP.items() if k in dtypes}
+    ds = Path(ds)
+    a4_table = ds / TABLE_FILE
     data: dict[str, list[Path]] = defaultdict(list)
-    with a4_table.open('rb') as a4_file:
-        for line in a4_file.readlines()[1:]:
-            types_on_line: list[tuple[str, bytes]] = []
-            for dtype in dtypes:
-                if TAG_MAP[dtype] in line:
-                    types_on_line.append((dtype, TAG_MAP[dtype]))     
-            for dtype, open_tag in types_on_line:
-                catalog_path = line.split(
-                    open_tag
-                )[1].split(
-                    PATH_TAGS[0]
-                )[1].split(
-                    PATH_TAGS[1]
-                )[0].decode()[1:]
-                if catalog_path.endswith('.gdb'):
-                    continue
-                data[dtype].append(Path(ds) / catalog_path)
-        return data
+    lines = a4_table.read_bytes().split(sep=b'\r\n')
     
+    seen: set[str] = set()
+    for _, line in enumerate(lines):
+        line_tags: list[str] = []
+        for dtype, tag in tags.items():
+            _otag = b'<'+tag
+            if _otag in line:
+                line_tags.extend([dtype]*line.count(_otag))
+        
+        if not line_tags:
+            continue
+        
+        if len(line_tags) > 1:
+            line_tags.sort(key=lambda dtype: line.index(b'<'+tags[dtype]))
+            dtype = line_tags.pop(0)
+            tag = tags[dtype]
+            lines.append(line.split(b'</'+tag+b'>', maxsplit=1)[-1])
+            
+        else:
+            dtype = line_tags.pop()
+            tag = tags[dtype]
+        
+        o_tag = b'<'+tag
+        c_tag = b'</'+tag+b'>'
+        definition = o_tag + line.split(o_tag)[1].split(c_tag)[0] + c_tag
+        tree = ET.fromstring(definition)
+        catalog_path = tree.find('CatalogPath')
+        feature_type = tree.find('FeatureType')
+        if catalog_path is not None and catalog_path.text is not None:
+            catalog_path = catalog_path.text.split('.gdb')[-1][1:]
+            if catalog_path in seen:
+                continue
+            seen.add(catalog_path)
+            if feature_type is not None:
+                if feature_type.text == 'esriFTAnnotation':
+                    data['Annotation'].append(ds / catalog_path)
+                    continue
+            data[dtype].append(ds / catalog_path)
+    return data
+
 
 class Dataset[_S = Mapping[str, Any]]:
     """A Container for managing workspace connections.
@@ -208,9 +207,13 @@ class Dataset[_S = Mapping[str, Any]]:
         ```
     """
         
-    def __init__(self, conn: str|Path, *, parent: Dataset[Any] | None = None, _walk_method: Literal['sync', 'threaded', 'describe', 'raw'] = 'sync') -> None:
+    def __init__(self, conn: str | Path, *, 
+                 parent: Dataset[Any] | None = None, 
+                 _walk_method: Literal['sync', 'threaded', 'raw'] = 'raw'
+        ) -> None:
         self.conn = Path(conn)
         self.parent = parent
+        
         self._datasets = {}
         self._feature_classes = {}
         self._tables = {}
@@ -325,26 +328,26 @@ class Dataset[_S = Mapping[str, Any]]:
         assert self.parent
         self._feature_classes = {
             name: fc
-            for name, fc in self.parent.feature_classes.items()
+            for name, fc in self.parent._feature_classes.items()
             if Path(fc.path).is_relative_to(self.conn)
         }
         self._tables = {
             name: tbl
-            for name, tbl in self.parent.tables.items()
+            for name, tbl in self.parent._tables.items()
             if Path(tbl.path).is_relative_to(self.conn)
         }
         self._relationships = {
-            rel.name: rel
-            for rel in self.parent.relationships
+            name: rel
+            for name, rel in self.parent._relationships.items()
             if Path(rel.path).is_relative_to(self.conn)
         }
         self._datasets = {
             name: ds
-            for name, ds in self.parent.datasets.items()
+            for name, ds in self.parent._datasets.items()
             if ds.conn.is_relative_to(self.conn)
         }
 
-    def walk(self, *, _method: Literal['sync', 'threaded', 'describe', 'raw'] = 'sync') -> None:
+    def walk(self, *, _method: Literal['sync', 'threaded', 'raw'] = 'raw') -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
         
         Note:
@@ -361,26 +364,30 @@ class Dataset[_S = Mapping[str, Any]]:
             datatypes = _extract_types_sync(self.conn, features)
         elif _method == 'threaded':
             datatypes = _extract_types_threaded(self.conn, features)
-        elif _method == 'describe':
-            datatypes = _extract_types_describe(self.conn, features)
         elif _method == 'raw':
             datatypes = _extract_types_a00000004(self.conn, features)
         else:
-            raise ValueError(f"Invalid walk method '{_method}', must be one of ['sync', 'threaded', 'describe', 'raw']")
-                
+            raise ValueError(f"Invalid walk method '{_method}', must be one of ['sync', 'threaded', 'raw']")
+        
         self._feature_classes = {path.name: FeatureClass(path) for path in datatypes['FeatureClass']}
         self._tables = {path.name: Table(path) for path in datatypes['Table']}
         self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
-        self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}
+        self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}        
         
-        # Annotations are a subtype of FeatureClass, so we need to access them differently
-        with EnvManager(workspace=str(self.conn)):
-            self._annotations = {
-                anno: FeatureClass(self.conn / ds / anno)
-                for ds in [''] + list(self._datasets) # include root
-                for anno in ListFeatureClasses(feature_type='Annotation', feature_dataset=ds)
-            }
-        
+        # Special case for raw walk since we extracted annotations directly
+        if _method == 'raw':
+            if 'Annotation' in datatypes:
+                self._annotations = {path.name: FeatureClass(path) for path in datatypes['Annotation']}
+                self._feature_classes.update(self._annotations)
+        else:
+            # Annotations are a subtype of FeatureClass, so we need to access them differently
+            with EnvManager(workspace=str(self.conn)):
+                self._annotations = {
+                    anno: FeatureClass(self.conn / ds / anno)
+                    for ds in [''] + list(self._datasets) # include root
+                    for anno in ListFeatureClasses(feature_type='Annotation', feature_dataset=ds)
+                }
+            
         try:
             del self.schema
         except AttributeError:
