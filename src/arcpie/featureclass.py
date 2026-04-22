@@ -1492,15 +1492,17 @@ class Table(Generic[_Schema]):
         if self.layer:
             _selected = list(self['OID@'])
             self.layer.setSelectionSet(_selected, method=method)
-            _selected = self.layer.getSelectionSet()
+            selected = self.layer.getSelectionSet() or set()
+            _query = 'NO QUERY'
             try: # Try to select the layer in the active map
-                if len(_selected) == 1:
-                    _query = f'{self.oid_field_name} = {_selected.pop()})'
-                if len(_selected) > 1:
-                    _query = f'{self.oid_field_name} IN ({format_query_list(_selected)})'
+                if len(selected) == 1:
+                    _query = f'{self.oid_field_name} = {list(selected)[0]}'
+                elif len(selected) > 1:
+                    _query = f'{self.oid_field_name} IN ({format_query_list(selected)})'
                 else:
                     return
                 SelectLayerByAttribute(self.layer.longName, 'NEW_SELECTION', _query)
+                return
             except Exception:
                 return
    
