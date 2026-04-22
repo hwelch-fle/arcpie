@@ -863,7 +863,7 @@ class Vector:
     
     @property
     def polyline(self) -> Polyline:
-        _ref = None
+        _ref = self.ref
         start = self.tail
         end = self.head
         if isinstance(start, PointGeometry):
