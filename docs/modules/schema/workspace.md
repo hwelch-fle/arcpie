@@ -1,0 +1,3 @@
+# Workspace
+
+::: arcpie.schema.workspace
