@@ -1,7 +1,6 @@
 """Module for internal utility functions to share between modules"""
 from __future__ import annotations
 import builtins
-from collections import deque
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import reduce
@@ -589,14 +588,15 @@ def box_on_point(
     tr = Point(center.X+h_width, center.Y+h_height)
     bl = Point(center.X-h_width, center.Y-h_height)
     br = Point(center.X+h_width, center.Y-h_height)
-    points = deque([tl, tr, br, bl])
     
     if start == 'tr':
-        points.rotate(-1)
+        points = [br, bl, tl, tr]
     elif start == 'br':
-        points.rotate(-2)
+        points = [bl, tl, tr, br]
     elif start == 'bl':
-        points.rotate(-3)
+        points = [tl, tr, br, bl]
+    elif start == 'tl':
+        points = [tr, br, bl, tl]
         
     box = Polygon(Array(points), spatial_reference=ref)
     if angle:
