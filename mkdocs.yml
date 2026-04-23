@@ -9,7 +9,6 @@ repo_url: https://github.com/hwelch-fle/arcpie
 
 theme:
   name: material
-  #custom_dir: overrides
   palette:
     - media: "(prefers-color-scheme)"
       toggle:
@@ -101,26 +100,47 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Modules:
-      - featureclass: modules/featureclass.md
-      - database: modules/database.md
-      - cursor: modules/cursor.md
-      - network: modules/network.md
-      - project: modules/project.md
-      - toolbox: modules/toolbox.md
-      - utils: modules/utils.md
-      - diff: modules/diff.md
-      - schema.domain: modules/schema/domain.md
-      - schema.field: modules/schema/field.md
-      - schema.layer: modules/schema/layer.md
-      - schema.workspace: modules/schema/workspace.md
+    - featureclass: modules/featureclass.md
+    - database: modules/database.md
+    - cursor: modules/cursor.md
+    - network: modules/network.md
+    - project: modules/project.md
+    - toolbox: modules/toolbox.md
+    - utils: modules/utils.md
+    - diff: modules/diff.md
+    - schema.domain: modules/schema/domain.md
+    - schema.field: modules/schema/field.md
+    - schema.layer: modules/schema/layer.md
+    - schema.workspace: modules/schema/workspace.md
   - Examples:
-      - Getting Started: examples/1_getting-started.md
-      - Feature Interaction: examples/2_feature-interaction.md
+    - Getting Started: examples/1_getting-started.md
+    - Feature Interaction: examples/2_feature-interaction.md
 
 plugins:
   - search
   - mkdocstrings:
       handlers:
         python:
+          inventories:
+            - https://docs.python.org/3/objects.inv
           paths: [src]
+          options:
+            backlinks: tree
+            docstring_section_style: spacy
+            modernize_annotations: true
+            #heading_level: 1
+            inherited_members: true
+            merge_init_into_class: true
+            parameter_headings: true
+            separate_signature: true
+            show_root_toc_entry: false
+            show_root_heading: false
+            show_root_full_path: false
+            show_signature_annotations: true
+            show_source: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            signature_crossrefs: true
+            summary: true
+            allow_inspection: true
   - autorefs
