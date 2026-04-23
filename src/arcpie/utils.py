@@ -1426,7 +1426,7 @@ class PolylineEditor:
             ref = SpatialReference(ref)
         self.polyline = self.polyline.projectAs(ref)
     
-    def orenent_with(self, line: Polyline | PolylineEditor) -> None:
+    def orienent_with(self, line: Polyline | PolylineEditor) -> None:
         """Alter the direction of the polyline to match the direction of the input line (only works for lines that overlap)"""
         if isinstance(line, PolylineEditor):
             line = line.polyline
