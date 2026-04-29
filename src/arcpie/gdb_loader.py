@@ -226,27 +226,27 @@ class GeometryReader(MemoryReader):
     
     def read_multi(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'multigeo': 'TODO'}
     
     def read_general_polyline(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'polyline': 'TODO'}
     
     def read_general_polygon(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'polygon': 'TODO'}
     
     def read_general_point(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'general_point': 'TODO'}
     
     def read_general_multipoint(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'general_multipoint': 'TODO'}
     
     def read_general_multipatch(self, size: int) -> dict[str, Any]:
         self.scan(size)
-        return {'point': 'TODO'}
+        return {'general_multipatch': 'TODO'}
 
 
 class RowReader(MemoryReader):
