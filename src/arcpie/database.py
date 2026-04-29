@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from functools import cached_property
 import json
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tempfile import TemporaryDirectory
-from xml.etree import ElementTree as ET
 
 from collections.abc import (
     Callable,
@@ -24,7 +22,12 @@ from typing import (
     overload,
 )
 
-from arcpy import Describe, EnvManager, ListFeatureClasses, SpatialReference # type: ignore (incorrect hinting from arcpy)
+from arcpy import (
+    Describe, # type: ignore (incorrect hinting from arcpy)
+    EnvManager, 
+    ListFeatureClasses, 
+    SpatialReference,
+)
 
 from arcpie.cursor import Field
 
@@ -42,6 +45,8 @@ from .featureclass import (
     Table,
     FeatureClass,
 )
+
+from .gdb_loader import FileGDB
 
 from .utils import patch_schema_rules, convert_schema
 
@@ -82,6 +87,8 @@ WGS84 = SpatialReference(4326)
 SYSTEM_FIELDS = ['objectid', 'shape', 'shape_area', 'shape_length']
 
 
+# NOTE: Following 3 functions are deprecated since the get_items function is ~300x faster
+#       They are kept as a fallback in case the FileGDB parser fails to load the GDB_Item table
 def _walk(ds: str, dtype: str | None = None):
     """walk a dataset filtering on the supplied datatype"""
     _is_dataset = dtype and dtype.endswith('Dataset')
@@ -91,6 +98,7 @@ def _walk(ds: str, dtype: str | None = None):
         for root, datasets, items in _walker
         for itm in (items if not _is_dataset else datasets)
     ]
+
 
 def _extract_types_sync(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
     """Extract paths from a dataset grouped by type"""
@@ -109,60 +117,30 @@ def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list
     return data
 
 
-TAG_MAP = {
-    'FeatureDataset': b'DEFeatureDataset',
-    'FeatureClass': b'DEFeatureClassInfo',
-    'Table': b'DETableInfo',
-    'RelationshipClass': b'DERelationshipClassInfo',
-}
-TABLE_FILE = 'a00000004.gdbtable'
-
-# Read the raw table info from the a00000004 file
-def _extract_types_a00000004(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
-    tags = {k: v for k, v in TAG_MAP.items() if k in dtypes}
-    ds = Path(ds)
-    a4_table = ds / TABLE_FILE
-    data: dict[str, list[Path]] = defaultdict(list)
-    lines = a4_table.read_bytes().split(sep=b'\r\n')
+def get_items(gdb: FileGDB, dtypes: list[str] | None = None) -> dict[str, list[Path]]:
+    path = gdb.path
+    item_types = gdb.gdb_item_types
+    items = gdb.gdb_items
     
-    seen: set[str] = set()
-    for _, line in enumerate(lines):
-        line_tags: list[str] = []
-        for dtype, tag in tags.items():
-            _otag = b'<'+tag
-            if _otag in line:
-                line_tags.extend([dtype]*line.count(_otag))
-        
-        if not line_tags:
-            continue
-        
-        if len(line_tags) > 1:
-            line_tags.sort(key=lambda dtype: line.index(b'<'+tags[dtype]))
-            dtype = line_tags.pop(0)
-            tag = tags[dtype]
-            lines.append(line.split(b'</'+tag+b'>', maxsplit=1)[-1])
-            
-        else:
-            dtype = line_tags.pop()
-            tag = tags[dtype]
-        
-        o_tag = b'<'+tag
-        c_tag = b'</'+tag+b'>'
-        definition = o_tag + line.split(o_tag)[1].split(c_tag)[0] + c_tag
-        tree = ET.fromstring(definition)
-        catalog_path = tree.find('CatalogPath')
-        feature_type = tree.find('FeatureType')
-        if catalog_path is not None and catalog_path.text is not None:
-            catalog_path = catalog_path.text.split('.gdb')[-1][1:]
-            if catalog_path in seen:
-                continue
-            seen.add(catalog_path)
-            if feature_type is not None:
-                if feature_type.text == 'esriFTAnnotation':
-                    data['Annotation'].append(ds / catalog_path)
-                    continue
-            data[dtype].append(ds / catalog_path)
-    return data
+    # NOTE: Order matters here since to_dict returns arrays for each key
+    #       and we are zipping the unpacked values
+    item_fields = 'Type', 'Path', 'Definition', 'Name'
+    map_fields = 'UUID', 'Name'
+    
+    type_map: dict[str, str] = dict(zip(*item_types.to_dict(map_fields).values()))
+    gdb_items = items.to_dict(item_fields)
+    gdb_items['Type'] = [type_map[i].replace(' ','') for i in gdb_items['Type']]
+    requested_types = {t for t in gdb_items['Type'] if dtypes is None or t in dtypes}
+    
+    ret = {k: list[Path]() for k in requested_types}
+    for dtype, catalog_path, definition, name in filter(lambda i: i[0] in ret, zip(*gdb_items.values())):
+        if definition and 'esriFTAnnotation' in definition:
+            dtype = 'Annotation'
+            ret.setdefault(dtype, [])
+        if catalog_path and catalog_path.startswith('\\'):
+            catalog_path = catalog_path[1:]
+        ret[dtype].append(path / (catalog_path or name))
+    return ret
 
 
 class Dataset[_S = Mapping[str, Any]]:
@@ -206,11 +184,13 @@ class Dataset[_S = Mapping[str, Any]]:
         ['fc3', 'fc4', 'fc5', 'fc6']
         ```
     """
+    
+    # Topologies will create phantom tables defined in the GDB_Items (a...4.gdbtable) table, 
+    # But these are inaccessible through normal interfaces. 
+    # Any manipulation or inspection of these tables must be done via gdb_loader.FileGDB
+    _invalid_tables = 'T_1_PointErrors', 'T_1_LineErrors', 'T_1_PolyErrors', 'T_1_DirtyAreas'
         
-    def __init__(self, conn: str | Path, *, 
-                 parent: Dataset[Any] | None = None, 
-                 _walk_method: Literal['sync', 'threaded', 'raw'] = 'raw'
-        ) -> None:
+    def __init__(self, conn: str | Path, *, parent: Dataset[Any] | None = None) -> None:
         self.conn = Path(conn)
         self.parent = parent
         
@@ -221,12 +201,18 @@ class Dataset[_S = Mapping[str, Any]]:
         self._annotations = {}
         
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
-        if self.parent is None and self.conn.suffix != '.gdb':
-            raise ValueError('Root Dataset requires a valid gdb path!')
+        if self.parent is None:
+            if not self.conn.exists():
+                raise FileNotFoundError(f'{conn} does not exist!')
+            if self.conn.suffix != '.gdb' or not self.conn.is_dir():
+                raise ValueError('Root Dataset requires a valid gdb path!')
 
         # Traverse the dataset or its parent (all child datasets are subsets of their parent)
-        self._walk_method = _walk_method
-        self.walk(_method=self._walk_method) if self.parent is None else self._walk_parent()
+        self.walk() if self.parent is None else self._walk_parent()
+
+    @property
+    def file_gdb(self) -> FileGDB:
+        return FileGDB(self.conn)
 
     @property
     def name(self) -> str:
@@ -347,7 +333,7 @@ class Dataset[_S = Mapping[str, Any]]:
             if ds.conn.is_relative_to(self.conn)
         }
 
-    def walk(self, *, _method: Literal['sync', 'threaded', 'raw'] = 'raw') -> None:
+    def walk(self) -> None:
         """Traverse the connection/path using `arcpy.da.Walk` and discover all dataset children
         
         Note:
@@ -360,25 +346,30 @@ class Dataset[_S = Mapping[str, Any]]:
         """
         features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset']
         
-        if _method == 'sync':
-            datatypes = _extract_types_sync(self.conn, features)
-        elif _method == 'threaded':
-            datatypes = _extract_types_threaded(self.conn, features)
-        elif _method == 'raw':
-            datatypes = _extract_types_a00000004(self.conn, features)
-        else:
-            raise ValueError(f"Invalid walk method '{_method}', must be one of ['sync', 'threaded', 'raw']")
+        # NOTE: FileGDB can fail on malformed databases, the fallback to Walk allows for this
+        #       to be handled as a moderate slowdown on initialization without totally failing 
+        #       to index the database
+        try:
+            datatypes = get_items(FileGDB(self.conn), features)
+        except Exception:
+            if self.conn.resolve().drive.startswith('\\'):
+                datatypes = _extract_types_threaded(self.conn, features)
+            else:
+                datatypes = _extract_types_sync(self.conn, features)
         
-        self._feature_classes = {path.name: FeatureClass(path) for path in datatypes['FeatureClass']}
+        self._feature_classes = {
+            path.name: FeatureClass(path) 
+            for path in datatypes['FeatureClass']
+            if path.name not in Dataset._invalid_tables
+        }
         self._tables = {path.name: Table(path) for path in datatypes['Table']}
         self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
         self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}        
         
         # Special case for raw walk since we extracted annotations directly
-        if _method == 'raw':
-            if 'Annotation' in datatypes:
-                self._annotations = {path.name: FeatureClass(path) for path in datatypes['Annotation']}
-                self._feature_classes.update(self._annotations)
+        if 'Annotation' in datatypes:
+            self._annotations = {path.name: FeatureClass(path) for path in datatypes['Annotation']}
+            self._feature_classes.update(self._annotations)
         else:
             # Annotations are a subtype of FeatureClass, so we need to access them differently
             with EnvManager(workspace=str(self.conn)):
