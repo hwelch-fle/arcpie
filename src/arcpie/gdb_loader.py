@@ -39,6 +39,7 @@ class TablxHeader(TypedDict):
     _unknown: NotRequired[int]
     varying_section: NotRequired[int]
 
+
 class TableHeader(TypedDict):
     version: int
     row_count: int
@@ -49,6 +50,7 @@ class TableHeader(TypedDict):
     byte_offset: int
     has_deleted: NotRequired[bool]
     _unknown: NotRequired[int]
+
 
 class MemoryReader:
     _struct_cache = dict[str, Struct]()
@@ -351,13 +353,13 @@ class FileGDB:
     
     def __init__(self, path: Path | str) -> None:
         self.path = Path(path)
-        self.gdb_catalog = GDBTable(path, 'a00000001')
-        self.gdb_tune = GDBTable(path, 'a00000002')
-        self.gdb_refs = GDBTable(path, 'a00000003')
-        self.gdb_items = GDBTable(path, 'a00000004')
-        self.gdb_item_types = GDBTable(path, 'a00000005')
-        self.gdb_item_relationships = GDBTable(path, 'a00000006')
-        self.gdb_item_relationship_types = GDBTable(path, 'a00000007')
+        self.gdb_catalog = GDBTable(path, 'a00000001', 'GDB_SystemCatalog')
+        self.gdb_tune = GDBTable(path, 'a00000002', 'GDB_DBTune')
+        self.gdb_refs = GDBTable(path, 'a00000003', 'GDB_SpatialRefs')
+        self.gdb_items = GDBTable(path, 'a00000004', 'GDB_Items')
+        self.gdb_item_types = GDBTable(path, 'a00000005', 'GDB_ItemTypes')
+        self.gdb_item_relationships = GDBTable(path, 'a00000006', 'GDB_ItemRelationships')
+        self.gdb_item_relationship_types = GDBTable(path, 'a00000007', 'GDB_ItemRelationshipTypes')
     
     @cached_property
     def index(self) -> dict[str, str]:
@@ -381,6 +383,9 @@ class FileGDB:
     @property
     def dead_tables(self) -> dict[str, GDBTable]:
         return {k: v for k,v in self.tables.items() if k not in self.index}
+    
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}(...{self.path.name}, tables={len(self.tables)})'
     
     def __iter__(self) -> Iterator[GDBTable]:
         return iter(self.tables.values())
@@ -485,8 +490,8 @@ class GDBTable:
             truncate = maxlen
         header_row = f'| {'|'.join(headers)} |'
         rows.append(header_row)
-        col_sep = '-'*(len(header_row)//len(headers))
-        header_sep = '|-'+'|'.join(col_sep[1:-1] for _ in range(len(headers)))+'-|'
+        row_sep = '-'*(len(header_row)//len(headers))
+        header_sep = '|-'+'|'.join(row_sep[:-1] for _ in range(len(headers)))+'-|'
         rows.append(header_sep)
         spec = f'<{maxlen}'
         if align == 'center':
@@ -494,8 +499,13 @@ class GDBTable:
         elif align == 'right':
             spec = f'>{maxlen}'
         for row in self:
-            row = list(f'{str(v)[:truncate]:{spec}}' for v in row.values())
-            rows.append(f'| {'|'.join(row)} |')
+            vals: list[str] = []
+            for val in row.values():
+                val = str(val).encode('unicode-escape').decode('utf-8')
+                if truncate and len(val) > truncate:
+                    val = val[:truncate][:-3] + '...'
+                vals.append(f'{str(val):{spec}}')
+            rows.append(f'| {'|'.join(vals)} |')
         return '\n'.join(rows)
 
     def to_csv(self, fl: Path | str, *, sep: str = ',', newline: str = '\n') -> Path:
@@ -509,7 +519,7 @@ class GDBTable:
             csvfile.write(newline)
         return fl
 
-    def to_dict(self, fields: None | Sequence[str]) -> dict[str, list[Any]]:
+    def to_dict(self, fields: None | Sequence[str] = None) -> dict[str, list[Any]]:
         data = defaultdict[str, list[Any]](list)
         
         # Preserve field order
