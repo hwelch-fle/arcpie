@@ -280,6 +280,8 @@ class Dataset[_S = Mapping[str, Any]]:
         """
         for feature_class in self.feature_classes.values():
             yield from feature_class.attribute_rules.export_rules(Path(rule_dir))
+        for table in self.tables.values():
+            yield from table.attribute_rules.export_rules(Path(rule_dir))
 
     @overload
     def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[True]) -> Iterator[AttributeRule | Exception]: ...
