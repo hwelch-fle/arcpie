@@ -133,12 +133,19 @@ def get_items(gdb: FileGDB, dtypes: list[str] | None = None) -> dict[str, list[P
     requested_types = {t for t in gdb_items['Type'] if dtypes is None or t in dtypes}
     
     ret = {k: list[Path]() for k in requested_types}
-    for dtype, catalog_path, definition, name in filter(lambda i: i[0] in ret, zip(*gdb_items.values())):
+    for dtype, catalog_path, definition, name in zip(*gdb_items.values()):
+        # Skip non-requested types
+        if dtype not in ret:
+            continue
+        # Determine if a FeatureClass is actually an AnnotationClass
         if definition and 'esriFTAnnotation' in definition:
             dtype = 'Annotation'
             ret.setdefault(dtype, [])
+        # Remove the leading slash from CatalogPath to allow path joining
         if catalog_path and catalog_path.startswith('\\'):
             catalog_path = catalog_path[1:]
+        # For pathless types (like Domains), just return 
+        # the name joined to the root path
         ret[dtype].append(path / (catalog_path or name))
     return ret
 
