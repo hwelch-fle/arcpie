@@ -8,6 +8,7 @@ from tempfile import TemporaryDirectory
 
 from collections.abc import (
     Callable,
+    Collection,
     Generator,
     Iterator,
     Mapping,
@@ -25,6 +26,7 @@ from typing import (
 from arcpy import (
     Describe, # type: ignore (incorrect hinting from arcpy)
     EnvManager, 
+    Geometry, 
     ListFeatureClasses, 
     SpatialReference,
 )
@@ -51,6 +53,8 @@ from .gdb_loader import FileGDB
 from .utils import patch_schema_rules, convert_schema
 
 from arcpy.da import (
+    SearchCursor,
+    SearchRelatedRecords,
     Walk,
     Editor,
 )
@@ -99,13 +103,6 @@ def _walk(ds: str, dtype: str | None = None):
         for itm in (items if not _is_dataset else datasets)
     ]
 
-
-def _extract_types_sync(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
-    """Extract paths from a dataset grouped by type"""
-    ds = str(ds)
-    return {dtype: _walk(ds, dtype) for dtype in dtypes}
-
-
 def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
     """Extract paths from a dataset grouped by type"""
     ds = str(ds)
@@ -117,37 +114,23 @@ def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list
     return data
 
 
-def get_items(gdb: FileGDB, dtypes: list[str] | None = None) -> dict[str, list[Path]]:
-    path = gdb.path
-    item_types = gdb.gdb_item_types
-    items = gdb.gdb_items
-    
-    # NOTE: Order matters here since to_dict returns arrays for each key
-    #       and we are zipping the unpacked values
-    item_fields = 'Type', 'Path', 'Definition', 'Name'
-    map_fields = 'UUID', 'Name'
-    
-    type_map: dict[str, str] = dict(zip(*item_types.to_dict(map_fields).values()))
-    gdb_items = items.to_dict(item_fields)
-    gdb_items['Type'] = [type_map[i].replace(' ','') for i in gdb_items['Type']]
-    requested_types = {t for t in gdb_items['Type'] if dtypes is None or t in dtypes}
-    
-    ret = {k: list[Path]() for k in dtypes or requested_types}
-    for dtype, catalog_path, definition, name in zip(*gdb_items.values()):
-        # Determine if a FeatureClass is actually an AnnotationClass
-        if definition and 'esriFTAnnotation' in definition:
-            dtype = 'Annotation'
-            ret.setdefault(dtype, [])
-        # Skip non-requested types
-        if dtype not in ret:
+def get_items(gdb: Path | str, *dtypes: str) -> dict[str, list[Path]]:
+    gdb = Path(gdb)
+    gdb_types = dict[str, str](
+        (uuid, typ.replace(' ', '')) 
+        for uuid, typ in SearchCursor(str(gdb / 'GDB_ItemTypes'), ['UUID', 'Name'])
+    )
+    gdb_items = {
+        t: list[Path]() 
+        for t in dtypes or gdb_types.values()
+    }
+    _flds = 'Type', 'Path', 'DatasetSubtype1', 'DatasetSubtype2'
+    for typ, pth, *_subtype in SearchCursor(str(gdb / 'GDB_Items'), _flds):
+        typ = 'Annotation' if tuple(_subtype) == (11,4) else gdb_types[typ]
+        if not pth or typ not in gdb_items: 
             continue
-        # Remove the leading slash from CatalogPath to allow path joining
-        if catalog_path and catalog_path.startswith('\\'):
-            catalog_path = catalog_path[1:]
-        # For pathless types (like Domains), just return 
-        # the name joined to the root path
-        ret[dtype].append(path / (catalog_path or name))
-    return ret
+        gdb_items[typ].append(gdb / str(pth).lstrip('\\'))
+    return gdb_items
 
 
 class Dataset[_S = Mapping[str, Any]]:
@@ -353,19 +336,14 @@ class Dataset[_S = Mapping[str, Any]]:
             If the contents of a dataset change during its lifetime, you may need to call walk again. All 
             children that are already initialized will be skipped and only new children will be initialized
         """
-        features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset']
+        features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset', 'Annotation']
         
-        # NOTE: FileGDB can fail on malformed databases, the fallback to Walk allows for this
-        #       to be handled as a moderate slowdown on initialization without totally failing 
-        #       to index the database
-        try:
-            datatypes = get_items(FileGDB(self.conn), features)
-        except Exception:
-            if self.conn.resolve().drive.startswith('\\'):
-                datatypes = _extract_types_threaded(self.conn, features)
-            else:
-                datatypes = _extract_types_sync(self.conn, features)
-        
+        datatypes = (
+            get_items(self.conn, *features)
+            if self.conn.suffix == '.gdb'
+            else _extract_types_threaded(self.conn, features)
+        )
+
         self._feature_classes = {
             path.name: FeatureClass(path) 
             for path in datatypes['FeatureClass']
