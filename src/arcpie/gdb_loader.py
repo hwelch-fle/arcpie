@@ -278,6 +278,65 @@ class GeometryReader(MemoryReader):
         return {'general_multipatch': 'TODO'}
 
 
+class SimpleAnnotation(TypedDict):
+    shape: Any
+    text: str
+    leaders: Any
+    extra: NotRequired[list[Any]]
+
+
+class CompoundAnnotation(SimpleAnnotation):
+    type: str
+    symbol: dict[str, Any]
+    blendingMode: str
+    attributes: dict[str, Any]
+    placement: str
+
+
+class AnnoReader(MemoryReader):
+    
+    def read_simple_anno(self, spatial_reference: SpatialReference | None = None) -> SimpleAnnotation:
+        """Read a simple Annotation element"""
+        strings: list[str] = []
+        strings.append(self.decode(self.varint(False)))
+        self.scan(1) # 50? Possibly the leader point length?
+        while self.index < self.view.nbytes:
+            strings.append(self.decode(self.varint(False)))
+            self.scan(12) # Garbage buffer between strings
+        
+        data: SimpleAnnotation = {'shape': None, 'text': '', 'leaders': {}}
+        if len(strings) >= 2:
+            data['shape'] = [tuple(map(float, pt.split(','))) for pt in strings[0].split(';')]
+            data['text'] = strings[1]
+        if len(strings) >= 3:
+            data['leaders'] = [json.loads(strings[2])] if strings[2] else []
+        if len(strings) > 3:
+            data['extra'] = strings[3:]
+        
+        if not _HAS_ARCPY:
+            return data
+        
+        _points = Array(Point(*pt, ID=i) for i, pt in enumerate(data['shape']))
+        data['shape'] = Polyline(_points, spatial_reference)
+        if data.get('leaders'):
+            data['leaders'] = [
+                PointGeometry(Point(*leader.values()), spatial_reference) 
+                for leader in data['leaders']
+            ]
+        return data
+    
+    def read_compound_anno(self, spatial_reference: SpatialReference | None = None) -> CompoundAnnotation:
+        """Read a compound Annotation element"""
+        data = json.loads(self.decode(self.varint(False))) 
+        if not _HAS_ARCPY:
+            return data
+        
+        data['shape'] = AsShape(data['shape'], esri_json=True).projectAs(spatial_reference or 'GCS_WGS_1984')
+        for leader in data['leaders']:
+            leader['point'] = PointGeometry(Point(*leader['point'].values()), spatial_reference)
+        return data
+
+
 class RowReader(MemoryReader):
     def read_geometry_field(self) -> Any:
         size = self.varint(False)
