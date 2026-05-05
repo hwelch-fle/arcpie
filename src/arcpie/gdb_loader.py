@@ -282,17 +282,17 @@ class RowReader(MemoryReader):
     def read_binary_field(self, blob_len: int) -> bytes:
         return self.read(self.varint(False))
         
-    def read_string_field(self) -> str:
+    def read_string_field(self, encoding: str = 'utf-8') -> str:
         val = self.read(self.varint(False))
         try:
-            return val.decode('utf-8')
+            return val.decode(encoding)
         except UnicodeDecodeError:
             return str(val)
     
-    def read_xml_field(self) -> str:
+    def read_xml_field(self, encoding: str = 'utf-8', strict: bool = False) -> str:
         val = self.read(self.varint(False))
         try:
-            return val.decode('utf-8', 'replace')
+            return val.decode(encoding, 'strict' if strict else 'replace')
         except UnicodeDecodeError:
             return str(val)
     
