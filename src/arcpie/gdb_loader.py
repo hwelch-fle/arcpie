@@ -218,7 +218,7 @@ class FieldReader(MemoryReader):
 
     def read_string(self) -> dict[str, Any]:
         return {
-            'max_len': self.int32(),
+            'max_len': self.int32(False),
             'flag': self.int8(False),
             'default': self.decode(self.varint(False), 'utf-8') if self.last & 4 else self.varint(False) and None
         }
