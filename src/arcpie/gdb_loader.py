@@ -367,7 +367,7 @@ class RowReader(MemoryReader):
         self.index = geo_reader.index
         return shape
         
-    def read_binary_field(self, blob_len: int) -> bytes:
+    def read_binary_field(self) -> bytes:
         return self.read(self.varint(False))
         
     def read_string_field(self, encoding: str = 'utf-8') -> str:
@@ -814,11 +814,10 @@ class GDBTable:
                     if is_null:
                         row[name] = None
                         continue
-                    
                 if field_type == 'geometry':
                     row[name] = reader.read_geometry_field()
                 elif field_type == 'binary':
-                    row[name] = reader.read_binary_field(blob_len)
+                    row[name] = reader.read_binary_field()
                 elif field_type == 'raster':
                     row[name] = reader.read_raster_field(desc['raster_type'])
                 elif field_type in ('string', 'xml'):
