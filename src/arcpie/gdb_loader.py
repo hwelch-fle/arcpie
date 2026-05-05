@@ -90,7 +90,7 @@ class MemoryReader:
     
     def __init__(self, view: memoryview, start: int = 0,
                  *,
-                 byte_order: Literal['@','=','<','>','!'] = '=',
+                 byte_order: Literal['@','=','<','>','!'] = '<',
                  stack_size: int = 10,
         ) -> None:
         self.view = view
