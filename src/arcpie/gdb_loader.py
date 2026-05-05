@@ -176,7 +176,7 @@ class FieldReader(MemoryReader):
     def read_generic(self) -> dict[str, Any]:
         return {
             'width': self.int8(False),
-            'flag': self.int8(False),
+            'flag' : self.int8(False),
         }
 
     def read_default(self) -> dict[str, Any]:
