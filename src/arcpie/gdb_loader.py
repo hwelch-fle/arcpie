@@ -822,7 +822,7 @@ class GDBTable:
                     row[name] = reader.read_raster_field(desc['raster_type'])
                 elif field_type in ('string', 'xml'):
                     row[name] = reader.read_string_field()
-                elif field_type in ('guid, globalid'):
+                elif field_type in ('guid', 'globalid'):
                     row[name] = reader.read_uuid_field()
                 elif field_type == 'objectid':
                     row[name] = reader.read_objectid_field(ver)
