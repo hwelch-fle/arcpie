@@ -91,7 +91,10 @@ class MemoryReader:
         self.view = view
         self.index = start
         self.byte_order = byte_order
-        self.stack= deque[Any](maxlen=stack_size)
+        self.stack = deque[Any](maxlen=stack_size)
+    
+    def __len__(self) -> int:
+        return self.view.nbytes - self.index
     
     @property
     def last(self) -> Any:
