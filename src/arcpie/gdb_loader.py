@@ -139,8 +139,10 @@ class MemoryReader:
             ret = (val & 0x3F)
             if val & 0x40: 
                 neg = True
-            if not (val & 0x80): 
-                return -ret if neg else ret
+            if not (val & 0x80):
+                ret = -ret if neg else ret
+                self.stack.append(ret)
+                return ret
             shift = 6
         else:
             shift = ret = 0
@@ -150,7 +152,9 @@ class MemoryReader:
             if not val & 0x80: 
                 break
             shift += 7
-        return -ret if neg else ret
+        ret = -ret if neg else ret
+        self.stack.append(ret)
+        return ret
     
     def float32(self) -> float:
         return self.unpack('f')[0]
