@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from collections import defaultdict, deque
 from functools import cached_property
+import json
 
 from collections.abc import Iterator, Sequence
 from typing import (
@@ -16,16 +17,42 @@ from typing import (
     Literal,
 )
 
+_HAS_ARCPY = True
 _HAS_PANDAS = True
 if TYPE_CHECKING:
+    from arcpy import (
+        AsShape, 
+        Point, 
+        PointGeometry, 
+        SpatialReference, 
+        Array, 
+        Polyline,
+    )
     from pandas import DataFrame
-
 else:
     try:
         from pandas import DataFrame
     except ImportError:
-        DataFrame = object
         _HAS_PANDAS = False
+        DataFrame = object
+    try:
+      from arcpy import (
+        AsShape, 
+        Point, 
+        PointGeometry, 
+        SpatialReference, 
+        Array, 
+        Polyline,
+    )
+    except ImportError:
+        _HAS_ARCPY = False
+        AsShape = None
+        Point = None
+        PointGeometry = None
+        SpatialReference = None
+        Array = None
+        Polyline = None
+        
 
 
 # All dates are anchored as float64 days from this date
@@ -55,11 +82,6 @@ class TableHeader(TypedDict):
 class MemoryReader:
     _struct_cache = dict[str, Struct]()
     __slots__ = 'view', 'index', 'byte_order', 'stack'
-    
-    view: memoryview
-    index: int
-    byte_order: Literal['@','=','<','>','!']
-    stack: deque[Any]
     
     def __init__(self, view: memoryview, start: int = 0,
                  *,
