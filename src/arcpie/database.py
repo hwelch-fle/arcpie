@@ -944,6 +944,57 @@ class Relationship:
         self.delete()
         rel_opts.update(options)
         CreateRelationshipClass(**rel_opts)
+    
+    def get_records(self, origin_fields: Collection[str], dest_fields: Collection[str]) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]:
+        with SearchRelatedRecords(str(self.path), origin_fields=list(origin_fields), destination_fields=list(dest_fields)) as rel_cur:
+            for o, d in rel_cur:
+                yield dict(zip(origin_fields, o)), dict(zip(dest_fields, d))
+    
+    @overload
+    def __getitem__(self, fields: set[str]) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]: ...
+    @overload
+    def __getitem__(self, fields: tuple[set[str], set[str]]) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]: ...
+    @overload
+    def __getitem__(self, fields: tuple[tuple[str, ...], tuple[str, ...]]) -> Iterator[tuple[tuple[Any, ...], tuple[Any, ...]]]: ...
+    @overload
+    def __getitem__(self, fields: Literal['SHAPE@']) -> Iterator[tuple[Geometry, Geometry]]: ...
+    def __getitem__(self, fields: Literal['SHAPE@'] | set[str] | tuple[Collection[str], Collection[str]]) -> Any:
+        if not fields:
+            return
+        if fields == 'SHAPE@':
+            for o, d in self.get_records(['SHAPE@'], ['SHAPE@']):
+                yield o['SHAPE@'], d['SHAPE@']
+            return
+        dest = self.destinations[0]
+        dest_fields = dest.fields
+        orig = self.origins[0]
+        orig_fields = orig.fields
+        match fields:
+            case set():
+                o_fields = [f for f in fields if f in orig_fields]
+                d_fields = [f for f in fields if f in dest_fields]
+            case tuple():
+                o_fields, d_fields = fields
+            case _:
+                raise KeyError()
+        if not set(o_fields).issubset(orig_fields):
+            raise KeyError(f'Origin Fields {set(o_fields) - set(orig_fields)} not a member of {orig_fields}')
+        if not set(d_fields).issubset(dest_fields):
+            raise KeyError(f'Destination Fields {set(d_fields) - set(dest_fields)} not a member of {dest_fields}')
+        for o, d in self.get_records(o_fields, d_fields):
+            if isinstance(o_fields, tuple):
+                o = tuple(o.get(f) for f in o_fields)
+                d = tuple(d.get(f) for f in d_fields)
+                yield o, d
+            else:
+                yield o, d
+    
+    def __iter__(self) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]:
+        orig = self.origins[0]
+        dest = self.destinations[0]
+        o_fields = orig.fields
+        d_fields = dest.fields
+        yield from self.get_records(o_fields, d_fields)
 
 
 class RelationshipManager:
