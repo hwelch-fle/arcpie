@@ -411,6 +411,7 @@ class Dataset[_S = Mapping[str, Any]]:
             f"{self.name}, "
             "{"
             f"Features: {len(self.feature_classes)}, "
+            f"Annotations: {len(self.annotations)}, "
             f"Tables: {len(self.tables)}, "
             f"Datasets: {len(self.datasets)}, "
             f"Relationships: {len(self.relationships)}, "
