@@ -616,7 +616,7 @@ class FileGDB:
         return f'{self.__class__.__name__}(...{self.path.name}, tables={len(self.tables)})'
     
     def __iter__(self) -> Iterator[GDBTable]:
-        return iter(self.tables.values())
+        yield from self.tables.values()
     
     def __getitem__(self, key: str) -> GDBTable:
         if key in self.tables:
