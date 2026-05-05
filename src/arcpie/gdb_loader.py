@@ -23,10 +23,12 @@ if TYPE_CHECKING:
     from arcpy import (
         AsShape, 
         Point, 
+        Multipoint,
         PointGeometry, 
         SpatialReference, 
         Array, 
         Polyline,
+        Polygon,
     )
     from pandas import DataFrame
 else:
@@ -39,21 +41,24 @@ else:
       from arcpy import (
         AsShape, 
         Point, 
+        Multipoint,
         PointGeometry, 
         SpatialReference, 
         Array, 
         Polyline,
+        Polygon,
     )
     except ImportError:
         _HAS_ARCPY = False
         AsShape = None
         Point = None
+        Multipoint = None
         PointGeometry = None
         SpatialReference = None
         Array = None
         Polyline = None
+        Polygon = None
         
-
 
 # All dates are anchored as float64 days from this date
 START_DATE = datetime(1899, 12, 30, 0, 0, 0, 0)
@@ -245,35 +250,169 @@ class FieldReader(MemoryReader):
 
 
 class GeometryReader(MemoryReader):
-    def read_point(self, size: int) -> dict[str, Any]:
-        self.scan(size)
-        return {'point': 'TODO'}
+    def read_point(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
+        _xyscale: float = info['xy-scale']
+        _mscale: float = info['m-scale']
+        _zscale: float = info['z-scale']
+        _xorigin: float = info['x-origin']
+        _yorigin: float = info['y-origin']
+        _zorigin: float = info['z-origin']
+        _morigin: float = info['m-origin']
+        _ref: str = info['reference']
+        
+        pt: dict[str, float] = {
+            'x': (
+                (self.varint(False) - 1)/_xyscale 
+                or float('nan')
+            ) + _xorigin,
+            'y': (
+                (self.varint(False) - 1)/_xyscale 
+                or float('nan')
+            ) + _yorigin,
+            'z': (
+                (self.varint(False) - 1)/_zscale 
+                or float('nan')
+            ) + _zorigin if info['has-z'] else float('nan'),
+            'm': (
+                (self.varint(False) - 1)/_mscale 
+                or float('nan')
+            ) + _morigin if info['has-m'] else float('nan'),
+        }
+        if _as_shape:
+            return PointGeometry(
+                Point(pt['x'], pt['y'], pt['z'], pt['m']), 
+                spatial_reference=SpatialReference(text=_ref)
+            )
+        return pt
     
-    def read_multipoint(self, size: int) -> dict[str, Any]:
-        self.scan(size)
-        return {'multipoint': 'TODO'}
+    def read_multipoint(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> Any:
+        _xyscale: float = info['xy-scale']
+        _xmin: float = info['x-min']
+        _ymin: float = info['y-min']
+        _mscale: float = info['m-scale']
+        _zscale: float = info['z-scale']
+        _hasz: bool = info['has-z']
+        _hasm: bool = info['has-m']
+        _xorigin: float = info['x-origin']
+        _yorigin: float = info['y-origin']
+        _zorigin: float = info['z-origin']
+        _morigin: float = info['m-origin']
+        _ref: str = info['reference']
+        
+        point_count = self.varint(False)
+        bounds: dict[str, float] = {
+            'xmin': self.varint(False)/_xyscale + _xorigin,
+            'ymin': self.varint(False)/_xyscale + _yorigin,
+            'xmax': self.varint(False)/_xyscale + _xmin,
+            'ymax': self.varint(False)/_xyscale + _ymin,
+        }
+        points: list[dict[str, float]] = []
+        dx = dy = dz = 0
+        for _ in range(point_count):
+            dx += self.varint()
+            dy += self.varint()
+            dx += self.varint() if _hasz else 0
+            points.append(
+                {
+                    'x': dx / _xyscale + _xorigin,
+                    'y': dy / _xyscale + _yorigin,
+                    'z': (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                }
+            )
+        
+        if _as_shape:
+            return Multipoint(
+                Array([Point(*p.values(), ID=i) for i, p in enumerate(points)]),
+                spatial_reference=SpatialReference(text=_ref)
+            )
+        return points
+        
+    def _read_multi(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
+        _xyscale: float = info['xy-scale']
+        _xmin: float = info['x-min']
+        _ymin: float = info['y-min']
+        _mscale: float = info['m-scale']
+        _zscale: float = info['z-scale']
+        _hasz: bool = info['has-z']
+        _hasm: bool = info['has-m']
+        _xorigin: float = info['x-origin']
+        _yorigin: float = info['y-origin']
+        _zorigin: float = info['z-origin']
+        _morigin: float = info['m-origin']
+        _ref: str = info['reference']
+        
+        point_count = self.varint(False)
+        part_count = self.varint(False)
+        bounds: dict[str, float] = {
+            'xmin': self.varint(False)/_xyscale + _xorigin,
+            'ymin': self.varint(False)/_xyscale + _yorigin,
+        }
+        bounds['xmax'] = self.varint(False)/_xyscale + bounds['xmin']
+        bounds['ymax'] =  self.varint(False)/_xyscale + bounds['ymin']
+        
+        part_point_count = [
+            self.varint(False) 
+            for _ in range(part_count)
+        ] if part_count > 1 else [point_count]
+
+        rings: list[Any] = []
+        for part in range(part_count):
+            dx = dy = dz = 0
+            points : list[Any]= []
+            for point in range(part_point_count[part]):
+                dx += self.varint()
+                dy += self.varint()
+                dx += self.varint() if _hasz else 0
+                if _as_shape:
+                    points.append(
+                        Point(
+                            dx / _xyscale + _xorigin,
+                            dy / _xyscale + _yorigin,
+                            (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                            ID=point,
+                        )
+                    )
+                else:
+                    points.append(
+                        {
+                            'x': dx / _xyscale + _xorigin,
+                            'y': dy / _xyscale + _yorigin,
+                            'z': (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                        }
+                    )
+            rings.append(points)
+        return rings
     
-    def read_multi(self, size: int) -> dict[str, Any]:
-        self.scan(size)
-        return {'multigeo': 'TODO'}
+    def read_polyline(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
+        points = self._read_multi(info, _as_shape)
+        self.read(1) # ?
+        if _as_shape:
+            return Polyline(Array(points), spatial_reference=SpatialReference(text=info['reference']))
+        return points
     
-    def read_general_polyline(self, size: int) -> dict[str, Any]:
+    def read_polygon(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
+        points = self._read_multi(info, _as_shape)
+        if _as_shape:
+            return Polygon(Array(points), spatial_reference=SpatialReference(text=info['reference']))
+        return points
+    
+    def read_general_polyline(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> dict[str, Any]:
         self.scan(size)
         return {'polyline': 'TODO'}
     
-    def read_general_polygon(self, size: int) -> dict[str, Any]:
+    def read_general_polygon(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> dict[str, Any]:
         self.scan(size)
         return {'polygon': 'TODO'}
     
-    def read_general_point(self, size: int) -> dict[str, Any]:
+    def read_general_point(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> dict[str, Any]:
         self.scan(size)
         return {'general_point': 'TODO'}
     
-    def read_general_multipoint(self, size: int) -> dict[str, Any]:
+    def read_general_multipoint(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> dict[str, Any]:
         self.scan(size)
         return {'general_multipoint': 'TODO'}
     
-    def read_general_multipatch(self, size: int) -> dict[str, Any]:
+    def read_general_multipatch(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> dict[str, Any]:
         self.scan(size)
         return {'general_multipatch': 'TODO'}
 
@@ -338,30 +477,31 @@ class AnnoReader(MemoryReader):
 
 
 class RowReader(MemoryReader):
-    def read_geometry_field(self) -> Any:
+    
+    def read_geometry_field(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
         size = self.varint(False)
+        idx = self.index # Store this since type is included in the blob
         geo_type = self.varint(False)
-        geo_reader = GeometryReader(
-            view=self.view, 
-            start=self.index,
-            byte_order=self.byte_order # type: ignore
-        )
+        size -= self.index-idx
+        geo_reader = GeometryReader(view=self.view, start=self.index)
         if geo_type in (1,9,21,11):
-            shape = geo_reader.read_point(size)
+            shape = geo_reader.read_point(info=info, _as_shape=_as_shape)
         elif geo_type in (8,20,28,18):
-            shape = geo_reader.read_general_multipoint(size)
-        elif geo_type in (3,10,23,13) or geo_type in (5,19,25,15):
-            shape = geo_reader.read_multi(size)
+            shape = geo_reader.read_general_multipoint(size, info, _as_shape=_as_shape)
+        elif geo_type in (3,10,23,13):
+            shape = geo_reader.read_polyline(info, _as_shape=_as_shape)
+        elif geo_type in (5,19,25,15):
+            shape = geo_reader.read_polygon(info, _as_shape=_as_shape)
         elif geo_type & 0xff == 50:
-            shape = geo_reader.read_general_polyline(size)
+            shape = geo_reader.read_general_polyline(size, info, _as_shape=_as_shape)
         elif geo_type & 0xff == 51:
-            shape = geo_reader.read_general_polygon(size)
+            shape = geo_reader.read_general_polygon(size, info, _as_shape=_as_shape)
         elif geo_type & 0xff == 52:
-            shape = geo_reader.read_general_point(size)
+            shape = geo_reader.read_general_point(size, info, _as_shape=_as_shape)
         elif geo_type & 0xff == 53:
-            shape = geo_reader.read_general_multipoint(size)
+            shape = geo_reader.read_general_multipoint(size, info, _as_shape=_as_shape)
         elif geo_type & 0xff == 54:
-            shape = geo_reader.read_general_multipatch(size)
+            shape = geo_reader.read_general_multipatch(size, info, _as_shape=_as_shape)
         else:
             raise ValueError(f'Unknown geometry type {geo_type}')
         self.index = geo_reader.index
@@ -486,6 +626,8 @@ class FileGDB:
 
 class GDBTable:
     """GDB Table File reader"""
+    
+    _as_shape = _HAS_ARCPY
     
     _geom_types = {
         1: 'point',
@@ -815,7 +957,7 @@ class GDBTable:
                         row[name] = None
                         continue
                 if field_type == 'geometry':
-                    row[name] = reader.read_geometry_field()
+                    row[name] = reader.read_geometry_field(info=field_info, _as_shape=self._as_shape)
                 elif field_type == 'binary':
                     row[name] = reader.read_binary_field()
                 elif field_type == 'raster':
