@@ -921,47 +921,47 @@ class GDBTable:
         return self.table_header['row_count']
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
-        fields = self.fields
-        nullable = sum(1 for f in fields.values() if f['nullable'])
-        offset = self._row_offset
         row_count = self.table_header['row_count']
         if not row_count: return 
+        fields = self.fields
+        offset = self._row_offset
+        nullable = sum(1 for f in fields.values() if f['nullable'])
         ver = self.tablx_header['version']
-        reader = RowReader(
-            memoryview(self.table), 
-            start=offset, 
-            byte_order='<',
-        )
+        yielded_rows = 0
+        reader = RowReader(memoryview(self.table), start=offset)
         for fid, offset in enumerate(self.field_offsets, start=1):
-            if not offset:
-                continue
+            if not offset: continue
+            if yielded_rows == row_count: break
+            
             reader.index = offset
-            row = {}
-            blob_len = reader.int32(False) # unused?
+            _blob_len = reader.int32(False) # unused?
+            
+            row: dict[str, Any] = {}
             flags: list[int] = [
                 reader.int8(False) 
                 for _ in range(0, nullable, 8)
             ]
             flag_test = 0
-            for name, desc in fields.items():
-                field_type = desc['field_type']
+            for name, field_info in fields.items():
+                field_type = field_info['field_type']
                 
                 if field_type == 'objectid':
                     row[name] = fid
                     continue
                 
-                if flags and desc['nullable']:
+                if flags and field_info['nullable']:
                     is_null = (flags[flag_test >> 3] & (1 << (flag_test % 8)))
                     flag_test += 1
-                    if is_null:
+                    if is_null: 
                         row[name] = None
                         continue
+                
                 if field_type == 'geometry':
                     row[name] = reader.read_geometry_field(info=field_info, _as_shape=self._as_shape)
                 elif field_type == 'binary':
                     row[name] = reader.read_binary_field()
                 elif field_type == 'raster':
-                    row[name] = reader.read_raster_field(desc['raster_type'])
+                    row[name] = reader.read_raster_field(field_info['raster_type'])
                 elif field_type in ('string', 'xml'):
                     row[name] = reader.read_string_field()
                 elif field_type in ('guid', 'globalid'):
@@ -969,5 +969,6 @@ class GDBTable:
                 elif field_type == 'objectid':
                     row[name] = reader.read_objectid_field(ver)
                 else:
-                    row[name] = reader.read_generic_field(desc['field_type'])
+                    row[name] = reader.read_generic_field(field_info['field_type'])
             yield row
+            yielded_rows += 1
