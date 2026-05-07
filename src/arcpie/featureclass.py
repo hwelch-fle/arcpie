@@ -1924,7 +1924,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             >>> print(list(fc[where('field1 = target')]))
             [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
              
-            >>> # Shape Filter (provide a shape to use as a spatial filter on the rows)
+            >>> # Shape Filter (provide a shape to use as a spatial filter on the rows (inherit shape reference))
             >>> print(list(fc[shape]))
             [{'field1': val1, 'field2': val2, ...}, {'field1': val1, 'field2': val2, ...}, ...]
             
@@ -1936,8 +1936,10 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             case 'SHAPE@':
                 yield from self.shapes
             case shape if isinstance(shape, Extent | GeometryType):
-                with self.search_cursor(*self.fields, spatial_filter=shape) as cur:
-                    yield from (row for row in self.as_dict(cur))
+                with self.spatial_filter(shape):
+                    yield from self
+                # with self.search_cursor(*self.fields, spatial_filter=shape, spatial_reference=shape.spatialReference) as cur:
+                #     yield from (row for row in self.as_dict(cur))
             case field if isinstance(field, str|set|list|tuple|Callable|WhereClause|None):
                 yield from super().__getitem__(field)
             case _:
@@ -2021,7 +2023,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         """Apply a spatial filter to the FeatureClass in a context
         
         Args:
-            spatial_filter (Geometry | Extent): The geometry to use as a spatial filter
+            spatial_filter (Geometry | Extent): The geometry to use as a spatial filter (features will be projected to match its coordiate system)
             spatial_relationship (SpatialRelationship): The relationship to check for (default: `INTERSECTS`)
         
         Example:
@@ -2049,7 +2051,8 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         with self.options(
             search_options=SearchOptions(
                 spatial_filter=spatial_filter, 
-                spatial_relationship=spatial_relationship)):
+                spatial_relationship=spatial_relationship,
+                spatial_reference=spatial_filter.spatialReference)):
             yield self
 
     def get_transformation(self, to_ref: SpatialReference) -> str | None:
