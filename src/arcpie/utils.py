@@ -1069,7 +1069,8 @@ class PolylineEditor:
                                       ^^p1^^^|^p2^^
     ```
     """
-    def __init__(self, polyline: Polyline) -> None:
+    def __init__(self, polyline: Polyline, ref: SpatialReference | None = None) -> None:
+        polyline = polyline.projectAs(ref) if ref else polyline
         self._orig_polyline = polyline
         self.polyline = polyline
     
