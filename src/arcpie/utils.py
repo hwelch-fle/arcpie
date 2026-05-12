@@ -1070,6 +1070,7 @@ class PolylineEditor:
     ```
     """
     def __init__(self, polyline: Polyline, ref: SpatialReference | None = None) -> None:
+        self.ref = ref or polyline.spatialReference
         polyline = polyline.projectAs(ref) if ref else polyline
         self._orig_polyline = polyline
         self.polyline = polyline
@@ -1082,7 +1083,7 @@ class PolylineEditor:
     @property
     def first_point(self) -> PointGeometry:
         """PointGeometry of the Polyline's firstPoint"""
-        return PointGeometry(self.polyline.firstPoint, self.polyline.spatialReference)
+        return PointGeometry(self.polyline.firstPoint, self.ref)
     
     @first_point.setter
     def first_point(self, point: PointGeometry) -> None:
@@ -1092,7 +1093,7 @@ class PolylineEditor:
     @property
     def last_point(self) -> PointGeometry:
         """PointGeometry of the Polyline's lastPoint"""
-        return PointGeometry(self.polyline.lastPoint, self.polyline.spatialReference)
+        return PointGeometry(self.polyline.lastPoint, self.ref)
     
     @last_point.setter
     def last_point(self, point: PointGeometry) -> None:
@@ -1102,18 +1103,18 @@ class PolylineEditor:
     @property
     def centroid(self) -> PointGeometry:
         """Centroid of the feature if it is within the feature (same as measure@50%)"""
-        return PointGeometry(self.polyline.centroid, self.polyline.spatialReference)
+        return PointGeometry(self.polyline.centroid, self.ref)
     
     @property
     def true_centroid(self) -> PointGeometry:
         """Center of gravity of the feature (not always in the line)"""
-        return PointGeometry(self.polyline.trueCentroid, self.polyline.spatialReference)
+        return PointGeometry(self.polyline.trueCentroid, self.ref)
     
     @property
     def parts(self) -> list[Polyline]:
         """A list of parts of the Polyline as Polylines (singlepart polylines will contain one part)"""
         return [
-            Polyline(Array([p.centroid for p in part]), self.polyline.spatialReference) 
+            Polyline(Array([p.centroid for p in part]), self.ref) 
             for part in iter_parts(self.polyline)
         ]
     
