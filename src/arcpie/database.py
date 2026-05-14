@@ -338,11 +338,10 @@ class Dataset[_S = Mapping[str, Any]]:
         """
         features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset', 'Annotation']
         
-        datatypes = (
-            get_items(self.conn, *features)
-            if self.conn.suffix == '.gdb'
-            else _extract_types_threaded(self.conn, features)
-        )
+        try:
+            datatypes = get_items(self.conn, *features)
+        except Exception:
+            datatypes = _extract_types_threaded(self.conn, features)
 
         self._feature_classes = {
             path.name: FeatureClass(path) 
