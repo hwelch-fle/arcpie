@@ -1507,6 +1507,10 @@ class PolylineEditor:
         else:
             yield PointGeometry(intersection.centroid, self.polyline.spatialReference)
     
+    def projectAs(self, ref: SpatialReference, *, transformation: str | None = None) -> None:
+        self.polyline = self.polyline.projectAs(ref, transformation_name=transformation)
+        self.ref = ref
+    
     # Constructors
     
     @classmethod
