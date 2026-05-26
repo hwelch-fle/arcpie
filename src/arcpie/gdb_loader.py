@@ -484,6 +484,8 @@ class RowReader(MemoryReader):
         geo_type = self.varint(False)
         size -= self.index-idx
         geo_reader = GeometryReader(view=self.view, start=self.index)
+        self.scan(size)
+        return {'SHAPE': geo_type}
         if geo_type in (1,9,21,11):
             shape = geo_reader.read_point(info=info, _as_shape=_as_shape)
         elif geo_type in (8,20,28,18):
@@ -589,6 +591,7 @@ class FileGDB:
         self.gdb_item_relationships = GDBTable(path, 'a00000006', 'GDB_ItemRelationships')
         self.gdb_item_relationship_types = GDBTable(path, 'a00000007', 'GDB_ItemRelationshipTypes')
     
+    
     @cached_property
     def index(self) -> dict[str, str]:
         return {
@@ -607,6 +610,16 @@ class FileGDB:
             if (display_name := _index.get(table.stem, table.stem))
             and table.exists()
         }
+    
+    @property
+    def type_map(self) -> dict[str, str]:
+        """Mapping of internal feature type UUID to feature type name"""
+        return {typ['UUID']: typ['Name'] for typ in self.gdb_item_types}
+    
+    @property
+    def name_map(self) -> dict[str, str]:
+        """Mapping of internal feature UUID to feature name"""
+        return {itm['UUID']: itm['Name'] for itm in self.gdb_items}
     
     @property
     def dead_tables(self) -> dict[str, GDBTable]:
