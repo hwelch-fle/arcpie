@@ -10,6 +10,7 @@ from collections.abc import (
 )
 from collections import UserString
 from typing import (
+    TYPE_CHECKING,
     Literal,
     TypeVar,
     Generic,
@@ -317,6 +318,48 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         return self.page_values.get(self.page_field, 'No Page')
     
     def to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> BytesIO:
+        from arcpy.mp import CreateExportFormat, CreateExportOptions # type: ignore
+        if TYPE_CHECKING:
+            from arcpy.mp import PDFFormat, MapSeriesExportOptions
+        else:
+            PDFFormat = MapSeriesExportOptions = object
+        
+        with NamedTemporaryFile() as tmp:
+            _settings = MapseriesPDFDefault.copy()
+            _settings.update(settings)
+            pdf: PDFFormat = CreateExportFormat('PDF', tmp.name) # type: ignore
+            pdf.resolution = _settings.get('resolution', 96)
+            pdf.imageQuality = _settings.get('image_quality', 'BEST')
+            pdf.compressVectorGraphics = _settings.get('compress_vector_graphics', True)
+            pdf.imageCompression = _settings.get('image_compression', 'ADAPTIVE')
+            pdf.embedFonts = _settings.get('embed_fonts', True)
+            pdf.layersAndAttributes = _settings.get('layers_attributes', 'LAYERS_ONLY')
+            pdf.georefInfo = _settings.get('georef_info', True)
+            pdf.imageCompressionQuality = _settings.get('jpeg_compression_quality', 80)
+            pdf.clipToElements = _settings.get('clip_to_elements', False)
+            pdf.outputAsImage = _settings.get('output_as_image', False)
+            pdf.embedColorProfile = _settings.get('embed_color_profile', True)
+            pdf.includeAccessibilityTags = _settings.get('pdf_accessibility', False)
+            pdf.removeLayoutBackground = not _settings.get('keep_layout_background', True)
+            pdf.convertMarkers = _settings.get('convert_markers', False)
+            pdf.simulateOverprint = _settings.get('simulate_overprint', False)
+            
+            ms_opts: MapSeriesExportOptions = CreateExportOptions('MAPSERIES') # type: ignore
+            if 'page_range_string' in _settings:
+                ms_opts.customPages = _settings['page_range_string']
+            ms_opts.setExportFileOptions(_settings.get('multiple_files', 'PDF_SINGLE_FILE'))
+            t =_settings.get('page_range_type', 'ALL')
+            if t == 'RANGE':
+                t = 'CUSTOM'
+            elif t == 'SELECTED':
+                t = 'SELECTED_INDEX_FEATURES'
+            ms_opts.setExportPages(t)
+            ms_opts.showExportCount = settings.get('show_export_count', False)
+        
+            with Path(self.export(pdf, ms_opts)).open('rb') as fl:
+                return BytesIO(fl.read())
+    
+    def _to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> BytesIO:
         """Export the MapSeries to a PDF, See Layer.to_pdf for more info
         
         Args:
@@ -509,6 +552,41 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
             return json.loads(Path(f'{tmp.name}.pagx').read_text(encoding='utf-8'))
     
     def to_pdf(self, **settings: Unpack[PDFSetting]) -> BytesIO:
+        from arcpy.mp import CreateExportFormat # type: ignore
+        if TYPE_CHECKING:
+            from arcpy.mp import PDFFormat
+        else:
+            PDFFormat = object
+        
+        with NamedTemporaryFile() as tmp:
+            pdf: PDFFormat = CreateExportFormat('PDF', tmp.name) # type: ignore
+            _settings = PDFDefault.copy()
+            for arg in _settings:
+                if val := settings.get(arg):
+                    _settings[arg] = val
+            pdf.resolution = _settings.get('resolution', 96)
+            pdf.imageQuality = _settings.get('image_quality', 'BEST')
+            pdf.compressVectorGraphics = _settings.get('compress_vector_graphics', True)
+            pdf.imageCompression = _settings.get('image_compression', 'ADAPTIVE')
+            pdf.embedFonts = _settings.get('embed_fonts', True)
+            pdf.layersAndAttributes = _settings.get('layers_attributes', 'LAYERS_ONLY')
+            pdf.georefInfo = _settings.get('georef_info', True)
+            pdf.imageCompressionQuality = _settings.get('jpeg_compression_quality', 80)
+            pdf.clipToElements = _settings.get('clip_to_elements', False)
+            pdf.outputAsImage = _settings.get('output_as_image', False)
+            pdf.embedColorProfile = _settings.get('embed_color_profile', True)
+            pdf.includeAccessibilityTags = _settings.get('pdf_accessibility', False)
+            pdf.removeLayoutBackground = not _settings.get('keep_layout_background', True)
+            pdf.convertMarkers = _settings.get('convert_markers', False)
+            pdf.simulateOverprint = _settings.get('simulate_overprint', False)
+            
+            # NEW
+            pdf.showSelectionSymbology = _settings.get('show_selection_symbology', False)
+            
+            with Path(self.export(pdf)).open('rb') as fl:
+                return BytesIO(fl.read())
+    
+    def _to_pdf(self, **settings: Unpack[PDFSetting]) -> BytesIO:
         """Get the bytes for a pdf export of the Layout
         
         Args:

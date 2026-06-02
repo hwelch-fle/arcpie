@@ -279,6 +279,7 @@ class MapSeriesPDFSetting(PDFSetting, total=False):
     page_range_type: Literal['ALL', 'CURRENT', 'RANGE', 'SELECTED']
     multiple_files: Literal['PDF_MULTIPLE_FILES_PAGE_NAME', 'PDF_MULTIPLE_FILES_PAGE_NUMBER', 'PDF_SINGLE_FILE']
     page_range_string: str
+    show_export_count: bool
 
 # New for 3.6 (mp.PDFFormat)
 class PDFFormatSetting(TypedDict):
