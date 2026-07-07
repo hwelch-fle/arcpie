@@ -1,34 +1,24 @@
 from __future__ import annotations
 
-from importlib import reload, import_module
-from traceback import format_exc
-from functools import wraps
-import traceback
-from types import MappingProxyType, ModuleType
 import inspect
-from logging import Logger
-from datetime import datetime
 import time
-
-from arcpy import Parameter as _Parameter
-from arcpie.project import Map, Project
-from arcpie._types import ParameterDatatype
+import traceback
 from abc import ABC
 from collections.abc import Callable
-from typing import Any, Literal, TypeVar, overload, SupportsIndex
+from datetime import datetime
+from functools import wraps
+from importlib import import_module, reload
+from logging import Logger
+from traceback import format_exc
+from types import MappingProxyType, ModuleType
+from typing import Any
 
-class Parameter(_Parameter):
-    def __init__(self,
-                 name: str | None = None, 
-                 displayName: str | None = None, 
-                 direction: None | Literal['Input', 'Output'] = None, 
-                 datatype: ParameterDatatype | list[ParameterDatatype | str] | str | None= None, 
-                 parameterType: None | Literal['Required', 'Optional', 'Derived'] = None, 
-                 enabled: bool | None = None, 
-                 category: str | None = None, 
-                 symbology: str | None = None, 
-                 multiValue: bool | None = None) -> None:
-        super().__init__(name, displayName, direction, datatype, parameterType, enabled, category, symbology, multiValue)
+from arcpie._types import ParameterDatatype
+from arcpie.parameters import Parameter, Parameters
+from arcpie.parameters.custom import *  # noqa: F403
+from arcpie.project import Map, Project
+from arcpie.utils import print
+
 
 class ToolboxABC(ABC):
     def __init__(self) -> None:
@@ -42,7 +32,7 @@ class ToolABC(ABC):
         self.description: str = self.__doc__ or 'No Descrption Provided'
         self.category: str | None = None
     
-    def getParameterInfo(self) -> Parameters | list[Parameter]: return Parameters()
+    def getParameterInfo(self) -> Parameters | list[Parameter]: return []
     def isLicensed(self) -> bool: return True
     def updateParameters(self, parameters: Parameters | list[Parameter]) -> None: ...
     def updateMessages(self, parameters: Parameters | list[Parameter]) -> None: ...
@@ -60,439 +50,6 @@ class Tool(ToolABC):
     def active_map(self) -> Map | None:
         if self.project.aprx.activeMap:
             return Map(self.project.aprx.activeMap, parent=self.project)
-
-_Default = TypeVar('_Default')
-class Parameters(list[Parameter]):
-    """Wrap a list of parameters and override the index to allow indexing by name"""
-    @overload
-    def __getitem__(self, key: SupportsIndex, /) -> Parameter: ...
-    @overload
-    def __getitem__(self, key: slice, /) -> list[Parameter]: ...
-    @overload
-    def __getitem__(self, key: str, /) -> Parameter: ...
-    def __getitem__(self, key: SupportsIndex|slice|str, /) -> Parameter | list[Parameter]:
-        if isinstance(key, str):
-            _matches = [p for p in self if p.name == key]
-            if not _matches:
-                raise KeyError(key)
-            if len(_matches) == 1:
-                return _matches.pop()
-            raise KeyError(f'{key} is used for multiple parameters')
-        return self[key]
-    
-    @overload
-    def get(self, key: SupportsIndex, default: _Default=None, /) -> Parameter | _Default: ...
-    @overload
-    def get(self, key: slice, default: _Default=None, /) -> list[Parameter] | _Default: ...
-    @overload
-    def get(self, key: str, default: _Default=None, /) -> Parameter | _Default: ...
-    def get(self, key: SupportsIndex|slice|str, default: _Default=None, /) -> Parameter | list[Parameter] | _Default:
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
-    def __contains__(self, key: object) -> bool:
-        match key:
-            case str():
-                return any(p.name == key for p in self)
-            case Parameter():
-                return any(p == key for p in self)
-            case _:
-                return False
-
-# Parameter Primitives
-
-class Done(Parameter):
-    """An Empty Output parameter that can be used to signal that a tool has completed in Model Builder"""
-    def __init__(self) -> None:
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName='Done',
-            name='done',
-            direction='Output',
-            parameterType='Derived',
-        )
-
-class Toggle(Parameter):
-    """Simple toggle button with a name and default state"""
-
-    def __init__(self, displayName: str, 
-                 default: bool=False, 
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required',
-            datatype='GPBoolean',
-            direction='Input',
-            category=category,
-        )
-        self.value = default
-
-class String(Parameter):
-    """Simple string input parameter with filter options and default passthrough"""
-    
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None, 
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPString',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class TextBox(String):
-    """Simple multiline text box parameter with filter options and default passthrough"""
-    
-    def __init__(self, displayName: str, 
-                 options: list[str] | None = None, 
-                 default: str | None = None, 
-                 required: bool = True, 
-                 name: str | None = None, 
-                 category: str | None = None) -> None:
-        super().__init__(displayName, options, default, required, name, category)
-        self.controlCLSID = '{E5456E51-0C41-4797-9EE4-5269820C6F0E}'
-
-class HiddenString(Parameter):
-    """Simple string input parameter with filter options and default passthrough"""
-    
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None, 
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPStringHidden',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-        
-class StringList(Parameter):
-    """Simple string list with default and filter passthroughs"""
-
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None, 
-                 defaults: list[str]|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPString',
-            direction='Input',
-            category=category,
-            multiValue=True,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if defaults:
-            self.values = defaults
-
-class FilePath(Parameter):
-    """Simple filepath input with default and filter passthroughs"""
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None, 
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='DEFile',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class MultiFilePath(Parameter):
-    """Simple milti-filepath input with default and filter passthroughs"""
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None, 
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='DEFile',
-            direction='Input',
-            category=category,
-            multiValue=True,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class Integer(Parameter):
-    """Simple Integer number parameter with default and filter passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[int]|range|None=None, 
-                 default: int|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPLong',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            if isinstance(options, range):
-                if options.step:
-                    self.filter.list = list(options)
-                else:
-                    self.filter.type = 'Range'
-                    self.filter.list = [options.start, options.stop]
-            else:
-                self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class Double(Parameter):
-    """Simple Double/Float parameter with default and filter passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[float]|None=None, 
-                 default: float|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPDouble',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class FeatureLayer(Parameter):
-    """Simple Feature Layer parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None,
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 allow_create: bool=False,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPFeatureLayer',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-        if allow_create:
-            self.controlCLSID = '{60061247-BCA8-473E-A7AF-A2026DDE1C2D}'
-
-class FeatureLayerList(Parameter):
-    """Simple Feature Layer parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None,
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 allow_create: bool=False,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPFeatureLayer',
-            direction='Input',
-            category=category,
-            multiValue=True,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-        if allow_create:
-            self.controlCLSID = '{60061247-BCA8-473E-A7AF-A2026DDE1C2D}'
-
-class Folder(Parameter):
-    """Simple Feature Layer parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None,
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='DEFolder',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class SQLExpression(Parameter):
-    """Simple Query parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None,
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None,
-                 depends_on: list[str]|None=None,) -> None:
-        
-        self.__class__.__name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPSQLExpression',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-        if depends_on:
-            self.parameterDependencies = depends_on
-   
-
-class FeatureDataset(Parameter):
-    """Simple Feature Dataset parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 options: list[str]|None=None,
-                 default: str|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='DEFeatureDataset',
-            direction='Input',
-            category=category,
-        )
-        if self.filter and options:
-            self.filter.list = options
-        if default is not None:
-            self.value = default
-
-class ValueTable(Parameter):
-    """Simple ValueTable parameter with filter and default passthroughs"""
-    __name__ = 'Parameter'
-    def __init__(self, displayName: str, 
-                 columns: dict[str, ParameterDatatype],
-                 filters: dict[str, list[Any]]|None=None,
-                 defaults: list[dict[str, str]]|None=None,
-                 required: bool=True,
-                 name: str|None=None,
-                 category: str|None=None) -> None:
-        
-        self.__class__.__name__ =  __name__ = 'Parameter'
-        super().__init__(
-            displayName=displayName,
-            # Snake Case the name
-            name=name or displayName.lower().replace(' ', '_'),
-            parameterType='Required' if required else 'Optional',
-            datatype='GPValueTable',
-            direction='Input',
-            category=category,
-        )
-        self.columns = [[v, k] for k, v in columns.items()]
-        if filters:
-            for i, k in enumerate(columns):
-                if k in filters:
-                    self.filters[i].list = filters[k]
-        if defaults is not None:
-            self.values = defaults
 
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
@@ -604,7 +161,7 @@ def _build_params(params: MappingProxyType[str, inspect.Parameter], types: Param
     # Match parameter order to types order
     return Parameters([_parameters[name] for name in types if name in _parameters] + [p for p in _parameters if p.name not in types])
 
-def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> tuple[tuple[Any], dict[str, Any]]:
+def _read_params(arcpy_params: Parameters | list[Parameter], func_params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> tuple[tuple[Any], dict[str, Any]]:
     args: dict[str, Any] = {}
     kwargs: dict[str, Any] = {}
     for arcpy_param in arcpy_params:
@@ -618,7 +175,6 @@ def _read_params(arcpy_params: list[Parameter], func_params: MappingProxyType[st
     # Ensure that the function call is passed arguments in the correct order (assuming the type parameters have been moved)
     return tuple(args[name] for name in func_params if name in args), kwargs
 
-from arcpie.utils import print
 ParameterTypeMap = dict[str, tuple[ParameterDatatype | list[ParameterDatatype] | Parameter, Callable[[Parameter], Any]]]
 def toolify(*tool_registries: list[type[ToolABC]], 
             name: str|None=None, 
