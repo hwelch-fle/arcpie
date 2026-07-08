@@ -38,8 +38,11 @@ class Done(p.GPBoolean):
         self.value = False
 
 
-class Toggle(p.GPBoolean): ...
-
+class Toggle(p.GPBoolean):
+    def _post_init(self, ctx: ParameterAttrs) -> None:
+        if self.parameterType == 'Required':
+            self.value = self.value if self.value is not None else False
+        super()._post_init(ctx)
 
 class String(p.GPString):
     def _post_init(self, ctx: ParameterAttrs) -> None:
