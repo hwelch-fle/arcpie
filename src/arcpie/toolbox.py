@@ -51,6 +51,34 @@ class Tool(ToolABC):
         if self.project.aprx.activeMap:
             return Map(self.project.aprx.activeMap, parent=self.project)
 
+
+def profile(*selectors: str):
+    from cProfile import Profile
+    from pstats import Stats
+    from io import StringIO
+    def wrapper(func: Callable[..., None]) -> Callable[..., None]:
+        @wraps(func)
+        def inner(*args: Any, **kwargs: Any):
+            err = None
+            with Profile() as pr:
+                stream = StringIO()
+                try:
+                    func(*args, **kwargs)
+                except Exception as e:
+                    err = e
+                pr.create_stats()
+                stats = Stats(pr, stream=stream)
+                stats.sort_stats('time')
+                stats.print_stats(*selectors)
+                stream.flush()
+                stream.seek(0)
+                print(stream.read())
+            if err:
+                raise err
+        return inner
+    return wrapper
+            
+
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):
