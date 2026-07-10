@@ -24,7 +24,7 @@ from arcpy.management import (
     TableToDomain,  # type: ignore
 )
 
-from arcpie._types import SystemDomain
+from arcpie.types import SystemDomain
 
 from ..featureclass import FeatureClass, Table
 
@@ -643,7 +643,7 @@ class DomainManager:
             fl.write('from typing import Literal, TYPE_CHECKING')
             fl.write('\n\n')
             fl.write('if TYPE_CHECKING:\n')
-            fl.write('    from arcpie._types import SystemDomain\n')
+            fl.write('    from arcpie.types import SystemDomain\n')
             fl.write('else:\n')
             fl.write('    SystemDomain = None\n')
             fl.write('\n\n')
