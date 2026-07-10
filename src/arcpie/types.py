@@ -21,8 +21,6 @@ from typing import (
     TypeVarTuple,
 )
 
-from arcpy.mp import PDFFormat
-
 if TYPE_CHECKING:
     from arcpy import SpatialReference
     from arcpy._mp import Layer
@@ -31,6 +29,7 @@ if TYPE_CHECKING:
         SearchOrder,
         SpatialRelationship,
     )
+    from arcpy.mp import PDFFormat
 else:
     SpatialRelationship = None
     SearchOrder = None
