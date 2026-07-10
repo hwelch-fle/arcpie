@@ -1342,8 +1342,8 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         """
         # Allow passing a single field as a string `fc.fields_as('OID@')` to maintain
         # The call format of *Cursor objects
-        fields = self.fields
         self._fields = tuple(fields)
+        fields = self.fields
         try:
             yield self
         finally:
