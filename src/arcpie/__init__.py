@@ -32,3 +32,5 @@ from .utils import (
     get_subtype_count as get_subtype_count,
     get_subtype_counts as get_subtype_counts,
 )
+
+_types = types
