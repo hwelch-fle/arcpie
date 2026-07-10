@@ -29,6 +29,7 @@ class HorizontalValueTable(p.GPValueTable):
 class Done(p.GPBoolean):
     def __init__(self) -> None:
         super().__init__('Done')
+
     def _post_init(self, ctx: ParameterAttrs) -> None:
         super()._post_init(ctx)
         self.direction = 'Output'
@@ -106,12 +107,12 @@ class ValueTable(p.GPValueTable):
         if 'defaults' not in ctx and 'default' in ctx:
             ctx['defaults'] = ctx['default']
         if 'filters' not in ctx and 'filter' in ctx:
-            ctx['filters'] = ctx['filter'] # type: ignore
-        
+            ctx['filters'] = ctx['filter']  # type: ignore
+
         cols = ctx.get('columns', {})
         flts = ctx.get('filters', {})
         dfts = ctx.get('defaults', [])
-        
+
         if not cols:
             raise ValueError('Value Table needs columns!')
 
@@ -122,9 +123,9 @@ class ValueTable(p.GPValueTable):
             self.filters[i].list = flts[k]
         if dfts:
             self.values = dfts
-        
+
         # Don't allow default initializer to set these
         ctx.pop('default', None)
         ctx.pop('filter', None)
-        
+
         super()._post_init(ctx)

@@ -1,16 +1,18 @@
-from arcpy import (
-    Polyline, 
-    PointGeometry,
+from collections.abc import (
+    Hashable,
+    Iterator,
+    Sequence,
 )
-from .featureclass import FeatureClass
+from typing import Any, overload
 
 import networkx as nx
-from collections.abc import (
-    Sequence, 
-    Iterator,
+from arcpy import (
+    PointGeometry,
+    Polyline,
 )
-from typing import Any, overload, Hashable
-from functools import wraps
+
+from .featureclass import FeatureClass
+
 
 class _FeatureGraph(nx.Graph):
     """Wrapper for `networkx.Graph` that adds geospatial compatibility"""
@@ -22,12 +24,12 @@ class _FeatureGraph(nx.Graph):
 
     def add_nodes_from(self, nodes_for_adding) -> None:
         if isinstance(nodes_for_adding, FeatureClass):
-            return super().add_nodes_from( 
-                (
+            return super().add_nodes_from(
+
                     (n['SHAPE@'].centroid, n)
                     for n in nodes_for_adding
                     if isinstance(n['SHAPE@'], PointGeometry)
-                )
+
             )
         return super().add_nodes_from(nodes_for_adding)
 
@@ -41,10 +43,10 @@ class _FeatureGraph(nx.Graph):
 
 
 class FeatureGraph:
-    def __init__(self, edges: FeatureClass[Polyline, Any], nodes: FeatureClass[PointGeometry, Any], tolerance: float=0.0,
+    def __init__(self, edges: FeatureClass[Polyline, Any], nodes: FeatureClass[PointGeometry, Any], tolerance: float = 0.0,
                  *,
-                 node_attributes: Sequence[str] | None=None,
-                 edge_attributes: Sequence[str] | None=None) -> None:
+                 node_attributes: Sequence[str] | None = None,
+                 edge_attributes: Sequence[str] | None = None) -> None:
         self.node_features = nodes
         self.edge_features = edges
         self.node_attributes = node_attributes or tuple()
@@ -56,7 +58,7 @@ class FeatureGraph:
     @property
     def graph(self) -> nx.Graph:
         return self._graph
-    
+
     @property
     def nodes(self) -> Iterator[tuple[int, dict[str, Any]]]:
         return self.graph.nodes.data()
@@ -84,14 +86,14 @@ class FeatureGraph:
         g = nx.Graph()
 
         # Add all points as nodes (with specified attributes)
-        for oid, node, *node_attrs in self.node_features[('OID@', 'SHAPE@', *self.node_attributes)]:
+        for oid, node, *node_attrs in self.node_features['OID@', 'SHAPE@', *self.node_attributes]:
             user_attrs: dict[str, Any] = dict(zip(self.node_attributes, node_attrs))
             system_attrs: dict[str, Any] = {'OID@': oid, 'SHAPE@': node}
             # Merge user and system attrs then unpack into **attr
             g.add_node(oid, **{**user_attrs, **system_attrs})
 
         # Connect all nodes using edges (with specified attributes)
-        for oid, edge, *edge_attrs in self.edge_features[('OID@', 'SHAPE@', *self.edge_attributes)]:
+        for oid, edge, *edge_attrs in self.edge_features['OID@', 'SHAPE@', *self.edge_attributes]:
             edge: Polyline
             fp = PointGeometry(edge.firstPoint)
             lp = PointGeometry(edge.lastPoint)
@@ -104,7 +106,7 @@ class FeatureGraph:
             # Get all nodes that Intersect the endpoints of the edge
             with self.node_features.spatial_filter(fp.union(lp)):
                 to_add: list[int] = list(self.node_features['OID@'])
-            
+
             # Generate all unique connections for the edge and add them to the graph with the edge attrs
             # avoid connecting nodes to themselves
             for cxn in {tuple(sorted([a, b])) for a in to_add for b in to_add if a != b}:
@@ -112,7 +114,7 @@ class FeatureGraph:
                 system_attrs: dict[str, Any] = {'length': edge.length, 'OID@': oid, 'SHAPE@': edge}
                 # Merge user and system attrs then unpack into **attr
                 g.add_edge(cxn[0], cxn[1], **{**user_attrs, **system_attrs})
-        return g        
+        return g
 
     @overload
     def __contains__(self, node: int) -> bool: ...
@@ -134,10 +136,10 @@ class FeatureGraph:
             shape: PointGeometry = data['SHAPE@']
             if node == shape:
                 return oid
-            
+
         raise IndexError(f'Node: {node} not found in graph!')
 
-    def shortest_path(self, from_node: int|PointGeometry, to_node: int|PointGeometry) -> Iterator[Polyline]:
+    def shortest_path(self, from_node: int | PointGeometry, to_node: int | PointGeometry) -> Iterator[Polyline]:
         """Return the line geometries that make up the shortest path between the provided nodes
         
         Args:
@@ -155,9 +157,9 @@ class FeatureGraph:
 
         route: list[int] = nx.shortest_path(self.graph, from_node, to_node, weight='length')
 
-        for i in range(len(route)-1):
-            yield self.graph.get_edge_data(route[i], route[i+1])['SHAPE@']
-        
+        for i in range(len(route) - 1):
+            yield self.graph.get_edge_data(route[i], route[i + 1])['SHAPE@']
+
     def add_node(self, node: PointGeometry, **data: Any) -> int:
         """Adds a node to the graph
         
@@ -173,7 +175,7 @@ class FeatureGraph:
         Returns:
             (int): The new index of the node (negative indexed)
         """
-        new_index = -1*(len(self.user_nodes)+1)
+        new_index = -1 * (len(self.user_nodes) + 1)
         user_attrs = data
         system_attrs: dict[str, Any] = {'OID@': new_index, 'SHAPE@': node}
         self.graph.add_node(new_index, **{**user_attrs, **system_attrs})
@@ -184,14 +186,14 @@ class FeatureGraph:
             node_buff = node.buffer(self.tolerance)
         else:
             node_buff = node
-        
+
         with self.edge_features.spatial_filter(node_buff):
-            connecting_edges = tuple(self.edge_features[('OID@', 'SHAPE@', *self.edge_attributes)])
-            
+            connecting_edges = tuple(self.edge_features['OID@', 'SHAPE@', *self.edge_attributes])
+
         for oid, edge_shape, *edge_attrs in connecting_edges:
             oid: int
             edge_shape: Polyline
-            
+
             fp = PointGeometry(edge_shape.firstPoint)
             lp = PointGeometry(edge_shape.lastPoint)
 
@@ -199,10 +201,10 @@ class FeatureGraph:
             if self.tolerance:
                 fp = fp.buffer(self.tolerance)
                 lp = lp.buffer(self.tolerance)
-            
+
             with self.node_features.spatial_filter(fp.union(lp)):
                 cxns = list(self.node_features['OID@'])
-            
+
             user_attrs = dict(zip(self.edge_attributes, edge_attrs))
             system_attrs: dict[str, Any] = {'length': edge_shape.length, 'OID@': oid, 'SHAPE@': edge_shape}
             self.graph.add_edges_from([(new_index, n) for n in cxns], **{**user_attrs, **system_attrs})

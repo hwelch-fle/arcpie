@@ -20,18 +20,19 @@ from arcpie.project import Map, Project
 from arcpie.utils import print
 
 
-class ToolboxABC(ABC):
+class ToolboxABC:
     def __init__(self) -> None:
         self.label: str
         self.alias: str
         self.tools: list[type[ToolABC]]
 
-class ToolABC(ABC):
+
+class ToolABC:
     def __init__(self) -> None:
         self.label: str = self.__class__.__name__
         self.description: str = self.__doc__ or 'No Descrption Provided'
         self.category: str | None = None
-    
+
     def getParameterInfo(self) -> Parameters | list[Parameter]: return []
     def isLicensed(self) -> bool: return True
     def updateParameters(self, parameters: Parameters | list[Parameter]) -> None: ...
@@ -39,8 +40,9 @@ class ToolABC(ABC):
     def execute(self, parameters: Parameters | list[Parameter], messages: Any) -> None: ...
     def postExecute(self, parameters: Parameters | list[Parameter]) -> None: ...
 
+
 class Tool(ToolABC):
-    
+
     @property
     def project(self) -> Project:
         """Get the current project that the tool is running in if it exists (otherwise: None)"""
@@ -54,8 +56,9 @@ class Tool(ToolABC):
 
 def profile(*selectors: str):
     from cProfile import Profile
-    from pstats import Stats
     from io import StringIO
+    from pstats import Stats
+
     def wrapper(func: Callable[..., None]) -> Callable[..., None]:
         @wraps(func)
         def inner(*args: Any, **kwargs: Any):
@@ -77,19 +80,21 @@ def profile(*selectors: str):
                 raise err
         return inner
     return wrapper
-            
+
 
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
     class _BrokenImport(ToolABC):
         __name__ = f"{tool_name}_BrokenImport"
         __exc__ = exception
+
         def __init__(self):
             self.category = "Broken Tools (Read Description for More Info)"
             self.label = f"{tool_name} - {exception}"
             self.alias = self.label.replace(" ", "")
             self.description = traceback
     return _BrokenImport
+
 
 def _import_mod(module_name: str, tool_name: str) -> ModuleType:
     try:
@@ -99,6 +104,7 @@ def _import_mod(module_name: str, tool_name: str) -> ModuleType:
         # Direct class import
         mod = import_module(module_name)
     return mod
+
 
 def _get_tool(module_name: str, tool_name: str, reload_module: bool) -> type[ToolABC]:
     # Last component is always the ToolClass name
@@ -110,10 +116,11 @@ def _get_tool(module_name: str, tool_name: str, reload_module: bool) -> type[Too
     except Exception as e:
         return _placeholder_tool(tool_name, e, format_exc(limit=1))
 
+
 def safe_load(tools: dict[str, list[str]],
               *,
-              scope: dict[str, Any]|None=None,
-              reload_module: bool=False) -> list[type[ToolABC]]:
+              scope: dict[str, Any] | None = None,
+              reload_module: bool = False) -> list[type[ToolABC]]:
     """Safely load in tools to a toolbox placing all failed imports in a `Broken Tools` category
     
     Args:
@@ -160,34 +167,35 @@ def safe_load(tools: dict[str, list[str]],
     if scope:
         scope.update({tool.__name__: tool for tool in _tools})
     return _tools
-    
+
 
 # toolify wrapper
 # NOTE: inspect.Parameter is much different from arcpy.Parameter, module level import used to keep them clear
 def _build_params(params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> Parameters:
     _parameters = Parameters()
     for name, param in params.items():
-        
+
         # Build a simple parameter if only type is given, otherwise use the provided Parameter object
         param_type, _ = types.get(name, ('GPType', None))
         if isinstance(param_type, Parameter):
             # Ensure that the parameter name matches the arg name
             param_type.name = name
             p = param_type
-        
+
         else:
             p = Parameter(
                 name=name,
                 displayName=name.replace('_', ' ').title(),
                 direction='Input',
                 parameterType='Required',
-                datatype=param_type, # pyright: ignore[reportArgumentType]
+                datatype=param_type,  # pyright: ignore[reportArgumentType]
             )
             p.value = param.default
         _parameters.append(p)
-    
+
     # Match parameter order to types order
     return Parameters([_parameters[name] for name in types if name in _parameters] + [p for p in _parameters if p.name not in types])
+
 
 def _read_params(arcpy_params: Parameters | list[Parameter], func_params: MappingProxyType[str, inspect.Parameter], types: ParameterTypeMap) -> tuple[tuple[Any], dict[str, Any]]:
     args: dict[str, Any] = {}
@@ -199,16 +207,19 @@ def _read_params(arcpy_params: Parameters | list[Parameter], func_params: Mappin
         _, constructor = types.get(arcpy_param.name, ('GPType', lambda p: p.valueAsText))
         converted_val = constructor(arcpy_param)
         args[fp.name] = converted_val
-    
+
     # Ensure that the function call is passed arguments in the correct order (assuming the type parameters have been moved)
     return tuple(args[name] for name in func_params if name in args), kwargs
 
+
 ParameterTypeMap = dict[str, tuple[ParameterDatatype | list[ParameterDatatype] | Parameter, Callable[[Parameter], Any]]]
-def toolify(*tool_registries: list[type[ToolABC]], 
-            name: str|None=None, 
-            params: ParameterTypeMap|None=None, 
-            debug: bool=False, 
-            logger: Logger|None=None,
+
+
+def toolify(*tool_registries: list[type[ToolABC]],
+            name: str | None = None,
+            params: ParameterTypeMap | None = None,
+            debug: bool = False,
+            logger: Logger | None = None,
 ):
     """Convert a typed function into a tool for the specified Toolbox class
     
@@ -236,18 +247,18 @@ def toolify(*tool_registries: list[type[ToolABC]],
         ```
     """
     def _builder(func: Callable[..., Any]):
-        
+
         @wraps(func)
         def _execute(*args: Any, **kwargs: Any):
             return func(*args, **kwargs)
-        
+
         # Build the tool class
         _label = func.__name__.replace('_', ' ').title()
         _description = func.__doc__ or 'No Description Provided'
         _class_name = _label.replace(' ', '')
         sig = inspect.signature(func)
         sig_params = sig.parameters
-        
+
         # Handle parameter converison
         def _passthrough_execution(self: ToolABC, parameters: Parameters | list[Parameter], messages: Any) -> None:
             if debug:
@@ -260,26 +271,26 @@ def toolify(*tool_registries: list[type[ToolABC]],
                 res = _execute(*args, **kwargs)
                 end = time.time()
                 if logger:
-                    logger.info(f'[{datetime.isoformat(datetime.now())}] PASS "{self.label}" ({end-start:0.2f} seconds) [{res}]')
+                    logger.info(f'[{datetime.isoformat(datetime.now())}] PASS "{self.label}" ({end - start:0.2f} seconds) [{res}]')
             except Exception as e:
                 print(f'Something went wrong!:\n\t{traceback.format_exc()}', severity='ERROR')
                 end = time.time()
                 if logger:
-                    logger.info(f'[{datetime.isoformat(datetime.now())}] FAIL "{self.label}" ({end-start:0.2f} seconds) [{e}] ')
-                    
+                    logger.info(f'[{datetime.isoformat(datetime.now())}] FAIL "{self.label}" ({end - start:0.2f} seconds) [{e}] ')
+
         def _local_build_params(self: ToolABC) -> Parameters | list[Parameter]:
             return _build_params(sig_params, params or {})
-        
+
         def _local_init(self: ToolABC) -> None:
             self.label = name or _label
             self.description = _description
 
         _tool_class = type(
-            _class_name, 
+            _class_name,
             (ToolABC, ),
             {
-                '__init__': _local_init, 
-                'getParameterInfo':_local_build_params, 
+                '__init__': _local_init,
+                'getParameterInfo': _local_build_params,
                 'execute': _passthrough_execution
             }
         )

@@ -1,12 +1,13 @@
+"""Module for diffing ArcGIS objects"""
 from __future__ import annotations
 
-"""Module for diffing ArcGIS objects"""
+from typing import Any, Literal
 
-from typing import Literal, Any
 from arcpie.database import Dataset
 from arcpie.project import Project
 
 Diff = dict[Literal['added', 'removed', 'updated'], list[str] | list[dict[str, Any]]]
+
 
 def feature_diff(source: Dataset, target: Dataset) -> Diff:
     """Get features that are added/removed from source/target
@@ -27,9 +28,10 @@ def feature_diff(source: Dataset, target: Dataset) -> Diff:
         and (
             set(target.feature_classes[fc].fields) != set(source.feature_classes[fc].fields)
             or not target.feature_classes[fc].py_types.values() == source.feature_classes[fc].py_types.values()
-        ) 
+        )
     ]
     return _diff
+
 
 def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     """Get fields that are added/removed from source/target
@@ -47,15 +49,15 @@ def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
             _diffs.setdefault(fc_name, {})
             _diffs[fc_name]['added'] = [f for f in target_fc.fields if f not in source_fc.fields]
             _diffs[fc_name]['removed'] = [f for f in source_fc.fields if f not in target_fc.fields]
-            
+
             # Compare fields from matching features
-            _to_compare = ('baseName', 'aliasName', 'defaultValue', 'domain', 
-                           'editable', 'isNullable', 'length', 'name', 
+            _to_compare = ('baseName', 'aliasName', 'defaultValue', 'domain',
+                           'editable', 'isNullable', 'length', 'name',
                            'precision', 'required', 'scale', 'type')
             _source_fields = {f.baseName: f for f in source_fc.describe.fields}
             _target_fields = {f.baseName: f for f in target_fc.describe.fields}
             _diffs[fc_name]['updated'] = [
-                {f : changes} 
+                {f: changes}
                 for f in _source_fields
                 if f in _target_fields
                 and (changes := {
@@ -64,8 +66,9 @@ def field_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
                     if getattr(_source_fields[f], attr) != getattr(_target_fields[f], attr)
                 })
             ]
-            
-    return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+
+    return {k: v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+
 
 def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
     """Get layers that are added/removed from source/target
@@ -86,16 +89,17 @@ def layer_diff(source: Project, target: Project) -> dict[str, Diff]:
             _diffs[map_name]['removed'] = list(set(source_map.layers.names) - set(target_map.layers.names))
             _diffs[map_name]['updated'] = [
                 l.unique_name for l in source_map.layers
-                if hasattr(l, 'name') 
+                if hasattr(l, 'name')
                 and l.unique_name in target_map.layers.names
                 and (source_cim := l.cim_dict)
                 and (target_cim := target_map.layers[l.unique_name].cim_dict)
                 and any(
                     str(source_cim.get(k, 'Source')) != str(target_cim.get(k, 'Target'))
-                    for k in ['renderer', 'labelClasses'] # Only compare symbology and labels
+                    for k in ['renderer', 'labelClasses']  # Only compare symbology and labels
                 )
             ]
-    return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+    return {k: v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+
 
 def table_diff(source: Project, target: Project) -> dict[str, Diff]:
     """Get tables that are added/removed/changed from source/target
@@ -116,16 +120,17 @@ def table_diff(source: Project, target: Project) -> dict[str, Diff]:
             _diffs[map_name]['removed'] = list(set(source_map.tables.names) - set(target_map.tables.names))
             _diffs[map_name]['updated'] = [
                 t.unique_name for t in source_map.tables
-                if hasattr(t, 'name') 
+                if hasattr(t, 'name')
                 and t.unique_name in target_map.tables.names
                 and (source_cim := t.cim_dict)
                 and (target_cim := target_map.tables[t.unique_name].cim_dict)
                 and any(
                     str(source_cim.get(k, 'Source')) != str(target_cim.get(k, 'Target'))
-                    for k in ['displayField'] # Only compare display field
+                    for k in ['displayField']  # Only compare display field
                 )
             ]
-    return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+    return {k: v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+
 
 def attribute_rule_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     """Get a diff of rules for matching FeatureClasses in the dataset
@@ -137,7 +142,7 @@ def attribute_rule_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
     Returns:
         (dict[str, diff]): A Mapping of Features to rules with a delta type
     """
-    
+
     _diffs: dict[str, Diff] = {}
     for fc_name, source_fc in source.feature_classes.items():
         if (target_fc := target.feature_classes.get(fc_name, None)) is not None:
@@ -147,11 +152,12 @@ def attribute_rule_diff(source: Dataset, target: Dataset) -> dict[str, Diff]:
             _diffs[fc_name]['updated'] = [
                 rule_name
                 for rule_name, rule in source_fc.attribute_rules.rules.items()
-                if rule and (t_rule := target_fc.attribute_rules.get(rule_name) )
+                if rule and (t_rule := target_fc.attribute_rules.get(rule_name))
                 and rule['scriptExpression'] != t_rule['scriptExpression']
             ]
-    return {k:v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
-        
+    return {k: v for k, v in _diffs.items() if v['added'] or v['removed'] or v['updated']}
+
+
 def domain_diff(source: Dataset, target: Dataset) -> Diff:
     """Get a diff of rules for matching FeatureClasses in the dataset
     
@@ -167,7 +173,7 @@ def domain_diff(source: Dataset, target: Dataset) -> Diff:
     _diff['added'] = [d.name for d in target.domains if d not in source.domains]
     _diff['removed'] = [d.name for d in source.domains if d not in target.domains]
     _diff['updated'] = [
-        {source_domain.name : changes}
+        {source_domain.name: changes}
         for source_domain in source.domains
         if source_domain.name in target.domains
         and (changes := {

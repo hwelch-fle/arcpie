@@ -1,5 +1,6 @@
 from __future__ import annotations
-from typing import Any, TypedDict, Literal
+
+from typing import Any, Literal, TypedDict
 
 # TODO: Add all string flags found in the wild here
 ESRIClientVersion = Literal['10.0', '12.3']
@@ -12,10 +13,10 @@ ESRISplitModel = Literal['esriSMUpdateInsert']
 
 ESRIGeometryType = Literal['esriGeometryPolyline']
 ESRIFieldType = Literal[
-    'esriFieldTypeOID', 
-    'esriFieldTypeString', 
-    'esriFieldTypeInteger', 
-    'esriFieldTypeDouble', 
+    'esriFieldTypeOID',
+    'esriFieldTypeString',
+    'esriFieldTypeInteger',
+    'esriFieldTypeDouble',
     'esriFieldTypeGeometry',
 ]
 ESRIFeatureType = Literal['esriFTSimple']
@@ -26,34 +27,36 @@ ESRIDomainMergePolicy = Literal['esriMPTDefaultValue']
 ESRIDomainSplitPolicy = Literal['esriSPTDuplicate']
 
 ESRIAttributeRuleType = Literal[
-    'esriARTCalculation', 
-    'esriARTValidation', 
+    'esriARTCalculation',
+    'esriARTValidation',
     'esriARTConstraint',
 ]
 
 ESRIAttributeRuleTrigger = Literal[
-    'esriARTEUpdate', 
-    'esriARTEInsert', 
+    'esriARTEUpdate',
+    'esriARTEInsert',
     'esriARTEDelete',
 ]
 
 # TODO: Add more
 ESRITopologyRuleType = Literal[
-    'esriTRTPointCoveredByLineEndpoint', 
+    'esriTRTPointCoveredByLineEndpoint',
     'esriTRTPointCoveredByLine',
     'esriTRTPointCoincidePoint',
-    'esriTRTLineCoveredByLineClass', 
+    'esriTRTLineCoveredByLineClass',
     'esriTRTLineEndpointCoveredByPoint',
     'esriTRTLineNoMultipart',
     'esriTRTLineNoSelfIntersect',
     'esriTRTLineNoSelfOverlap',
 ]
 
+
 class SchemaDomainCode(TypedDict):
     """ESRI Domain Code Schema"""
     name: str
     code: str
-    
+
+
 class SchemaDomain(TypedDict):
     """ESRI Domain Schema"""
     type: ESRIDomainType
@@ -64,10 +67,12 @@ class SchemaDomain(TypedDict):
     mergePolicy: ESRIDomainMergePolicy
     splitPolicy: ESRIDomainSplitPolicy
 
+
 class SchemaSpatialRef(TypedDict):
     """Esri Spatial Reference Schema"""
     wkid: int
     latestWkid: int
+
 
 class SchemaGeometryDef(TypedDict):
     """ESRI Geometry Definition Schema"""
@@ -77,7 +82,8 @@ class SchemaGeometryDef(TypedDict):
     hasZ: bool
     spatialReference: SchemaSpatialRef
     gridSize0: int
-        
+
+
 class SchemaField(TypedDict, total=False):
     """ESRI Field Schema"""
     name: str
@@ -92,6 +98,7 @@ class SchemaField(TypedDict, total=False):
     geometryDef: SchemaGeometryDef
     domain: SchemaDomain
 
+
 SchemaFieldArray = dict[Literal['fieldArray'], list[SchemaField]]
 
 
@@ -101,15 +108,18 @@ class SchemaIndex(TypedDict):
     isUnique: bool
     isAscending: bool
     fields: SchemaFieldArray
-        
+
+
 class SchemaIndexArray(TypedDict):
     """ESRI Index Array Schema"""
     indexArray: list[SchemaIndex]
+
 
 class SchemaPropertySet(TypedDict):
     """ESRI Property Set Schema"""
     type: Literal['PropertySet']
     propertySetItems: list[Any]
+
 
 class SchemaFieldInfo(TypedDict):
     """ESRI FieldInfo Schema"""
@@ -117,12 +127,14 @@ class SchemaFieldInfo(TypedDict):
     domainName: str
     defaultValue: Any
 
+
 class SchemaSubtype(TypedDict):
     """ESRI Subtype Schema"""
     subtypeName: str
     subtypeCode: int
     fieldInfos: list[SchemaFieldInfo]
-    
+
+
 class SchemaAttributeRule(TypedDict):
     """ESRI Attribute Rule Schema"""
     id: int
@@ -149,7 +161,8 @@ class SchemaAttributeRule(TypedDict):
     creationTime: int
     triggeringFields: list[str]
     subtypeCodes: list[int]
-        
+
+
 class SchemaExtent(TypedDict):
     """ESRI Extent Schema"""
     xmin: float | Literal['NaN']
@@ -158,9 +171,11 @@ class SchemaExtent(TypedDict):
     ymax: float | Literal['NaN']
     spatialReference: SchemaSpatialRef
 
+
 class SchemaRelationshipClasses(TypedDict):
     """ESRI Relationship Classes Schema"""
     names: list[str]
+
 
 class SchemaTopologyController(TypedDict):
     """ESRI Topology Controller Schema"""
@@ -170,9 +185,10 @@ class SchemaTopologyController(TypedDict):
     zRank: int
     eventNotificationOnValidate: bool
 
+
 class SchemaParcelFabricController(TypedDict):
     """ESRI Parcel Fabric Schema"""
-    ...
+
 
 class SchemaTopologyRule(TypedDict):
     """ESRI TopologyRule Schema"""
@@ -187,6 +203,7 @@ class SchemaTopologyRule(TypedDict):
     allOriginSubtypes: bool
     allDestinationSubtypes: bool
     topologyRuleType: ESRITopologyRuleType
+
 
 class SchemaDataset(TypedDict):
     """Esri Dataset Schema"""
@@ -239,14 +256,14 @@ class SchemaDataset(TypedDict):
     extent: SchemaExtent
     spatialReference: SchemaSpatialRef
     splitModel: ESRISplitModel
-    
+
     # Topology Keys (Move to a new TypedDict?)
     layers: list[dict[Literal['layerId'], str]]
     clusterTolerance: float
     zClusterTolerance: float
     maxGeneratedErrorCount: int
     topologyRules: list[SchemaTopologyRule]
-    
+
 
 class SchemaWorkspace(TypedDict):
     """ESRI Workspace Schema"""

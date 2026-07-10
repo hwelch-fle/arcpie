@@ -1,11 +1,6 @@
 from __future__ import annotations
 
-from functools import cached_property
 import json
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from tempfile import TemporaryDirectory
-
 from collections.abc import (
     Callable,
     Collection,
@@ -14,6 +9,10 @@ from collections.abc import (
     Mapping,
     Sequence,
 )
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cached_property
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import ModuleType
 from typing import (
     TYPE_CHECKING,
@@ -24,56 +23,52 @@ from typing import (
 )
 
 from arcpy import (
-    Describe, # type: ignore (incorrect hinting from arcpy)
-    EnvManager, 
-    Geometry, 
-    ListFeatureClasses, 
+    Describe,  # type: ignore (incorrect hinting from arcpy)
+    EnvManager,
+    Geometry,
+    ListFeatureClasses,
     SpatialReference,
 )
-
-from arcpie.cursor import Field
-
-from ._types import (
-    AttributeRule,
-    RelationshipOpts,
-    RelationshipRemoveRuleOpts,
-    RelationshipAddRuleOpts,
-)
-from arcpie.schema.workspace import SchemaWorkspace
-from arcpie.schema.field import GeoType
-from arcpie.schema.domain import DomainManager
-
-from .featureclass import (
-    Table,
-    FeatureClass,
-)
-
-from .gdb_loader import FileGDB
-
-from .utils import patch_schema_rules, convert_schema
-
 from arcpy.da import (
+    Editor,
     SearchCursor,
     SearchRelatedRecords,
     Walk,
-    Editor,
 )
+from arcpy.management import (
+    AddRuleToRelationshipClass,  # type: ignore (incorrect hinting from arcpy)
+    ConvertSchemaReport,  # type: ignore (incorrect hinting from arcpy)
+    CreateFeatureclass,  # type: ignore (incorrect hinting from arcpy)
+    CreateFeatureDataset,  # type: ignore (incorrect hinting from arcpy)
+    CreateFileGDB,  # type: ignore (incorrect hinting from arcpy)
+    CreateRelationshipClass,  # type: ignore (incorrect hinting from arcpy)
+    CreateTable,  # type: ignore (incorrect hinting from arcpy)
+    Delete,  # type: ignore (incorrect hinting from arcpy)
+    ImportXMLWorkspaceDocument,  # type: ignore (incorrect hinting from arcpy)
+    RemoveRuleFromRelationshipClass,  # type: ignore (incorrect hinting from arcpy)
+)
+
+from arcpie.cursor import Field
+from arcpie.schema.domain import DomainManager
+from arcpie.schema.field import GeoType
+from arcpie.schema.workspace import SchemaWorkspace
+
+from ._types import (
+    AttributeRule,
+    RelationshipAddRuleOpts,
+    RelationshipOpts,
+    RelationshipRemoveRuleOpts,
+)
+from .featureclass import (
+    FeatureClass,
+    Table,
+)
+from .gdb_loader import FileGDB
+from .utils import convert_schema, patch_schema_rules
 
 # da.Walk needs to be primed in the main thread
-for _ in Walk(__file__): break
-
-from arcpy.management import (
-    CreateFileGDB, # type: ignore (incorrect hinting from arcpy)
-    ConvertSchemaReport, # type: ignore (incorrect hinting from arcpy)
-    ImportXMLWorkspaceDocument, # type: ignore (incorrect hinting from arcpy)
-    Delete, # type: ignore (incorrect hinting from arcpy)
-    CreateRelationshipClass, # type: ignore (incorrect hinting from arcpy)
-    AddRuleToRelationshipClass, # type: ignore (incorrect hinting from arcpy)
-    RemoveRuleFromRelationshipClass, # type: ignore (incorrect hinting from arcpy)
-    CreateFeatureclass, # type: ignore (incorrect hinting from arcpy)
-    CreateTable, # type: ignore (incorrect hinting from arcpy)
-    CreateFeatureDataset, # type: ignore (incorrect hinting from arcpy)
-)
+for _ in Walk(__file__):
+    break
 
 if TYPE_CHECKING:
     from arcpy.typing.describe import RelationshipClass
@@ -103,6 +98,7 @@ def _walk(ds: str, dtype: str | None = None):
         for itm in (items if not _is_dataset else datasets)
     ]
 
+
 def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list[Path]]:
     """Extract paths from a dataset grouped by type"""
     ds = str(ds)
@@ -117,23 +113,23 @@ def _extract_types_threaded(ds: Path | str, dtypes: list[str]) -> dict[str, list
 def get_items(gdb: Path | str, *dtypes: str) -> dict[str, list[Path]]:
     gdb = Path(gdb)
     gdb_types = dict[str, str](
-        (uuid, typ.replace(' ', '')) 
+        (uuid, typ.replace(' ', ''))
         for uuid, typ in SearchCursor(str(gdb / 'GDB_ItemTypes'), ['UUID', 'Name'])
     )
     gdb_items = {
-        t: list[Path]() 
+        t: list[Path]()
         for t in dtypes or gdb_types.values()
     }
     _flds = 'Type', 'Path', 'DatasetSubtype1', 'DatasetSubtype2'
     for typ, pth, *_subtype in SearchCursor(str(gdb / 'GDB_Items'), _flds):
-        typ = 'Annotation' if tuple(_subtype) == (11,4) else gdb_types[typ]
-        if not pth or typ not in gdb_items: 
+        typ = 'Annotation' if tuple(_subtype) == (11, 4) else gdb_types[typ]
+        if not pth or typ not in gdb_items:
             continue
         gdb_items[typ].append(gdb / str(pth).lstrip('\\'))
     return gdb_items
 
 
-class Dataset[_S = Mapping[str, Any]]:
+class Dataset[S = Mapping[str, Any]]:
     """A Container for managing workspace connections.
     
     A Dataset is initialized using `arcpy.da.Walk` and will discover all child datasets, tables, and featureclasses.
@@ -174,22 +170,22 @@ class Dataset[_S = Mapping[str, Any]]:
         ['fc3', 'fc4', 'fc5', 'fc6']
         ```
     """
-    
-    # Topologies will create phantom tables defined in the GDB_Items (a...4.gdbtable) table, 
-    # But these are inaccessible through normal interfaces. 
+
+    # Topologies will create phantom tables defined in the GDB_Items (a...4.gdbtable) table,
+    # But these are inaccessible through normal interfaces.
     # Any manipulation or inspection of these tables must be done via gdb_loader.FileGDB
     _invalid_tables = 'T_1_PointErrors', 'T_1_LineErrors', 'T_1_PolyErrors', 'T_1_DirtyAreas'
-        
+
     def __init__(self, conn: str | Path, *, parent: Dataset[Any] | None = None) -> None:
         self.conn = Path(conn)
         self.parent = parent
-        
+
         self._datasets = {}
         self._feature_classes = {}
         self._tables = {}
         self._relationships = {}
         self._annotations = {}
-        
+
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
         if self.parent is None:
             if not self.conn.exists():
@@ -207,12 +203,12 @@ class Dataset[_S = Mapping[str, Any]]:
     @property
     def name(self) -> str:
         return self.conn.stem
-    
+
     @property
     def datasets(self) -> dict[str, Dataset[Any]]:
         """A mapping of dataset names to child `Dataset` objects"""
         return self._datasets or {}
-    
+
     @property
     def feature_classes(self) -> dict[str, FeatureClass[Any, Any]]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
@@ -248,7 +244,7 @@ class Dataset[_S = Mapping[str, Any]]:
     def editor(self) -> Editor:
         return Editor(str(self.conn))
 
-    def export_rules(self, rule_dir: Path|str) -> Iterator[AttributeRule]:
+    def export_rules(self, rule_dir: Path | str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
         
         Args:
@@ -271,10 +267,10 @@ class Dataset[_S = Mapping[str, Any]]:
     @overload
     def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[False]) -> Iterator[AttributeRule]: ...
     @overload
-    def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[False]=False) -> Iterator[AttributeRule]: ...
-    def import_rules(self, rule_dir: Path | str, 
-                     *, 
-                     skip_fail: bool=False) -> Iterator[AttributeRule | Exception]:
+    def import_rules(self, rule_dir: Path | str, *, skip_fail: Literal[False] = False) -> Iterator[AttributeRule]: ...
+    def import_rules(self, rule_dir: Path | str,
+                     *,
+                     skip_fail: bool = False) -> Iterator[AttributeRule | Exception]:
         """Import Attribute rules for the dataset from a directory
         
         Args:
@@ -337,21 +333,21 @@ class Dataset[_S = Mapping[str, Any]]:
             children that are already initialized will be skipped and only new children will be initialized
         """
         features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset', 'Annotation']
-        
+
         try:
             datatypes = get_items(self.conn, *features)
         except Exception:
             datatypes = _extract_types_threaded(self.conn, features)
 
         self._feature_classes = {
-            path.name: FeatureClass(path) 
+            path.name: FeatureClass(path)
             for path in datatypes['FeatureClass']
             if path.name not in Dataset._invalid_tables
         }
         self._tables = {path.name: Table(path) for path in datatypes['Table']}
         self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
-        self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}        
-        
+        self._datasets = {path.name: Dataset(path, parent=self) for path in datatypes['FeatureDataset']}
+
         # Special case for raw walk since we extracted annotations directly
         if 'Annotation' in datatypes:
             self._annotations = {path.name: FeatureClass(path) for path in datatypes['Annotation']}
@@ -361,49 +357,49 @@ class Dataset[_S = Mapping[str, Any]]:
             with EnvManager(workspace=str(self.conn)):
                 self._annotations = {
                     anno: FeatureClass(self.conn / ds / anno)
-                    for ds in [''] + list(self._datasets) # include root
+                    for ds in [''] + list(self._datasets)  # include root
                     for anno in ListFeatureClasses(feature_type='Annotation', feature_dataset=ds)
                 }
-            
+
         try:
             del self.schema
         except AttributeError:
             pass
-    
+
     def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
         if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
             return ret
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
-        
-    def get[D](self, key: str, default: D=None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | D:
+
+    def get[D](self, key: str, default: D = None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | D:
         try:
             return self[key]
         except KeyError:
             return default
-    
+
     def __contains__(self, key: str) -> bool:
         try:
             self[key]
             return True
         except KeyError:
             return False
-        
+
     def __iter__(self) -> Iterator[FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship]:
         for feature_class in self.feature_classes.values():
             yield feature_class
-            
+
         for table in self.tables.values():
             yield table
-            
+
         for dataset in self.datasets.values():
             yield from dataset
-        
+
         for relationship in self.relationships:
             yield relationship
-    
+
     def __len__(self) -> int:
         return sum(1 for _ in self)
-           
+
     def __repr__(self) -> str:
         return (
             "Dataset("
@@ -417,10 +413,10 @@ class Dataset[_S = Mapping[str, Any]]:
             f"Domains: {len(self.domains)}"
             "})"
         )
-    
+
     def __str__(self) -> str:
         return self.__fspath__()
-    
+
     def __fspath__(self) -> str:
         return str(self.conn.resolve())
 
@@ -459,7 +455,7 @@ class Dataset[_S = Mapping[str, Any]]:
                 oid_type='SAME_AS_TEMPLATE' if oid_type is None and template is not None else oid_type,
             )[0]
         )
-    
+
     def create_table(self, name: str,
                      *,
                      template: Table | None = None,
@@ -476,7 +472,7 @@ class Dataset[_S = Mapping[str, Any]]:
             alias: An alias for the table
             oid_type: The size of OID to use. If template is set and this is `None`, template OID type is used
         """
-        
+
         return Table(
             CreateTable(
                 out_path=str(self.conn),
@@ -503,7 +499,7 @@ class Dataset[_S = Mapping[str, Any]]:
         return Dataset(CreateFeatureDataset(str(self.conn), name, spatial_reference=spatial_reference)[0], parent=self)
 
     # TODO: This whole flow is really tightly coupled. I'd like to find a better way
-    def export_schema_module(self, out_loc: Path|str, 
+    def export_schema_module(self, out_loc: Path | str,
                            *,
                            tables: bool | Sequence[str] = True,
                            featureclasses: bool | Sequence[str] = True,
@@ -542,28 +538,28 @@ class Dataset[_S = Mapping[str, Any]]:
             mod_doc = SCHEMA_IMPORTS.format(mod_doc)
         else:
             mod_doc = SCHEMA_IMPORTS.format(f'{self.name} Schema')
-        
+
         out_loc = Path(out_loc)
         if out_loc.suffix != '.py':
             out_loc = out_loc / f'{self.name}.py'
         out_loc.parent.mkdir(exist_ok=True, parents=True)
-        
+
         _items: list[FeatureClass | Table] = []
-        
+
         # Gather all requested FeatureClasses and Tables
         _features = []
         if featureclasses:
             # Skip annotations since they have additional interfaces that aren't modeled
             if isinstance(featureclasses, Sequence):
                 _features = [
-                    fc 
+                    fc
                     for fc in self.feature_classes.values()
                     if fc.name in featureclasses
                 ]
             else:
                 _features = list(self.feature_classes.values())
             _items.extend(_features)
-        
+
         _tables = []
         if tables:
             if isinstance(tables, Sequence):
@@ -575,20 +571,20 @@ class Dataset[_S = Mapping[str, Any]]:
             else:
                 _tables = list(self.tables.values())
             _items.extend(_tables)
-        
+
         _datasets = []
         if datasets:
             if isinstance(datasets, Sequence):
                 _datasets = [
-                    ds 
-                    for ds in self.datasets.values() 
+                    ds
+                    for ds in self.datasets.values()
                     if ds.name in datasets
                 ]
             else:
                 _datasets = list(self.datasets.values())
         with out_loc.open('wt') as fl:
             fl.write(mod_doc)
-            
+
             # Notate root for later parsing operations
             fl.write("# Entry Point for parser\n")
             fl.write(f'SCHEMA_ROOT = "{self.name}"\n\n')
@@ -597,18 +593,18 @@ class Dataset[_S = Mapping[str, Any]]:
                 doc = docs.get(item.name) if docs else None
                 fl.write(
                     item.get_schema(
-                        fallback_type=fallback_type, 
-                        docs=doc, 
-                        include_shape_token=include_shape_token, 
+                        fallback_type=fallback_type,
+                        docs=doc,
+                        include_shape_token=include_shape_token,
                         include_oid_token=include_oid_token,
                         default_doc=default_doc,
                     )
                 )
                 fl.write('\n\n')
-            
+
             if _datasets:
                 fl.write('# Dataset Definitions\n\n')
-            
+
             ds_items: set[str] = set()
             for ds in _datasets:
                 _ds_children = list(filter(lambda i: i.name in ds, _items))
@@ -618,9 +614,9 @@ class Dataset[_S = Mapping[str, Any]]:
                     fl.write(f"    {item.name}: {item.name}\n")
                     ds_items.add(item.name)
                 fl.write('\n\n')
-            
+
             fl.write("# Root Schema\n\n")
-            
+
             fl.write(f"class {self.name}(TypedDict):\n")
             fl.write('    """Dataset"""\n\n')
             for item in filter(lambda i: i.name not in ds_items, _items):
@@ -628,12 +624,12 @@ class Dataset[_S = Mapping[str, Any]]:
             for ds in _datasets:
                 fl.write(f"    {ds.name}: {ds.name}\n")
             fl.write('\n')
-    
-    def export_schema(self, out_loc: Path|str,
+
+    def export_schema(self, out_loc: Path | str,
                       *,
-                      schema_name: str|None=None, 
-                      out_format: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML']='JSON',
-                      remove_rules: bool=False) -> Path:
+                      schema_name: str | None = None,
+                      out_format: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML'] = 'JSON',
+                      remove_rules: bool = False) -> Path:
         """Export the workspace Schema for a GDB dataset
         
         Args:
@@ -654,11 +650,11 @@ class Dataset[_S = Mapping[str, Any]]:
         with outfile.open('w') as f:
             json.dump(schema, f, indent=2)
         return outfile
-    
+
     @classmethod
-    def from_schema(cls, schema: Path|str, out_loc: Path|str, gdb_name: str, 
+    def from_schema(cls, schema: Path | str, out_loc: Path | str, gdb_name: str,
                     *,
-                    remove_rules: bool=False) -> Dataset[Any]:
+                    remove_rules: bool = False) -> Dataset[Any]:
         """Create a GDB from a schema file (xlsx, json, xml) generated by export_schema
         
         Args:
@@ -707,9 +703,9 @@ class Dataset[_S = Mapping[str, Any]]:
                 str(new_database), xml_schema, 'SCHEMA_ONLY'
             )
         return Dataset(new_database)
-    
+
     @classmethod
-    def from_schema_module(cls, out_loc: Path | str, schema_module: ModuleType, 
+    def from_schema_module(cls, out_loc: Path | str, schema_module: ModuleType,
                            *,
                            spatial_reference: SpatialReference | WKID = WGS84,
                            overwrite: bool = False,
@@ -738,22 +734,22 @@ class Dataset[_S = Mapping[str, Any]]:
             >>> new_ds = Dataset.from_schema_module('new_database.gdb', my_database_schema, 3857)
         """
         # Defer imports
-        from .schema.field import parse_hierarchy
         from typing import is_typeddict
+
+        from .schema.field import parse_hierarchy
         schema_root = getattr(schema_module, 'SCHEMA_ROOT', None)
         if not schema_root:
             raise ValueError(
-                f'A SCHEMA_ROOT global must be declared in the schema module '
+                'A SCHEMA_ROOT global must be declared in the schema module '
                 '(this is the name of last item generated by the export)'
             )
-        
+
         root_dict: type | None = getattr(schema_module, schema_root, None)
         if not root_dict or not is_typeddict(root_dict):
             raise ValueError('SCHEMA_ROOT must be a TypedDict')
         if not (root_dict.__doc__ or '').startswith('Dataset'):
             raise ValueError('SCHEMA_ROOT must have a docstring with `Dataset` as the first line')
-        
-        
+
         out_loc = Path(out_loc)
         if out_loc.suffix != '.gdb':
             # Enforce '.gdb' suffix, and allow other suffixes:
@@ -769,18 +765,18 @@ class Dataset[_S = Mapping[str, Any]]:
                 # Import rmtree to simplify gdb directory removal
                 from shutil import rmtree
                 rmtree(out_loc)
-        
+
         # Create and bind the GDB
         CreateFileGDB(str(out_loc.parent), out_loc.name, 'CURRENT')
         ds = cls(out_loc)
-        
+
         if domain_module:
-            ds.domains.import_domains(getattr(domain_module, 'DOMAINS'), overwrite=overwrite)
-        
+            ds.domains.import_domains(domain_module.DOMAINS, overwrite=overwrite)
+
         hierarchy = parse_hierarchy(root_dict, skip_annos=True)
         for child_name, child_def in hierarchy.items():
             child_def: tuple[GeoType | None, dict[str, Field]] | dict[str, Any]
-            
+
             # Build FeatureClasses/Tables
             if isinstance(child_def, tuple):
                 shape_type, fields = child_def
@@ -810,7 +806,7 @@ class Dataset[_S = Mapping[str, Any]]:
                         except Exception as e:
                             print(f'{field_name}: ', e)
                     yield fc
-            
+
             # Parse FeatureDataset
             if isinstance(child_def, dict):
                 ds_name = child_name
@@ -831,8 +827,8 @@ class Dataset[_S = Mapping[str, Any]]:
                             print(f'{field_name}: ', e)
                     yield fc
         return ds
-        
-        
+
+
 def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY']:
     if arg == 'OneToOne':
         return 'ONE_TO_ONE'
@@ -845,13 +841,13 @@ def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_
 
 
 class Relationship:
-    def __init__(self, parent: Dataset[Any], path: Path|str) -> None:
+    def __init__(self, parent: Dataset[Any], path: Path | str) -> None:
         self.parent = parent
         self.path = path
-    
+
     @cached_property
     def describe(self) -> RelationshipClass:
-        return Describe(str(self.path)) # type: ignore (incorrect hinting from arcpy)
+        return Describe(str(self.path))  # type: ignore (incorrect hinting from arcpy)
 
     @property
     def name(self) -> str:
@@ -870,9 +866,9 @@ class Relationship:
             relationship_type='COMPOSITE' if self.describe.isComposite else 'SIMPLE',
             forward_label=self.describe.forwardPathLabel,
             backward_label=self.describe.backwardPathLabel,
-            message_direction=self.describe.notification.upper(), # type: ignore
+            message_direction=self.describe.notification.upper(),  # type: ignore
             cardinality=convert_cardinality(self.describe.cardinality),
-            attributed= 'ATTRIBUTED' if self.describe.isAttributed else 'NONE',
+            attributed='ATTRIBUTED' if self.describe.isAttributed else 'NONE',
             origin_primary_key=self.origin_keys['OriginPrimary'],
             origin_foreign_key=self.origin_keys['OriginForeign'],
             destination_primary_key=self.destination_keys['DestinationPrimary'],
@@ -884,10 +880,10 @@ class Relationship:
         """Origin FeatureClass/Table objects"""
         return [
             self.parent.feature_classes.get(origin) or self.parent.tables[origin]
-            for origin in self.describe.originClassNames 
+            for origin in self.describe.originClassNames
             if origin in self.parent
         ]
-     
+
     @property
     def origin_keys(self) -> dict[Literal['OriginPrimary', 'OriginForeign'], str]:
         """Mapping of origin Primary and Foreign keys"""
@@ -900,14 +896,14 @@ class Relationship:
                 keys['OriginForeign'] = field
             elif key_type == 'OriginPrimary':
                 keys['OriginPrimary'] = field
-        return keys # pyright: ignore[reportReturnType]
-        
+        return keys  # pyright: ignore[reportReturnType]
+
     @property
     def destinations(self) -> list[FeatureClass | Table[Any]]:
         """Destination FeatureClass/Table objects"""
         return [
             self.parent.feature_classes.get(dest) or self.parent.tables[dest]
-            for dest in self.describe.destinationClassNames 
+            for dest in self.describe.destinationClassNames
             if dest in self.parent
         ]
 
@@ -923,32 +919,32 @@ class Relationship:
                 keys['DestinationForeign'] = field
             elif key_type == 'DestinationPrimary':
                 keys['DestinationPrimary'] = field
-        return keys # pyright: ignore[reportReturnType]
-    
+        return keys  # pyright: ignore[reportReturnType]
+
     def add_rule(self, **options: Unpack[RelationshipAddRuleOpts]) -> None:
         options['in_rel_class'] = str(self.path)
         AddRuleToRelationshipClass(**options)
-    
+
     def remove_rule(self, **options: Unpack[RelationshipRemoveRuleOpts]) -> None:
         options['in_rel_class'] = str(self.path)
         RemoveRuleFromRelationshipClass(**options)
-        
+
     def delete(self) -> None:
         """Delete the relationship"""
         Delete(str(self.path), 'RelationshipClass')
-    
+
     def update(self, **options: Unpack[RelationshipOpts]) -> None:
         """Update the relationship class"""
         rel_opts = self.settings
         self.delete()
         rel_opts.update(options)
         CreateRelationshipClass(**rel_opts)
-    
+
     def get_records(self, origin_fields: Collection[str], dest_fields: Collection[str]) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]:
         with SearchRelatedRecords(str(self.path), origin_fields=list(origin_fields), destination_fields=list(dest_fields)) as rel_cur:
             for o, d in rel_cur:
                 yield dict(zip(origin_fields, o)), dict(zip(dest_fields, d))
-    
+
     @overload
     def __getitem__(self, fields: set[str]) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]: ...
     @overload
@@ -975,7 +971,7 @@ class Relationship:
             case tuple():
                 o_fields, d_fields = fields
             case _:
-                raise KeyError()
+                raise KeyError
         if not set(o_fields).issubset(orig_fields):
             raise KeyError(f'Origin Fields {set(o_fields) - set(orig_fields)} not a member of {orig_fields}')
         if not set(d_fields).issubset(dest_fields):
@@ -987,7 +983,7 @@ class Relationship:
                 yield o, d
             else:
                 yield o, d
-    
+
     def __iter__(self) -> Iterator[tuple[dict[str, Any], dict[str, Any]]]:
         orig = self.origins[0]
         dest = self.destinations[0]
@@ -999,19 +995,19 @@ class Relationship:
 class RelationshipManager:
     def __init__(self, parent: Dataset[Any]) -> None:
         self.parent = parent
-    
+
     @property
     def relationships(self) -> dict[str, Relationship]:
-        return self.parent._relationships or {} # pyright: ignore[reportPrivateUsage]
-    
+        return self.parent._relationships or {}  # pyright: ignore[reportPrivateUsage]
+
     @property
     def names(self) -> list[str]:
         return list(self.relationships.keys())
-    
+
     def create(self, **options: Unpack[RelationshipOpts]) -> None:
         """Create a relationship"""
         CreateRelationshipClass(**options)
-    
+
     def delete(self, name: str) -> RelationshipOpts | None:
         """Delete the relationship and return the settings so it can be made again"""
         rel = self.get(name)
@@ -1020,20 +1016,20 @@ class RelationshipManager:
         settings = rel.settings
         rel.delete()
         return settings
-    
+
     def __len__(self) -> int:
         return len(self.relationships)
-    
+
     def __iter__(self) -> Iterator[Relationship]:
         for rel in self.relationships.values():
             yield rel
-    
+
     def __getitem__(self, key: str) -> Relationship:
         if key in self.relationships:
             return self.relationships[key]
         raise KeyError(f'{key} not found in {self.parent.name} Relationships')
-    
-    def get[D](self, key: str, default: D=None) -> Relationship | D:
+
+    def get[D](self, key: str, default: D = None) -> Relationship | D:
         try:
             return self[key]
         except KeyError:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from enum import StrEnum
 from typing import (
     Any,
     Literal,
@@ -11,31 +12,29 @@ from typing import (
     cast,
     overload,
 )
-from enum import StrEnum
 
 from arcpy import (
     Filter,
     Parameter as _Parameter,
 )
 
+__all__ = ('Controls', 'Parameter', 'ParameterDatatype', 'Parameters')
 
-__all__ = ('Parameter', 'Parameters', 'ParameterDatatype', 'Controls')
 
-
-ParameterDirection: TypeAlias = Literal[
+ParameterDirection: TypeAlias = Literal[  # noqa: UP040
     'Input',
     'Output',
 ]
 
 
-ParameterType: TypeAlias = Literal[
+ParameterType: TypeAlias = Literal[  # noqa: UP040
     'Required',
     'Optional',
     'Derived',
 ]
 
 
-ParameterDatatype: TypeAlias = Literal[
+ParameterDatatype: TypeAlias = Literal[  # noqa: UP040
     'analysis_cell_size', 'DEAddressLocator', 'DEArcInfoTable', 'DECadastralFabric', 'DECadDrawingDataset',
     'DECatalogRoot', 'DECoverage', 'DECoverageFeatureClasses', 'DEDatasetType', 'DEDbaseTable',
     'DEDiskConnection', 'DEFeatureClass', 'DEFeatureDataset', 'DEFile', 'DEFolder', 'DEGeoDataServer',
@@ -88,7 +87,7 @@ class Controls(StrEnum):
 
 
 @overload
-def param_datatype(s: str | ParameterDatatype) -> ParameterDatatype: ... # type: ignore
+def param_datatype(s: str | ParameterDatatype) -> ParameterDatatype: ...  # type: ignore
 @overload
 def param_datatype(s: Sequence[str | ParameterDatatype]) -> list[ParameterDatatype]: ...
 def param_datatype(s: str | Sequence[str]) -> ParameterDatatype | list[ParameterDatatype]:
@@ -190,18 +189,18 @@ class Parameter(_Parameter):
             name=name,
             displayName=displayName,
             direction=param_direction(direction) if direction else None,
-            datatype=datatype, # type: ignore
+            datatype=datatype,  # type: ignore
             parameterType=param_type(parameterType) if parameterType else None,
             enabled=enabled,
             category=category,
             symbology=symbology,
             multiValue=multiValue,
         )
-        
+
         self.datatype: ParameterDatatype
         self.filter: Filter
         self._post_init(kwargs)
-    
+
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.value})'
 
@@ -224,7 +223,7 @@ class Parameter(_Parameter):
             elif attr == 'dependencies':
                 if not isinstance(value, list):
                     raise ValueError('Dependencies must be a list of parameter names or indices')
-                self.parameterDependencies = value # type: ignore
+                self.parameterDependencies = value  # type: ignore
             elif attr == 'required':
                 self.parameterType = 'Required' if value else 'Optional'
             else:
@@ -239,7 +238,7 @@ class Parameters(list[Parameter]):
     def __getitem__(self, key: slice, /) -> list[Parameter]: ...
     @overload
     def __getitem__(self, key: str, /) -> Parameter: ...
-    def __getitem__(self, key: SupportsIndex|slice|str, /) -> Parameter | list[Parameter]:
+    def __getitem__(self, key: SupportsIndex | slice | str, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
             _matches = [p for p in self if p.name == key]
             if not _matches:
@@ -248,7 +247,7 @@ class Parameters(list[Parameter]):
                 return _matches.pop()
             raise KeyError(f'{key} is used for multiple parameters')
         return self[key]
-    
+
     @overload
     def get[D](self, key: SupportsIndex, default: D = None, /) -> Parameter | D: ...
     @overload

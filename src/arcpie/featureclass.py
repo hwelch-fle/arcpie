@@ -1,143 +1,137 @@
 from __future__ import annotations
 
-# Typing imports
-import arcpy.typing.describe as dt
-from string import ascii_letters, digits
-
-from functools import reduce
 import json
-from pprint import pformat
-from tempfile import TemporaryDirectory
-
 from collections.abc import (
+    Callable,
+    Generator,
     Iterable,
     Iterator,
-    Callable,
-    Sequence,
     Mapping,
-    Generator,
+    Sequence,
 )
-
+from functools import reduce
+from pprint import pformat
+from string import ascii_letters, digits
+from tempfile import TemporaryDirectory
 from typing import (
+    TYPE_CHECKING,
     Any,
-    TypeVar,
     Generic,
     Literal,
-    TYPE_CHECKING,
-    overload,
     Self,
+    TypeVar,
+    overload,
 )
+
+# Typing imports
+import arcpy.typing.describe as dt
 
 # Arcpy imports
 from arcpy.da import (
-    Editor,
-    SearchCursor,
-    InsertCursor,
-    UpdateCursor,
-    ListSubtypes,
     Describe as Describe_da,
+    Editor,
+    InsertCursor,
+    ListSubtypes,
+    SearchCursor,
+    UpdateCursor,
 )
 
 if TYPE_CHECKING:
     # Shadow cursors during type check with proper typing
-    #from _types import (
+    # from _types import (
     #    SearchCursor,
     #    InsertCursor,
     #    UpdateCursor,
-    #)
+    # )
     from arcpy.da import (
         SpatialRelationship,
     )
 else:
     SpatialRelationship = None
 
-from ._types import (
-    AddRuleOpts,
-    AlterRuleOpts,
-    Subtype,
-    AttributeRule,
-    convert_dtypes,
-    to_rule_add,
-    to_rule_alter,
-    convert_rule,
+# Standardlib imports
+from contextlib import (
+    contextmanager,
+)
+from pathlib import (
+    Path,
+)
+from typing import (
+    Unpack,
 )
 
 from arcpy import (
+    Describe,  # type:ignore
+    EnvManager,
+    Exists,
+    Extent,
     Geometry,
     Index,
     ListIndexes,
     ListTransformations,
     Polygon,
-    Extent,
-    Describe, #type:ignore
     SpatialReference,
-    Exists,
-    EnvManager,
 )
-
-from arcpy.analysis import (
-    PairwiseBuffer, # type: ignore
-    PairwiseDissolve, # type: ignore
-)
-
-from arcpy.management import (
-    CopyFeatures,  #type:ignore
-    DeleteField, #type:ignore
-    AddField, #type:ignore
-    AssignDefaultToField, # type: ignore
-    RecalculateFeatureClassExtent, #type:ignore
-    SelectLayerByAttribute, #type: ignore
-    AddAttributeRule, #type: ignore
-    AlterAttributeRule, #type: ignore
-    DeleteAttributeRule, #type: ignore
-    EnableAttributeRules, #type: ignore
-    DisableAttributeRules, #type: ignore
-    ReorderAttributeRule, #type: ignore
-    Delete, #type: ignore
-    AppendAnnotation, # type: ignore
-    AddGlobalIDs, # type: ignore
-)
-
-from arcpy._mp import ( 
+from arcpy._mp import (
     Layer,
     Map,
-    Table as TableLayer, # Alias
+    Table as TableLayer,  # Alias
+)
+from arcpy.analysis import (
+    PairwiseBuffer,  # type: ignore
+    PairwiseDissolve,  # type: ignore
+)
+from arcpy.management import (
+    AddAttributeRule,  # type: ignore
+    AddField,  # type:ignore
+    AddGlobalIDs,  # type: ignore
+    AlterAttributeRule,  # type: ignore
+    AppendAnnotation,  # type: ignore
+    AssignDefaultToField,  # type: ignore
+    CopyFeatures,  # type:ignore
+    Delete,  # type: ignore
+    DeleteAttributeRule,  # type: ignore
+    DeleteField,  # type:ignore
+    DisableAttributeRules,  # type: ignore
+    EnableAttributeRules,  # type: ignore
+    RecalculateFeatureClassExtent,  # type:ignore
+    ReorderAttributeRule,  # type: ignore
+    SelectLayerByAttribute,  # type: ignore
 )
 
-from typing import (
-    Unpack,
-)
-
-# Standardlib imports
-from contextlib import (
-    contextmanager,
-)
-
-from pathlib import (
-    Path,
+from ._types import (
+    AddRuleOpts,
+    AlterRuleOpts,
+    AttributeRule,
+    Subtype,
+    convert_dtypes,
+    convert_rule,
+    to_rule_add,
+    to_rule_alter,
 )
 
 # Library imports
 from .cursor import (
-    SearchOptions, 
-    InsertOptions, 
-    UpdateOptions,
-    SQLClause,
-    WhereClause,
-    Field,
-    ShapeToken,
     FeatureToken,
     FeatureTokens,
+    Field,
+    GeometryType,
+    InsertOptions,
+    SearchOptions,
+    ShapeToken,
+    SQLClause,
     TableToken,
     TableTokens,
-    GeometryType,
+    UpdateOptions,
+    WhereClause,
     convert_field,
 )
 
-FieldName = str #| FeatureToken
+FieldName = str  # | FeatureToken
 """Alias for string that specifies the function needs a valid fieldname"""
 
 _T = TypeVar('_T')
+
 
 def count(featureclass: FeatureClass | Iterator[Any]) -> int:
     """Get the record count of a FeatureClass
@@ -161,8 +155,9 @@ def count(featureclass: FeatureClass | Iterator[Any]) -> int:
     # object ID values so this is a small optimisation we can do
     if isinstance(featureclass, FeatureClass):
         return len(featureclass)
-    
+
     return sum(1 for _ in featureclass)
+
 
 def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
     """Helper function to allow passing single values to arguments that expect a tuple
@@ -176,13 +171,14 @@ def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
     # String sequences are returned directly
     if isinstance(vals, str):
         return vals
-    
+
     # Singleton sequences are flattened to the first value
     if len(vals) == 1:
         return vals[0]
-    
+
     # Default to returning the arg
     return vals
+
 
 def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
     """Take a Cusrsor object and yield rows from it 
@@ -203,17 +199,20 @@ def as_dict(cursor: SearchCursor | UpdateCursor) -> Iterator[RowRecord]:
     """
     yield from (dict(zip(cursor.fields, row)) for row in cursor)
 
+
 def format_query_list(vals: Iterable[Any]) -> str:
     """Format a list of values into a SQL list"""
-    if isinstance(vals, (str , int)):
+    if isinstance(vals, (str, int)):
         return f"{vals}"
     return ','.join([f"{val}" for val in vals])
+
 
 def norm(val: Any) -> str:
     """Normalize a value for SQL query (wrap strings in single quotes)"""
     if isinstance(val, str):
         return f"'{val}'"
     return val
+
 
 def where(*clauses: str, mode: Literal['AND', 'OR'] = 'AND') -> WhereClause:
     """Wrap a string in a WhereClause object to use with indexing
@@ -236,6 +235,7 @@ def where(*clauses: str, mode: Literal['AND', 'OR'] = 'AND') -> WhereClause:
         ```
     """
     return WhereClause(f' {mode} '.join(filter(lambda c: bool(c), clauses)))
+
 
 def filter_fields(*fields: FieldName) -> Callable[[FilterFunc[RowRecord]], FilterFunc[RowRecord]]:
     """Decorator for filter functions that limits fields checked by the SearchCursor
@@ -294,9 +294,10 @@ def filter_fields(*fields: FieldName) -> Callable[[FilterFunc[RowRecord]], Filte
         while counting operations can use the decorated filter to cut down on boilerplate.
     """
     def _filter_wrapper(func: FilterFunc):
-        setattr(func, 'fields', fields)
+        func.fields = fields
         return func
     return _filter_wrapper
+
 
 def valid_field(fieldname: FieldName) -> bool:
     """Validate a fieldname"""
@@ -306,16 +307,17 @@ def valid_field(fieldname: FieldName) -> bool:
             # Is under 160 characters
             or len(fieldname) > 160
             # Doesn't start with a number
-            or fieldname[0] in digits 
+            or fieldname[0] in digits
             # Only has alphanum and underscore
             or not set(fieldname).issubset(ascii_letters + digits + '_')
             # Doesn't have reserved prefix
             or any(fieldname.startswith(reserved) for reserved in ('gdb_', 'sde_', 'delta_'))
         )
 
+
 RowRecord = dict[FieldName, Any]
 """Alias for a dictionary of fieldnames and field values"""
-if TYPE_CHECKING: # Using some 3.13 features here
+if TYPE_CHECKING:  # Using some 3.13 features here
 
     _GeometryType = TypeVar('_GeometryType', bound=GeometryType, default=GeometryType)
     # Optional Schema to use for typing records
@@ -328,16 +330,17 @@ else:
     _GeometryType = TypeVar('_GeometryType')
     FilterFunc = Callable[[RowRecord], bool]
 
+
 class Table(Generic[_Schema]):
     """A Wrapper for ArcGIS Table objects"""
-    
+
     Tokens = TableTokens
-    
+
     def __init__(
             self, path: str | Path,
             *,
-            search_options: SearchOptions | None = None, 
-            update_options: UpdateOptions | None = None, 
+            search_options: SearchOptions | None = None,
+            update_options: UpdateOptions | None = None,
             insert_options: InsertOptions | None = None,
             clause: SQLClause | None = None,
             where: str | None = None,
@@ -347,24 +350,24 @@ class Table(Generic[_Schema]):
         self._search_options = search_options or SearchOptions()
         self._insert_options = insert_options or InsertOptions()
         self._update_options = update_options or UpdateOptions()
-        
+
         # Override
         if where:
             self._search_options['where_clause'] = where
             self._update_options['where_clause'] = where
-        
+
         self._layer: Layer | None = None
         self._in_edit_session = False
         self._fields: tuple[TableToken | str, ...] | None = None
         self.all_fields: tuple[TableToken | str, ...] | None = None
 
     # rw Properties
-    
+
     @property
     def search_options(self) -> SearchOptions:
         """Default SearchCursor options"""
         return self._search_options.copy()
-    
+
     @search_options.setter
     def search_options(self, search_options: SearchOptions | None) -> None:
         """Default SearchCursor options setter"""
@@ -374,7 +377,7 @@ class Table(Generic[_Schema]):
     def insert_options(self) -> InsertOptions:
         """Default InsertCursor options"""
         return self._insert_options.copy()
-    
+
     @insert_options.setter
     def insert_options(self, insert_options: InsertOptions | None) -> None:
         """Default InsertCursor options setter"""
@@ -383,8 +386,8 @@ class Table(Generic[_Schema]):
     @property
     def update_options(self) -> UpdateOptions:
         """Default UpdateCursor options"""
-        return self._update_options.copy() # pyright: ignore[reportReturnType]
-    
+        return self._update_options.copy()  # pyright: ignore[reportReturnType]
+
     @update_options.setter
     def update_options(self, update_options: UpdateOptions | None) -> None:
         """Default UpdateCursor options setter"""
@@ -404,7 +407,7 @@ class Table(Generic[_Schema]):
         self._clause = clause
 
     @property
-    def layer(self) -> Layer|None:
+    def layer(self) -> Layer | None:
         """A Layer object for the FeatureClass/Table if one is bound"""
         return self._layer
 
@@ -414,7 +417,7 @@ class Table(Generic[_Schema]):
         if layer.dataSource != self.path:
             raise ValueError(f'Layer: {layer.name} does not source to {self.name} Table or FeatureClass at {self.path}!')
         self._layer = layer
-    
+
     # ro Properties
 
     @property
@@ -425,13 +428,13 @@ class Table(Generic[_Schema]):
     @property
     def describe(self) -> dt.Table:
         """Access the arcpy.Describe object for the `Table` or `FeatureClass`"""
-        return Describe(self.path) #type:ignore (Will be dt.Table or FeatureClass)
+        return Describe(self.path)  # type:ignore (Will be dt.Table or FeatureClass)
 
     @property
     def da_describe(self) -> dict[str, Any]:
         """Access the da.Describe dictionary for the `Table` or `FeatureClass`"""
         return Describe_da(self.path)
-    
+
     @property
     def workspace(self) -> str:
         """Get the workspace of the `Table` or `FeatureClass`"""
@@ -473,8 +476,8 @@ class Table(Generic[_Schema]):
             _fields = ()
             with self.search_cursor('*') as c:
                 _fields = c.fields
-            self._fields = replace + tuple((f for f in _fields if f not in exclude))
-        
+            self._fields = replace + tuple(f for f in _fields if f not in exclude)
+
         # Store all fields so when in limited field context we can stil validate queries
         if self.all_fields is None:
             self.all_fields = self._fields
@@ -483,12 +486,12 @@ class Table(Generic[_Schema]):
     @property
     def field_defs(self) -> dict[FieldName, Field]:
         """Get a mapping of Field properties to fieldnames"""
-        return {field.baseName : convert_field(field) for field in self.da_describe['fields']}
+        return {field.baseName: convert_field(field) for field in self.da_describe['fields']}
 
     @property
     def np_dtypes(self):
         """Numpy dtypes for each field"""
-        return self.search_cursor(*self.fields)._dtype # pyright: ignore[reportPrivateUsage]
+        return self.search_cursor(*self.fields)._dtype  # pyright: ignore[reportPrivateUsage]
 
     @property
     def py_types(self) -> dict[str, type]:
@@ -498,7 +501,7 @@ class Table(Generic[_Schema]):
     @property
     def subtypes(self) -> dict[int, Subtype]:
         """Result of ListSubtypes, mapping of code to Subtype object"""
-        return ListSubtypes(self.path) # type:ignore
+        return ListSubtypes(self.path)  # type:ignore
 
     @property
     def editor(self) -> Editor:
@@ -513,33 +516,33 @@ class Table(Generic[_Schema]):
         return AttributeRuleManager(self)
 
     # Option Resolvers (kwargs -> Options Object -> Table or FeatureClass Options)
-    
-    def _resolve_search_options(self, options: SearchOptions|None, overrides: SearchOptions) -> SearchOptions:
+
+    def _resolve_search_options(self, options: SearchOptions | None, overrides: SearchOptions) -> SearchOptions:
         """Combine all provided SearchOptions into one dictionary"""
         return {
-            'sql_clause': self.clause or SQLClause(None, None), 
-            **self.search_options, 
-            **(options or {}), 
+            'sql_clause': self.clause or SQLClause(None, None),
+            **self.search_options,
+            **(options or {}),
             **overrides
         }
 
-    def _resolve_insert_options(self, options: InsertOptions|None, overrides: InsertOptions) -> InsertOptions:
+    def _resolve_insert_options(self, options: InsertOptions | None, overrides: InsertOptions) -> InsertOptions:
         """Combine all provided InsertOptions into one dictionary"""
         return {**self.insert_options, **(options or {}), **overrides}
 
-    def _resolve_update_options(self, options: UpdateOptions|None, overrides: UpdateOptions) -> UpdateOptions:
+    def _resolve_update_options(self, options: UpdateOptions | None, overrides: UpdateOptions) -> UpdateOptions:
         """Combine all provided UpdateOptions into one dictionary"""
         return {
-            'sql_clause': self.clause or SQLClause(None, None), 
-            **self.update_options, 
-            **(options or {}), 
+            'sql_clause': self.clause or SQLClause(None, None),
+            **self.update_options,
+            **(options or {}),
             **overrides
         }
 
     # Cursor Handlers
-    
+
     def search_cursor(self, *field_names: FieldName,
-                      search_options: SearchOptions|None=None, 
+                      search_options: SearchOptions | None = None,
                       **overrides: Unpack[SearchOptions]) -> SearchCursor:
         """Get a `SearchCursor` for the `Table` or `FeatureClass`
         Supplied search options are resolved by updating the base `Table` or `FeatureClass` Search options in this order:
@@ -584,7 +587,7 @@ class Table(Generic[_Schema]):
         return SearchCursor(self.path, field_names, **self._resolve_search_options(search_options, overrides))
 
     def insert_cursor(self, *field_names: FieldName,
-                      insert_options: InsertOptions|None=None, 
+                      insert_options: InsertOptions | None = None,
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
         if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
@@ -594,7 +597,7 @@ class Table(Generic[_Schema]):
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
     def update_cursor(self, *field_names: FieldName,
-                    update_options: UpdateOptions|None=None, 
+                    update_options: UpdateOptions | None = None,
                     **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
         if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
@@ -605,9 +608,9 @@ class Table(Generic[_Schema]):
 
     # TODO, Fix this
     def row_updater(self, *field_names: FieldName,
-                    strict: bool=False,
-                    update_options: UpdateOptions|None=None, 
-                    **overrides: Unpack[UpdateOptions]) -> Generator[_Schema, _Schema|None, None]:
+                    strict: bool = False,
+                    update_options: UpdateOptions | None = None,
+                    **overrides: Unpack[UpdateOptions]) -> Generator[_Schema, _Schema | None]:
         """A Bi-Directional generator that yields rows and updates them with the sent value
         
         Note:
@@ -636,9 +639,9 @@ class Table(Generic[_Schema]):
                     raise KeyError(f'{invalid} fields not found in {self.name}')
                 if upd is not None:
                     cur.updateRow([upd.get(f, row[f]) for f in cur.fields])
-    
+
     @contextmanager
-    def updater(self, *fields: FieldName, strict: bool=False):
+    def updater(self, *fields: FieldName, strict: bool = False):
         """A wrapper around `row_updater` that allows use as a context manager
         
         This simplifies the interaction with the `row_updater` method by allowing inline declaration
@@ -658,15 +661,16 @@ class Table(Generic[_Schema]):
             yield self.row_updater(*(fields or self.fields), strict=strict)
         finally:
             pass
-    
+
     # Localize as_dict for internal typing of _Schema var
     def as_dict(self, cursor: SearchCursor | UpdateCursor) -> Iterator[_Schema]:
-        yield from as_dict(cursor) # pyright: ignore[reportReturnType]
+        yield from as_dict(cursor)  # pyright: ignore[reportReturnType]
 
     if TYPE_CHECKING:
         GroupIter = Iterator[tuple[Any, ...] | Any]
         GroupIdent = tuple[Any, ...] | Any
-    def group_by(self, group_fields: Sequence[FieldName] | FieldName, return_fields: Sequence[FieldName] | FieldName ='*') -> Iterator[tuple[GroupIdent, GroupIter]]:
+
+    def group_by(self, group_fields: Sequence[FieldName] | FieldName, return_fields: Sequence[FieldName] | FieldName = '*') -> Iterator[tuple[GroupIdent, GroupIter]]:
         """Group features by matching field values and yield full records in groups
         
         Args:
@@ -705,19 +709,19 @@ class Table(Generic[_Schema]):
             return_fields = (return_fields,)
         if len(group_fields) < 1 or len(return_fields) < 1:
             raise ValueError("Group Fields and Return Fields must be populated")
-        
+
         group_fields = list(group_fields)
         return_fields = list(return_fields)
         _all_fields = group_fields + return_fields
         for group in self.distinct(group_fields):
-            group_key = {field : value for field, value in zip(group_fields, group)}
+            group_key = {field: value for field, value in zip(group_fields, group)}
             where_clause = " AND ".join(f"{field} = {norm(value)}" for field, value in group_key.items())
-            if '@' not in where_clause: # Handle valid clause (no tokens)
+            if '@' not in where_clause:  # Handle valid clause (no tokens)
                 with self.search_cursor(*return_fields, where_clause=where_clause) as group_cur:
                     yield (extract_singleton(group), (extract_singleton(row) for row in group_cur))
-            else: # Handle token being passed by iterating a cursor and checking values directly
+            else:  # Handle token being passed by iterating a cursor and checking values directly
                 for row in filter(lambda row: all(row[k] == group_key[k] for k in group_key), self[set(_all_fields)]):
-                    yield (extract_singleton(group), (row.pop(k) for k in return_fields)) # type: ignore (TypedDict Generic causes issues)
+                    yield (extract_singleton(group), (row.pop(k) for k in return_fields))  # type: ignore (TypedDict Generic causes issues)
 
     def distinct(self, distinct_fields: Iterable[FieldName] | FieldName) -> Iterator[tuple[Any, ...]]:
         """Yield rows of distinct values
@@ -732,7 +736,7 @@ class Table(Generic[_Schema]):
         clause = SQLClause(prefix=f'DISTINCT {format_query_list(distinct_fields)}', postfix=None)
         try:
             yield from (value for value in self.search_cursor(*distinct_fields, sql_clause=clause))
-        except RuntimeError: # Fallback when DISTINCT is not available or fails with Token input
+        except RuntimeError:  # Fallback when DISTINCT is not available or fails with Token input
             yield from sorted(set(self.get_tuples(distinct_fields)))
 
     def get_records(self, field_names: Iterable[FieldName] | FieldName, **options: Unpack[SearchOptions]) -> Iterator[_Schema]:
@@ -757,7 +761,7 @@ class Table(Generic[_Schema]):
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_record(self, record: _Schema, ignore_errors: bool=False) -> int | None:
+    def insert_record(self, record: _Schema, ignore_errors: bool = False) -> int | None:
         """Insert a single record into the table"""
         if missing_fields := set(record.keys()).difference(self.fields):
             if ignore_errors:
@@ -767,7 +771,7 @@ class Table(Generic[_Schema]):
         with self.insert_cursor(*record.keys()) as cur:
             return cur.insertRow(list(record.values()))
 
-    def insert_records(self, records: Iterable[_Schema] , ignore_errors: bool=False) -> Iterator[int]:
+    def insert_records(self, records: Iterable[_Schema], ignore_errors: bool = False) -> Iterator[int]:
         """Provide an iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -794,7 +798,7 @@ class Table(Generic[_Schema]):
             ```
         """
         yield from filter(None, (self.insert_record(record, ignore_errors=ignore_errors) for record in records))
- 
+
     def delete_identical(self, field_names: Iterable[FieldName] | FieldName) -> dict[int, int]:
         """Delete all records that have matching field values
         
@@ -811,7 +815,7 @@ class Table(Generic[_Schema]):
         # All
         if isinstance(field_names, str):
             field_names = [field_names]
-            
+
         unique: dict[int, tuple[Any]] = {}
         deleted: dict[int, int] = {}
         with self.update_cursor('OID@', *field_names) as cur:
@@ -824,17 +828,17 @@ class Table(Generic[_Schema]):
                         break
                 else:
                     match = False
-                
+
                 if not match:
                     unique[oid] = row
-                
+
                 else:
                     deleted.setdefault(match, 0)
                     deleted[match] += 1
                     cur.deleteRow()
         return deleted
-                
-    def filter(self, func: FilterFunc[_Schema], invert: bool=False) -> Iterator[_Schema]:
+
+    def filter(self, func: FilterFunc[_Schema], invert: bool = False) -> Iterator[_Schema]:
         """Apply a function filter to rows in the Table or FeatureClass
 
         Args:
@@ -866,14 +870,14 @@ class Table(Generic[_Schema]):
             ```
 
         """
-        if hasattr(func, 'fields'): # Allow decorated filters for faster iteration (see `filter_fields`)
-            with self.fields_as(*getattr(func, 'fields')):
+        if hasattr(func, 'fields'):  # Allow decorated filters for faster iteration (see `filter_fields`)
+            with self.fields_as(*func.fields):
                 yield from (row for row in self if func(row) == (not invert))
         else:
             yield from (row for row in self if func(row) == (not invert))
 
     # Data Operations
-    
+
     def delete(self) -> None:
         """Delete the object permanently using arcpy.management.Delete
         
@@ -881,8 +885,8 @@ class Table(Generic[_Schema]):
         """
         Delete(self.path)
         del self
-    
-    def copy_to(self, workspace: str, options: bool=True) -> Self:
+
+    def copy_to(self, workspace: str, options: bool = True) -> Self:
         """Copy this `Table` or `FeatureClass` to a new workspace
         
         Args:
@@ -899,7 +903,7 @@ class Table(Generic[_Schema]):
             False
             ```
         """
-        #name = Path(self.path).relative_to(Path(self.workspace))
+        # name = Path(self.path).relative_to(Path(self.workspace))
         if Exists(copy_fc := Path(workspace) / self.name):
             raise ValueError(f'{self.name} already exists in {workspace}!')
         CopyFeatures(self.path, str(copy_fc))
@@ -926,7 +930,7 @@ class Table(Generic[_Schema]):
         """Check if the field exists in the featureclass or is a valid Token (@[TOKEN])"""
         return fieldname in self.fields or fieldname in self.Tokens
 
-    def add_field(self, fieldname: str, field: Field|None=None, **options: Unpack[Field]) -> None:
+    def add_field(self, fieldname: str, field: Field | None = None, **options: Unpack[Field]) -> None:
         """Add a new field to a Table or FeatureClass, if no type is provided, deafault of `VARCHAR(255)` is used
         
         Args:
@@ -954,28 +958,28 @@ class Table(Generic[_Schema]):
         """
         if self.has_field(fieldname):
             raise ValueError(f'{self.name} already has a field called {fieldname}!')
-        
+
         # Use provided field or default to 'TEXT' and override with kwargs
         field = {**(field or Field(field_type='TEXT')), **options}
-        
+
         # Handle malformed Field arg
         field['field_type'] = field.get('field_type', 'TEXT')
-        
+
         _option_kwargs = set(Field.__optional_keys__) | set(Field.__required_keys__)
         _provided = set(field.keys())
-        
+
         if not _provided <= _option_kwargs:
             raise ValueError(f"Unknown Field properties provided: {_provided - _option_kwargs}")
-        
+
         if not valid_field(fieldname):
             raise ValueError(
                 f"{fieldname} is invalid, fieldnames must not start with a number "
                 "and must only contain alphanumeric characters and underscores"
             )
-        
-        default = field.pop('field_default') if 'field_default' in field else None        
+
+        default = field.pop('field_default') if 'field_default' in field else None
         with EnvManager(workspace=self.workspace):
-            AddField(self.path, fieldname, **field) # type: ignore (field_default is popped for alteration)
+            AddField(self.path, fieldname, **field)  # type: ignore (field_default is popped for alteration)
             self._fields = None
             if default is not None:
                 AssignDefaultToField(self.path, fieldname, default_value=default)
@@ -1022,19 +1026,19 @@ class Table(Generic[_Schema]):
             raise ValueError(f"{fieldname} does not exist in {self.name}")
         with EnvManager(workspace=self.workspace):
             DeleteField(self.path, fieldname)
-            self._fields = None # Defer new field check to next access
+            self._fields = None  # Defer new field check to next access
 
     def delete_fields(self, fieldnames: Iterable[FieldName]) -> None:
         for fname in fieldnames:
             self.delete_field(fname)
-    
+
     def clear(self) -> None:
         """Clear all records from the table"""
         with self.update_cursor(self.oid_field_name) as cur:
             for _ in cur:
                 cur.deleteRow()
-    
-    def delete_where(self, clause: WhereClause|str) -> None:
+
+    def delete_where(self, clause: WhereClause | str) -> None:
         """Delete all records that match the provided where clause
         
         Args:
@@ -1042,22 +1046,22 @@ class Table(Generic[_Schema]):
         """
         with self.where(clause):
             self.clear()
-    
+
     def add_globalids(self) -> None:
         if 'GlobalID' in self.fields:
             # Already have GlobalID field
             return
         else:
             AddGlobalIDs(str(self.path))
-    
+
     # Magic Methods
-    
+
     def __bool__(self) -> Literal[True]:
         # Override __bool__ to prevent fallback to __len__
         return True
-    
+
     _IndexableTypes = FieldName | set[FieldName] | list[FieldName] | tuple[FieldName, ...] | WhereClause | None
-        
+
     @overload
     def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
     @overload
@@ -1072,7 +1076,7 @@ class Table(Generic[_Schema]):
     def __getitem__(self, field: WhereClause) -> Iterator[_Schema]: ...
     @overload
     def __getitem__(self, field: None) -> Iterator[None]: ...
-    
+
     def __getitem__(self, field: _IndexableTypes | FilterFunc[_Schema]) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
         
@@ -1131,7 +1135,7 @@ class Table(Generic[_Schema]):
                 with self.search_cursor(*field) as cur:
                     yield from (row for row in self.as_dict(cur))
             case None:
-                yield from () # This allows a side effect None to be used to get nothing
+                yield from ()  # This allows a side effect None to be used to get nothing
 
             # Conditional Requests
             case wc if isinstance(wc, WhereClause):
@@ -1161,8 +1165,8 @@ class Table(Generic[_Schema]):
     def get(self, field: WhereClause, default: _T) -> Iterator[_Schema] | _T: ...
     @overload
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
-    
-    def get(self, field: _IndexableTypes | FilterFunc[_Schema], default: _T=None) -> Iterator[Any] | _T:
+
+    def get(self, field: _IndexableTypes | FilterFunc[_Schema], default: _T = None) -> Iterator[Any] | _T:
         """Allow accessing the implemented indexes defined by `__getitem__` with a default shielding a raised `KeyError`
         
         Args:
@@ -1183,11 +1187,11 @@ class Table(Generic[_Schema]):
         """
         try:
             return self[field]
-        except (KeyError , RuntimeError) as e:
+        except (KeyError, RuntimeError) as e:
             if isinstance(e, RuntimeError) and 'Cannot find field' not in str(e):
-                raise # Raise any non field related RuntimeErrors
+                raise  # Raise any non field related RuntimeErrors
             return default
-    
+
     def __contains__(self, field: str) -> bool:
         """Implementation of contains that checks for a field existing in the `FeatureClass`
         """
@@ -1203,7 +1207,7 @@ class Table(Generic[_Schema]):
             
         Note:
             When a single field is specified using the `fields_as` context, values will be yielded
-        """ 
+        """
         with self.search_cursor(*self.fields) as cur:
             if len(self.fields) == 1:
                 yield from (row for row, in cur)
@@ -1230,7 +1234,7 @@ class Table(Generic[_Schema]):
                 print(f'{i}/{count}')
             ```
         """
-        #return sum(1 for _ in self['OID@'])
+        # return sum(1 for _ in self['OID@'])
         return sum(1 for _ in self.search_cursor('OID@'))
 
     def __repr__(self) -> str:
@@ -1299,7 +1303,7 @@ class Table(Generic[_Schema]):
         return hash(self.__fspath__())
 
     # Handle Fields
-    
+
     def __delitem__(self, fieldname: str) -> None:
         self.delete_field(fieldname)
 
@@ -1307,11 +1311,11 @@ class Table(Generic[_Schema]):
         if fieldname in self.fields:
             raise ValueError(f'{fieldname} already exists in {self.name}')
         if not set(field.keys()).issubset([*Field.__optional_keys__, *Field.__required_keys__]):
-            raise ValueError(f'Provided Field options are invalid, see `Field` from arcpie.cursor or arcpy for valid keys')
+            raise ValueError('Provided Field options are invalid, see `Field` from arcpie.cursor or arcpy for valid keys')
         self.add_field(fieldname, **field)
 
     # Context Managers
-    
+
     @contextmanager
     def fields_as(self, *fields: FieldName):
         """Override the default fields for the Table or FeatureClass so all non-explicit Iterators will
@@ -1343,15 +1347,15 @@ class Table(Generic[_Schema]):
             yield self
         finally:
             self._fields = _fields
-    
+
     @contextmanager
     def options(self,
-                *, 
+                *,
                 strict: bool = False,
-                search_options: SearchOptions|None=None, 
-                update_options: UpdateOptions|None=None, 
-                insert_options: InsertOptions|None=None, 
-                clause: SQLClause|None=None):
+                search_options: SearchOptions | None = None,
+                update_options: UpdateOptions | None = None,
+                insert_options: InsertOptions | None = None,
+                clause: SQLClause | None = None):
         """Enter a context block where the supplied options replace the stored options for the `Table` or `FeatureClass`
         
         Args:
@@ -1365,26 +1369,26 @@ class Table(Generic[_Schema]):
         _src_ops = self.search_options
         _upd_ops = self.update_options
         _ins_ops = self.insert_options
-        _clause  = self.clause
+        _clause = self.clause
         try:
             self._search_options = (
-                self._resolve_search_options(_src_ops, search_options or {}) 
+                self._resolve_search_options(_src_ops, search_options or {})
                 if not strict
                 else search_options or SearchOptions()
             )
             self._update_options = (
                 self._resolve_update_options(_upd_ops, update_options or {})
-                if not strict 
+                if not strict
                 else insert_options or UpdateOptions()
             )
             self._insert_options = (
                 self._resolve_insert_options(_ins_ops, insert_options or {})
-                if not strict 
+                if not strict
                 else insert_options or InsertOptions()
             )
             self._clause = (
                 clause or _clause
-                if not strict 
+                if not strict
                 else SQLClause(None, None)
             )
             yield self
@@ -1396,7 +1400,7 @@ class Table(Generic[_Schema]):
             self._clause = _clause
 
     @contextmanager
-    def where(self, where_clause: WhereClause|str):
+    def where(self, where_clause: WhereClause | str):
         """Apply a where clause to a Table or FeatureClass in a context
 
         Args:
@@ -1443,22 +1447,22 @@ class Table(Generic[_Schema]):
             return
         except:
             pass
-        
+
         # Fallback to direct CIM update (updateConnectionProperties is buggy)
         # TODO: Integrate cimple.cim here for typing
         try:
             definition = layer.cim
-            dc = definition.featureTable.dataConnection # type: ignore
+            dc = definition.featureTable.dataConnection  # type: ignore
             dc.workspaceConnectionString = f'DATABASE={self.workspace}'
             dc.dataset = self.name
             # Remove missing FeatureDataset subpaths
-            if dc.featureDataset and dc.featureDataset not in Path(self.path).parts: # type: ignore
+            if dc.featureDataset and dc.featureDataset not in Path(self.path).parts:  # type: ignore
                 dc.featureDataset = None
-            layer.setDefinition(definition) # type: ignore
+            layer.setDefinition(definition)  # type: ignore
         except Exception as e:
             raise ValueError(f'Unable to bind to layer: {e}')
-        
-    def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP']='AUTO_ARRANGE') -> None:
+
+    def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP'] = 'AUTO_ARRANGE') -> None:
         """Add the featureclass to a map
 
         Note: 
@@ -1471,11 +1475,11 @@ class Table(Generic[_Schema]):
         if not self.layer:
             # Create a default layer, bind it, remove, and add back
             # with addLayer to match behavior with existing bound layer
-            self.layer = map.addDataFromPath(self.path) #type:ignore (Always Layer)
-            map.removeLayer(self.layer) #type:ignore (Incorrect Signature)
-        map.addLayer(self.layer, pos) #type:ignore
+            self.layer = map.addDataFromPath(self.path)  # type:ignore (Always Layer)
+            map.removeLayer(self.layer)  # type:ignore (Incorrect Signature)
+        map.addLayer(self.layer, pos)  # type:ignore
 
-    def select(self, method: Literal['NEW','DIFFERENCE','INTERSECT','SYMDIFFERENCE','UNION']='NEW') -> None:
+    def select(self, method: Literal['NEW', 'DIFFERENCE', 'INTERSECT', 'SYMDIFFERENCE', 'UNION'] = 'NEW') -> None:
         """If the Table or FeatureClass is bound to a layer, update the layer selection with the active SearchOptions
         
         Args:
@@ -1494,7 +1498,7 @@ class Table(Generic[_Schema]):
             self.layer.setSelectionSet(_selected, method=method)
             selected = self.layer.getSelectionSet() or set()
             _query = 'NO QUERY'
-            try: # Try to select the layer in the active map
+            try:  # Try to select the layer in the active map
                 if len(selected) == 1:
                     _query = f'{self.oid_field_name} = {list(selected)[0]}'
                 elif len(selected) > 1:
@@ -1505,7 +1509,7 @@ class Table(Generic[_Schema]):
                 return
             except Exception:
                 return
-   
+
     def unselect(self) -> None:
         """If the Table or FeatureClass is bound to a layer, Remove layer selection
         
@@ -1514,7 +1518,7 @@ class Table(Generic[_Schema]):
         """
         if self.layer:
             self.layer.setSelectionSet(method='NEW')
-            try: # Try to unselect the layer in the active map
+            try:  # Try to unselect the layer in the active map
                 SelectLayerByAttribute(self.layer.longName, 'CLEAR_SELECTION')
             except Exception:
                 return
@@ -1542,20 +1546,20 @@ class Table(Generic[_Schema]):
         if default_doc is None:
             return '\n'.join(
                 yield_schema(
-                    self, 
-                    fallback_type=fallback_type, 
-                    docs=docs, 
-                    include_oid_token=include_oid_token, 
+                    self,
+                    fallback_type=fallback_type,
+                    docs=docs,
+                    include_oid_token=include_oid_token,
                     include_shape_token=include_shape_token
                 )
             )
         else:
             return '\n'.join(
                 yield_schema(
-                    self, 
-                    fallback_type=fallback_type, 
-                    docs=docs, 
-                    include_oid_token=include_oid_token, 
+                    self,
+                    fallback_type=fallback_type,
+                    docs=docs,
+                    include_oid_token=include_oid_token,
                     include_shape_token=include_shape_token,
                     # Only override the default formatter if None is given
                     # if Literal 'nodoc' is supplied, use closure with empty string as doc func
@@ -1570,8 +1574,8 @@ class Table(Generic[_Schema]):
                    ignore_selection: bool = False,
                    ignore_def_query: bool = False,) -> Table:
         """See `from_layer` for documentation, this is an alternative constructor that builds from a mp.Table object"""
-        return Table.from_layer(table, ignore_selection=ignore_selection, ignore_def_query=ignore_def_query) # type: ignore (this won't break the interface)
-    
+        return Table.from_layer(table, ignore_selection=ignore_selection, ignore_def_query=ignore_def_query)  # type: ignore (this won't break the interface)
+
     @classmethod
     def from_layer(cls, layer: Layer,
                    *,
@@ -1587,41 +1591,42 @@ class Table(Generic[_Schema]):
             ( Table or FeatureClass ): The Table or FeatureClass object with the layer query applied
         """
         fc = cls(Path(layer.dataSource).resolve())
-        
+
         selected_ids: set[int] | None = (
             layer.getSelectionSet() or None
-            if not ignore_selection 
+            if not ignore_selection
             else None
         )
-        definition_query: str|None = (
+        definition_query: str | None = (
             layer.definitionQuery or None
-            if not ignore_def_query 
+            if not ignore_def_query
             else None
         )
-        selection: str|None = (
-            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})" 
-            if selected_ids 
+        selection: str | None = (
+            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
+            if selected_ids
             else None
         )
-        
+
         if (query_components := list(filter(None, [definition_query, selection]))):
             where_clause = ' AND '.join(query_components)
             fc.search_options = SearchOptions(where_clause=where_clause)
             fc.update_options = UpdateOptions(where_clause=where_clause)
-            
+
         fc.layer = layer
         return fc
-    
+
     def copy(self) -> Table[_Schema]:
         """Create a new FeatureClass instance to prevent overriding a shared resource"""
         return Table[_Schema](
-            self._path, 
+            self._path,
             search_options=self.search_options.copy(),
             update_options=self.update_options.copy(),
             insert_options=self.insert_options.copy(),
             clause=self.clause
         )
-    
+
+
 class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     """A Wrapper for ArcGIS FeatureClass objects
     
@@ -1646,24 +1651,24 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     Tokens = FeatureTokens
 
     def __init__(
-            self, path: str|Path,
+            self, path: str | Path,
             *,
-            search_options: SearchOptions|None=None, 
-            update_options: UpdateOptions|None=None, 
-            insert_options: InsertOptions|None=None,
-            clause: SQLClause|None=None,
-            where: str|None=None,
-            shape_token: ShapeToken='SHAPE@'
+            search_options: SearchOptions | None = None,
+            update_options: UpdateOptions | None = None,
+            insert_options: InsertOptions | None = None,
+            clause: SQLClause | None = None,
+            where: str | None = None,
+            shape_token: ShapeToken = 'SHAPE@'
         ) -> None:
         super().__init__(
-            path=path, 
-            search_options=search_options, update_options=update_options, insert_options=insert_options, 
+            path=path,
+            search_options=search_options, update_options=update_options, insert_options=insert_options,
             clause=clause, where=where
         )
         self._shape_token: ShapeToken = shape_token
 
     # rw Properties
-    
+
     @property
     def shape_token(self) -> ShapeToken:
         """Set the default `SHAPE@??` token for iteration. Use `SHAPE@` for full shape (default: `SHAPE@`)"""
@@ -1690,12 +1695,12 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         for shape in self.shapes:
             return type(shape)
         else:
-            return Geometry # type: ignore
+            return Geometry  # type: ignore
 
     @property
-    def describe(self) -> dt.FeatureClass: # pyright: ignore[reportIncompatibleMethodOverride]
+    def describe(self) -> dt.FeatureClass:  # pyright: ignore[reportIncompatibleMethodOverride]
         """A describe object fort the FeatureClass"""
-        return Describe(self.path) # type: ignore
+        return Describe(self.path)  # type: ignore
 
     @property
     def shape_field_name(self) -> str:
@@ -1712,7 +1717,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         _fields = ()
         with self.search_cursor('*') as c:
             _fields = c.fields
-        self._fields = replace + tuple((f for f in _fields if f not in exclude))
+        self._fields = replace + tuple(f for f in _fields if f not in exclude)
         return self._fields
 
     @property
@@ -1722,7 +1727,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     @property
     def shapes(self) -> Iterator[_GeometryType]:
         """An iterator of feature shapes"""
-        yield from ( shape for shape, in self.search_cursor('SHAPE@'))
+        yield from (shape for shape, in self.search_cursor('SHAPE@'))
 
     @property
     def spatial_reference(self) -> SpatialReference:
@@ -1768,7 +1773,6 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             y_min = min(s.extent.YMax, y_min or s.extent.YMin)
         if all([x_min, x_max, y_min, y_max]):
             return Extent(x_min, y_min, x_max, y_max, spatial_reference=s_ref)
-        
 
     @property
     def py_types(self) -> dict[str, type]:
@@ -1778,7 +1782,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
                 _types['SHAPE@'] = type(next(self.shapes))
         return _types
     # Data Operations
-    
+
     @overload
     def footprint(self, buffer: float, pairwise: bool) -> Polygon | None: ...
     @overload
@@ -1791,9 +1795,9 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def footprint(self, *, pairwise: bool) -> _GeometryType | None: ...
     @overload
     def footprint(self, /) -> _GeometryType | None: ...
-    
+
     def _footprint_pairwise(self, _feats: list[_GeometryType], buffer: float | None = None) -> _GeometryType | Polygon | None:
-        _unique = id(self) # For any multiprocessing operations (out_fc is global)
+        _unique = id(self)  # For any multiprocessing operations (out_fc is global)
         _dissolve_layer = f'memory/_dissolve_{_unique}'
         _buffer_layer = f'memory/_buffer_{_unique}'
         if Exists(_dissolve_layer):
@@ -1801,18 +1805,18 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         if Exists(_buffer_layer):
             Delete(_buffer_layer)
         _target = _feats if not buffer else PairwiseBuffer(
-                in_features=_feats, 
+                in_features=_feats,
                 out_feature_class=_buffer_layer,
-                buffer_distance_or_field=buffer, 
+                buffer_distance_or_field=buffer,
                 dissolve_option='NONE',
-                dissolve_field=None, 
+                dissolve_field=None,
                 method='GEODESIC' if self.is_geographic else 'PLANAR',
                 max_deviation=0,
             )[0]
 
         _dissolved = PairwiseDissolve(
             in_features=_target,
-            out_feature_class=_dissolve_layer, 
+            out_feature_class=_dissolve_layer,
             multi_part='MULTI_PART'
         )[0]
         footprint = next(FeatureClass(_dissolved).shapes).projectAs(self.current_reference)
@@ -1820,8 +1824,8 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             Delete(_dissolve_layer)
         if Exists(_buffer_layer):
             Delete(_buffer_layer)
-        return footprint or None # type: ignore
-    
+        return footprint or None  # type: ignore
+
     def footprint(self, buffer: float | None = None, pairwise: bool = True) -> _GeometryType | Polygon | None:
         """Merge all geometry in the featureclass using current SelectionOptions into a single geometry object to use 
         as a spatial filter on other FeatureClasses
@@ -1842,37 +1846,37 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             return None
 
         # Only use pairwise if the feature count is moderately large
-        
+
         # NOTE: The cutoff for pairwise being faster depends on shape complexity
-        # ~200 to 250 seems to be the sweetspot though. Direct merge is linear 
+        # ~200 to 250 seems to be the sweetspot though. Direct merge is linear
         # while pairwise is logarithmic with a base time of ~100ms while Geometry.merge
         # is ~0.1ms per feature, but increases as the feature gains points
         if pairwise and _count > 230:
             return self._footprint_pairwise(_feats, buffer)
-        
+
         def merge(acc: _GeometryType | Polygon, nxt: _GeometryType | Polygon) -> _GeometryType | Polygon:
-            return acc.union(nxt) # pyright: ignore[reportReturnType]
-        
-        # Consume the shape generator popping off the first shape and applying the buffer, 
+            return acc.union(nxt)  # pyright: ignore[reportReturnType]
+
+        # Consume the shape generator popping off the first shape and applying the buffer,
         # Then buffering each additional shape and merging it into the accumulator (starting with _first)
         footprint = reduce(merge, _feats)
         if buffer:
             footprint = footprint.buffer(buffer)
         return footprint
-            
+
     def recalculate_extent(self) -> None:
         """Recalculate the FeatureClass Extent"""
         RecalculateFeatureClassExtent(self.path, 'STORE_EXTENT')
 
     # Magic Methods
-    
+
     @overload
     def __getitem__(self, field: tuple[FieldName, ...]) -> Iterator[tuple[Any, ...]]: ...
     @overload
     def __getitem__(self, field: list[FieldName]) -> Iterator[list[Any]]: ...
     @overload
     def __getitem__(self, field: set[FieldName]) -> Iterator[_Schema]: ...
-    @overload # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
+    @overload  # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
     def __getitem__(self, field: Literal['SHAPE@']) -> Iterator[_GeometryType]: ...
     @overload
     def __getitem__(self, field: FieldName) -> Iterator[Any]: ...
@@ -1884,8 +1888,8 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def __getitem__(self, field: None) -> Iterator[None]: ...
     @overload
     def __getitem__(self, field: GeometryType | Extent) -> Iterator[_Schema]: ...
-    
-    def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]: # pyright: ignore[reportIncompatibleMethodOverride]
+
+    def __getitem__(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@']) -> Iterator[Any]:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Handle all defined overloads using pattern matching syntax
         
         Args:
@@ -1940,18 +1944,18 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
                     yield from self
                 # with self.search_cursor(*self.fields, spatial_filter=shape, spatial_reference=shape.spatialReference) as cur:
                 #     yield from (row for row in self.as_dict(cur))
-            case field if isinstance(field, str|set|list|tuple|Callable|WhereClause|None):
+            case field if isinstance(field, str | set | list | tuple | Callable | WhereClause | None):
                 yield from super().__getitem__(field)
             case _:
                 raise KeyError(f'{type(field)}: {field}')
-    
+
     @overload
     def get(self, field: tuple[FieldName, ...], default: _T) -> Iterator[tuple[Any, ...]] | _T: ...
     @overload
     def get(self, field: list[FieldName], default: _T) -> Iterator[list[Any]] | _T: ...
     @overload
     def get(self, field: set[FieldName], default: _T) -> Iterator[_Schema] | _T: ...
-    @overload # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
+    @overload  # Overload 'SHAPE@' for special case before FieldName (which it is a subset of)
     def get(self, field: Literal['SHAPE@'], default: _T) -> Iterator[_GeometryType] | _T: ...
     @overload
     def get(self, field: FieldName, default: _T) -> Iterator[Any] | _T: ...
@@ -1963,8 +1967,8 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
     def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
     @overload
     def get(self, field: GeometryType | Extent, default: _T) -> Iterator[_Schema] | _T: ...
-    
-    def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T=None) -> Iterator[Any] | _T: # pyright: ignore[reportIncompatibleMethodOverride]
+
+    def get(self, field: Table._IndexableTypes | FilterFunc[_Schema] | Extent | GeometryType | Literal['SHAPE@'], default: _T = None) -> Iterator[Any] | _T:  # pyright: ignore[reportIncompatibleMethodOverride]
         """Allows safe indexing of a FeatureClass, see `Table.get` for more information"""
         try:
             return self[field]
@@ -1972,7 +1976,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             if isinstance(e, RuntimeError) and 'Cannot find field' in str(e):
                 raise
             return default
-    
+
     def __format__(self, format_spec: str) -> str:
         match format_spec:
             case 'shape' | 'shp':
@@ -1985,7 +1989,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
                 return super().__format__(format_spec)
 
     # Context Managers
-    
+
     @contextmanager
     def reference_as(self, spatial_reference: SpatialReference):
         """Allows you to temporarily set a spatial reference on SearchCursor and UpdateCursor objects within a context block
@@ -2014,12 +2018,12 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             ```
         """
         with self.options(
-            search_options=SearchOptions(spatial_reference=spatial_reference), 
+            search_options=SearchOptions(spatial_reference=spatial_reference),
             update_options=UpdateOptions(spatial_reference=spatial_reference)):
             yield self
 
     @contextmanager
-    def spatial_filter(self, spatial_filter: GeometryType | Extent, spatial_relationship: SpatialRelationship='INTERSECTS'):
+    def spatial_filter(self, spatial_filter: GeometryType | Extent, spatial_relationship: SpatialRelationship = 'INTERSECTS'):
         """Apply a spatial filter to the FeatureClass in a context
         
         Args:
@@ -2050,7 +2054,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         """
         with self.options(
             search_options=SearchOptions(
-                spatial_filter=spatial_filter, 
+                spatial_filter=spatial_filter,
                 spatial_relationship=spatial_relationship,
                 spatial_reference=spatial_filter.spatialReference)):
             yield self
@@ -2069,7 +2073,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             return None
         return trans[0]
 
-    # Factory Constructors        
+    # Factory Constructors
 
     @classmethod
     def from_layer(cls, layer: Layer,
@@ -2086,35 +2090,35 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """
         fc = cls(layer.dataSource)
-        
+
         selected_ids: set[int] | None = (
             layer.getSelectionSet() or None
-            if not ignore_selection 
+            if not ignore_selection
             else None
         )
-        definition_query: str|None = (
+        definition_query: str | None = (
             layer.definitionQuery or None
-            if not ignore_def_query 
+            if not ignore_def_query
             else None
         )
-        selection: str|None = (
-            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})" 
-            if selected_ids 
+        selection: str | None = (
+            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
+            if selected_ids
             else None
         )
-        
+
         if (query_components := list(filter(None, [definition_query, selection]))):
             where_clause = ' AND '.join(query_components)
             fc.search_options = SearchOptions(where_clause=where_clause)
             fc.update_options = UpdateOptions(where_clause=where_clause)
-            
+
         fc.layer = layer
         return fc
 
     def copy(self) -> FeatureClass[_GeometryType, _Schema]:
         """Create a new FeatureClass instance to prevent overriding a shared resource"""
         return FeatureClass[_GeometryType, _Schema](
-            self._path, 
+            self._path,
             search_options=self.search_options.copy(),
             update_options=self.update_options.copy(),
             insert_options=self.insert_options.copy(),
@@ -2122,7 +2126,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             shape_token=self.shape_token,
         )
 
-    def create_annotations(self, name: str, reference_scale: float, 
+    def create_annotations(self, name: str, reference_scale: float,
                            *,
                            single_class: bool = False,
                            require_symbol: bool = False,
@@ -2144,7 +2148,7 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
         """
         if self.layer is None:
             raise ValueError(
-                f'Raw FeatureClasses cannot be used to create Annotations, '
+                'Raw FeatureClasses cannot be used to create Annotations, '
                 'requires a linked Layer'
             )
         return FeatureClass(
@@ -2159,27 +2163,28 @@ class FeatureClass(Table[_Schema], Generic[_GeometryType, _Schema]):
             )[0]
         )
 
+
 class AttributeRuleManager:
     """Handler for interacting with AttributeRules on a FeatureClass or Table"""
-    def __init__(self, parent: Table[Any]|FeatureClass) -> None:
+    def __init__(self, parent: Table[Any] | FeatureClass) -> None:
         self._parent = parent
-            
+
     @property
     def names(self) -> list[str]:
         return list(self.rules.keys())
-    
+
     @property
     def parent(self) -> Table[Any] | FeatureClass:
-        return self._parent 
-    
+        return self._parent
+
     @property
     def rules(self) -> dict[str, AttributeRule]:
         return {
-            rule['name']: AttributeRule(rule) 
+            rule['name']: AttributeRule(rule)
             for rule in self._parent.da_describe['attributeRules']
         }
-    
-    def export_rules(self, out_dir: Path|str) -> Iterator[AttributeRule]:
+
+    def export_rules(self, out_dir: Path | str) -> Iterator[AttributeRule]:
         """Write attribute rules out to a structured directory
         
         Args:
@@ -2190,16 +2195,16 @@ class AttributeRuleManager:
         """
         out_dir = Path(out_dir)
         for rule_name, rule in self.rules.items():
-            rule_name = rule_name.replace('/', '-') # Arc allows / in rulenames
-            _script: str = str(rule.pop('scriptExpression', '')) # TypedDict has bugged pop typing
+            rule_name = rule_name.replace('/', '-')  # Arc allows / in rulenames
+            _script: str = str(rule.pop('scriptExpression', ''))  # TypedDict has bugged pop typing
             out_file = out_dir / self._parent.name / rule_name
             out_file.parent.mkdir(exist_ok=True, parents=True)
             out_file.with_suffix('.js').write_text(_script, encoding='utf-8')
             out_file.with_suffix('.cfg').write_text(json.dumps(rule, indent=2), encoding='utf-8')
             yield rule
         return
-    
-    def import_rules(self, src_dir: Path|str, *, strict: bool=False, disable: bool=False) -> Iterator[AttributeRule]:
+
+    def import_rules(self, src_dir: Path | str, *, strict: bool = False, disable: bool = False) -> Iterator[AttributeRule]:
         """Import attribute rules that were previously exported to the filesystem for editing
         
         Args:
@@ -2214,10 +2219,10 @@ class AttributeRuleManager:
         src_dir = Path(src_dir)
         if src_dir.stem != self.parent.name:
             src_dir = src_dir / self.parent.name
-            
-        _old_rules = {k: v.copy() for k,v in self.rules.items()}
+
+        _old_rules = {k: v.copy() for k, v in self.rules.items()}
         _imported_rule_names: set[str] = set()
-        rule_config: AttributeRule = {'name': 'UNINITIALIZED'} # type: ignore
+        rule_config: AttributeRule = {'name': 'UNINITIALIZED'}  # type: ignore
         try:
             rule_orders: dict[str, int] = {}
             for cfg in src_dir.glob('*.cfg'):
@@ -2230,7 +2235,7 @@ class AttributeRuleManager:
                 # Let the __setitem__ logic handle the rule (alter/add)
                 self[rule['name']] = rule
                 _imported_rule_names.add(rule['name'])
-                
+
                 # Store order for re-ordering later
                 rule_orders[rule['name']] = rule['evaluationOrder']
 
@@ -2240,30 +2245,30 @@ class AttributeRuleManager:
                     continue
                 if self.rules[rule_name]['evaluationOrder'] != rule_order:
                     self.alter_attribute_rule(name=rule_name, evaluation_order=rule_order)
-            
+
             if strict and (to_remove := set(self.names).difference(_imported_rule_names)):
                 if disable:
                     self.disable_attribute_rule(*to_remove)
                 else:
                     self.delete_attribute_rule(*to_remove)
             yield from (self[rule] for rule in rule_orders)
-            
+
         except Exception as e:
             # Revert the import if an Exception is rasied
             for rule_name, rule in _old_rules.items():
                 if rule_name in _imported_rule_names:
                     self[rule_name] = rule
-            
+
             # Remove rules
             if (to_remove := set(_old_rules).difference(self.names)):
                 self.delete_attribute_rule(*to_remove)
-            
+
             e.add_note(f"{rule_config['name']} failed to import")
             e.add_note(f'Config: {pformat(convert_rule(rule_config))}')
             e.add_note(f'Transaction reverted for {_imported_rule_names} in {self.parent.name}')
-            raise e # Raise the Exception
-    
-    def sync(self, target: FeatureClass|Table) -> None:
+            raise e  # Raise the Exception
+
+    def sync(self, target: FeatureClass | Table) -> None:
         """Sync the rules in this FeatureClass/Table instance with those of another overwriting 
         the current ruleset with the targeted ruleset
         
@@ -2274,9 +2279,9 @@ class AttributeRuleManager:
         with TemporaryDirectory() as temp:
             target.attribute_rules.export_rules(temp)
             self.import_rules(temp)
-    
+
     def add_attribute_rule(self, **rule: Unpack[AddRuleOpts]) -> None:
-        
+
         # The AddAttributeRule function requires subtype codes to be converted to names
         # Since AlterAttributeRule does not accept subtypes
         _subtypes: list[str] = []
@@ -2285,16 +2290,16 @@ class AttributeRuleManager:
                 _subtypes.append(self.parent.subtypes[int(subtype)]['Name'])
         if _subtypes:
             rule['subtype'] = _subtypes
-        
+
         AddAttributeRule(self._parent.path, **rule)
-    
-    def alter_attribute_rule(self, evaluation_order: int | None=None, **rule: Unpack[AlterRuleOpts]) -> None:
-        if evaluation_order: # Handle reorder
+
+    def alter_attribute_rule(self, evaluation_order: int | None = None, **rule: Unpack[AlterRuleOpts]) -> None:
+        if evaluation_order:  # Handle reorder
             ReorderAttributeRule(self._parent.path, rule['name'], evaluation_order)
         if rule:
             AlterAttributeRule(self._parent.path, **rule)
-    
-    def delete_attribute_rule(self, *rule_name: str, delete_all: bool=False) -> None:
+
+    def delete_attribute_rule(self, *rule_name: str, delete_all: bool = False) -> None:
         """Delete provided attribute rules from the ruleset
         
         Args:
@@ -2304,8 +2309,8 @@ class AttributeRuleManager:
         if not rule_name and delete_all:
             rule_name = tuple(self.names)
         DeleteAttributeRule(str(self.parent), rule_name)
-       
-    def disable_attribute_rule(self, *rule_name: str, disable_all: bool=False) -> None:
+
+    def disable_attribute_rule(self, *rule_name: str, disable_all: bool = False) -> None:
         """Disable provided attribute rules from the ruleset
         
         Args:
@@ -2315,8 +2320,8 @@ class AttributeRuleManager:
         if not rule_name and disable_all:
             rule_name = tuple(self.names)
         DisableAttributeRules(str(self.parent), rule_name)
-         
-    def enable_attribute_rule(self, *rule_name: str, enable_all: bool=False) -> None:
+
+    def enable_attribute_rule(self, *rule_name: str, enable_all: bool = False) -> None:
         """Enable provided attribute rules in the ruleset
         
         Args:
@@ -2326,16 +2331,16 @@ class AttributeRuleManager:
         if not rule_name and enable_all:
             rule_name = tuple(self.names)
         EnableAttributeRules(str(self.parent), rule_name)
-    
+
     def __iter__(self) -> Iterator[AttributeRule]:
         return iter(self.rules.values())
-    
+
     def __getitem__(self, rule_name: str) -> AttributeRule:
         return self.rules[rule_name]
-    
+
     def __contains__(self, name: str) -> bool:
         return name in self.names
-    
+
     def __setitem__(self, rule_name: str, new_rule: AttributeRule) -> None:
         """The primary method for interacting with attribute rules
         
@@ -2354,7 +2359,7 @@ class AttributeRuleManager:
         new_rule['name'] = rule_name
         current_rule = self.get(rule_name)
         is_enabled = new_rule.get('isEnabled', True)
-        
+
         # Skip fields that are modified by the system
         skip_compare = {
             'id',
@@ -2362,35 +2367,35 @@ class AttributeRuleManager:
             'requiredGeodatabaseClientVersion',
             'creationTime',
         }
-        
+
         # Add a new rule
         if not current_rule:
             self.add_attribute_rule(**to_rule_add(new_rule))
             if not is_enabled:
                 self.disable_attribute_rule(rule_name)
             return
-        
+
         # Enable/Disable
         if is_enabled and not current_rule['isEnabled']:
             self.enable_attribute_rule(rule_name)
         elif not is_enabled and current_rule['isEnabled']:
             self.disable_attribute_rule(rule_name)
         is_enabled = current_rule['isEnabled']
-        
+
         # Get Changes
         changes: dict[str, Any] = {
             setting: new_rule[setting]
-            for setting in current_rule 
+            for setting in current_rule
             if setting not in skip_compare
             and setting in new_rule
             and new_rule[setting] != current_rule[setting]
         }
-        
+
         if not changes:
             return
-        
+
         # Subtype change requires a re-build
-        if 'subtypeCodes'in changes:
+        if 'subtypeCodes' in changes:
             self.delete_attribute_rule(rule_name)
             current_rule.update(new_rule)
             self.add_attribute_rule(**to_rule_add(current_rule))
@@ -2399,14 +2404,15 @@ class AttributeRuleManager:
                 evaluation_order=changes.get('evaluatonOrder'),
                 **to_rule_alter(new_rule)
             )
-        
-    def get(self, rule_name: str, default: _T=None) -> AttributeRule | _T:
+
+    def get(self, rule_name: str, default: _T = None) -> AttributeRule | _T:
         return self.rules.get(rule_name, default)
 
     def __bool__(self) -> bool:
         if self.rules:
             return True
         return False
+
 
 if __name__ == '__main__':
     pass
