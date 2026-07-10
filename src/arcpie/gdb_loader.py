@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime as dt
 import json
 from collections import defaultdict, deque
 from collections.abc import Iterator, Sequence
@@ -10,6 +11,7 @@ from struct import Struct
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Literal,
     NotRequired,
     Self,
@@ -37,16 +39,16 @@ else:
         _HAS_PANDAS = False
         DataFrame = object
     try:
-      from arcpy import (
-          Array,
-          AsShape,
-          Multipoint,
-          Point,
-          PointGeometry,
-          Polygon,
-          Polyline,
-          SpatialReference,
-      )
+        from arcpy import (
+            Array,
+            AsShape,
+            Multipoint,
+            Point,
+            PointGeometry,
+            Polygon,
+            Polyline,
+            SpatialReference,
+        )
     except ImportError:
         _HAS_ARCPY = False
         AsShape = None
@@ -60,7 +62,7 @@ else:
 
 
 # All dates are anchored as float64 days from this date
-START_DATE = datetime(1899, 12, 30, 0, 0, 0, 0)
+START_DATE = datetime(1899, 12, 30, 0, 0, 0, 0, tzinfo=dt.UTC)
 
 
 class TablxHeader(TypedDict):
@@ -85,7 +87,7 @@ class TableHeader(TypedDict):
 
 
 class MemoryReader:
-    _struct_cache = dict[str, Struct]()
+    _struct_cache: ClassVar = dict[str, Struct]()
     __slots__ = 'byte_order', 'index', 'stack', 'view'
 
     def __init__(self, view: memoryview, start: int = 0,
@@ -113,9 +115,9 @@ class MemoryReader:
         if not any(fmt.startswith(c) for c in ('@', '=', '<', '>', '!')):
             fmt = self.byte_order + fmt
         struct = MemoryReader._struct_cache.setdefault(fmt, Struct(fmt))
-        _sz = struct.size
-        val = struct.unpack(self.view[self.index:self.index + _sz])
-        self.scan(_sz)
+        size = struct.size
+        val = struct.unpack(self.view[self.index:self.index + size])
+        self.scan(size)
         self.stack.extend(val)
         return val
 
@@ -251,104 +253,104 @@ class FieldReader(MemoryReader):
 
 class GeometryReader(MemoryReader):
     def read_point(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
-        _xyscale: float = info['xy-scale']
-        _mscale: float = info['m-scale']
-        _zscale: float = info['z-scale']
-        _xorigin: float = info['x-origin']
-        _yorigin: float = info['y-origin']
-        _zorigin: float = info['z-origin']
-        _morigin: float = info['m-origin']
-        _ref: str = info['reference']
+        xyscale: float = info['xy-scale']
+        mscale: float = info['m-scale']
+        zscale: float = info['z-scale']
+        xorigin: float = info['x-origin']
+        yorigin: float = info['y-origin']
+        zorigin: float = info['z-origin']
+        morigin: float = info['m-origin']
+        ref: str = info['reference']
 
         pt: dict[str, float] = {
             'x': (
-                (self.varint(False) - 1) / _xyscale
+                (self.varint(False) - 1) / xyscale
                 or float('nan')
-            ) + _xorigin,
+            ) + xorigin,
             'y': (
-                (self.varint(False) - 1) / _xyscale
+                (self.varint(False) - 1) / xyscale
                 or float('nan')
-            ) + _yorigin,
+            ) + yorigin,
             'z': (
-                (self.varint(False) - 1) / _zscale
+                (self.varint(False) - 1) / zscale
                 or float('nan')
-            ) + _zorigin if info['has-z'] else float('nan'),
+            ) + zorigin if info['has-z'] else float('nan'),
             'm': (
-                (self.varint(False) - 1) / _mscale
+                (self.varint(False) - 1) / mscale
                 or float('nan')
-            ) + _morigin if info['has-m'] else float('nan'),
+            ) + morigin if info['has-m'] else float('nan'),
         }
         if _as_shape:
             return PointGeometry(
                 Point(pt['x'], pt['y'], pt['z'], pt['m']),
-                spatial_reference=SpatialReference(text=_ref)
+                spatial_reference=SpatialReference(text=ref)
             )
         return pt
 
     def read_multipoint(self, size: int, info: dict[str, Any], _as_shape: bool = False) -> Any:
-        _xyscale: float = info['xy-scale']
-        _xmin: float = info['x-min']
-        _ymin: float = info['y-min']
+        xyscale: float = info['xy-scale']
+        xmin: float = info['x-min']
+        ymin: float = info['y-min']
         _mscale: float = info['m-scale']
-        _zscale: float = info['z-scale']
-        _hasz: bool = info['has-z']
+        zscale: float = info['z-scale']
+        hasz: bool = info['has-z']
         _hasm: bool = info['has-m']
-        _xorigin: float = info['x-origin']
-        _yorigin: float = info['y-origin']
-        _zorigin: float = info['z-origin']
+        xorigin: float = info['x-origin']
+        yorigin: float = info['y-origin']
+        zorigin: float = info['z-origin']
         _morigin: float = info['m-origin']
-        _ref: str = info['reference']
+        ref: str = info['reference']
 
         point_count = self.varint(False)
-        bounds: dict[str, float] = {
-            'xmin': self.varint(False) / _xyscale + _xorigin,
-            'ymin': self.varint(False) / _xyscale + _yorigin,
-            'xmax': self.varint(False) / _xyscale + _xmin,
-            'ymax': self.varint(False) / _xyscale + _ymin,
+        _bounds: dict[str, float] = {
+            'xmin': self.varint(False) / xyscale + xorigin,
+            'ymin': self.varint(False) / xyscale + yorigin,
+            'xmax': self.varint(False) / xyscale + xmin,
+            'ymax': self.varint(False) / xyscale + ymin,
         }
         points: list[dict[str, float]] = []
         dx = dy = dz = 0
         for _ in range(point_count):
             dx += self.varint()
             dy += self.varint()
-            dx += self.varint() if _hasz else 0
+            dx += self.varint() if hasz else 0
             points.append(
                 {
-                    'x': dx / _xyscale + _xorigin,
-                    'y': dy / _xyscale + _yorigin,
-                    'z': (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                    'x': dx / xyscale + xorigin,
+                    'y': dy / xyscale + yorigin,
+                    'z': (dz / zscale + zorigin) if hasz else float('nan'),
                 }
             )
 
         if _as_shape:
             return Multipoint(
                 Array([Point(*p.values(), ID=i) for i, p in enumerate(points)]),
-                spatial_reference=SpatialReference(text=_ref)
+                spatial_reference=SpatialReference(text=ref)
             )
         return points
 
     def _read_multi(self, info: dict[str, Any], _as_shape: bool = False) -> Any:
-        _xyscale: float = info['xy-scale']
+        xyscale: float = info['xy-scale']
         _xmin: float = info['x-min']
         _ymin: float = info['y-min']
         _mscale: float = info['m-scale']
-        _zscale: float = info['z-scale']
-        _hasz: bool = info['has-z']
+        zscale: float = info['z-scale']
+        hasz: bool = info['has-z']
         _hasm: bool = info['has-m']
-        _xorigin: float = info['x-origin']
-        _yorigin: float = info['y-origin']
-        _zorigin: float = info['z-origin']
+        xorigin: float = info['x-origin']
+        yorigin: float = info['y-origin']
+        zorigin: float = info['z-origin']
         _morigin: float = info['m-origin']
         _ref: str = info['reference']
 
         point_count = self.varint(False)
         part_count = self.varint(False)
         bounds: dict[str, float] = {
-            'xmin': self.varint(False) / _xyscale + _xorigin,
-            'ymin': self.varint(False) / _xyscale + _yorigin,
+            'xmin': self.varint(False) / xyscale + xorigin,
+            'ymin': self.varint(False) / xyscale + yorigin,
         }
-        bounds['xmax'] = self.varint(False) / _xyscale + bounds['xmin']
-        bounds['ymax'] = self.varint(False) / _xyscale + bounds['ymin']
+        bounds['xmax'] = self.varint(False) / xyscale + bounds['xmin']
+        bounds['ymax'] = self.varint(False) / xyscale + bounds['ymin']
 
         part_point_count = [
             self.varint(False)
@@ -362,22 +364,22 @@ class GeometryReader(MemoryReader):
             for point in range(part_point_count[part]):
                 dx += self.varint()
                 dy += self.varint()
-                dx += self.varint() if _hasz else 0
+                dx += self.varint() if hasz else 0
                 if _as_shape:
                     points.append(
                         Point(
-                            dx / _xyscale + _xorigin,
-                            dy / _xyscale + _yorigin,
-                            (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                            dx / xyscale + xorigin,
+                            dy / xyscale + yorigin,
+                            (dz / zscale + zorigin) if hasz else float('nan'),
                             ID=point,
                         )
                     )
                 else:
                     points.append(
                         {
-                            'x': dx / _xyscale + _xorigin,
-                            'y': dy / _xyscale + _yorigin,
-                            'z': (dz / _zscale + _zorigin) if _hasz else float('nan'),
+                            'x': dx / xyscale + xorigin,
+                            'y': dy / xyscale + yorigin,
+                            'z': (dz / zscale + zorigin) if hasz else float('nan'),
                         }
                     )
             rings.append(points)
@@ -455,8 +457,8 @@ class AnnoReader(MemoryReader):
         if not _HAS_ARCPY:
             return data
 
-        _points = Array(Point(*pt, ID=i) for i, pt in enumerate(data['shape']))
-        data['shape'] = Polyline(_points, spatial_reference)
+        points = Array(Point(*pt, ID=i) for i, pt in enumerate(data['shape']))
+        data['shape'] = Polyline(points, spatial_reference)
         if data.get('leaders'):
             data['leaders'] = [
                 PointGeometry(Point(*leader.values()), spatial_reference)
@@ -573,9 +575,9 @@ class RowReader(MemoryReader):
         elif field_type == 'time':
             return (START_DATE + timedelta(self.float64())).time()
         elif field_type == 'offsetdate':
-            _date = (START_DATE + timedelta(self.float64()))
-            _utc_offset = timedelta(hours=self.int16())
-            return _date + _utc_offset
+            date = (START_DATE + timedelta(self.float64()))
+            utc_offset = timedelta(hours=self.int16())
+            return date + utc_offset
 
 
 class FileGDB:
@@ -602,11 +604,11 @@ class FileGDB:
 
     @cached_property
     def tables(self) -> dict[str, GDBTable]:
-        _index = {v: k for k, v in self.index.items()}
+        index = {v: k for k, v in self.index.items()}
         return {
             display_name: GDBTable(self.path, table.stem, display_name)
             for table in self.path.glob('*.gdbtable')
-            if (display_name := _index.get(table.stem, table.stem))
+            if (display_name := index.get(table.stem, table.stem))
             and table.exists()
         }
 
@@ -641,7 +643,7 @@ class GDBTable:
 
     _as_shape = _HAS_ARCPY
 
-    _geom_types = {
+    _geom_types: ClassVar = {
         1: 'point',
         2: 'multipoint',
         3: 'polyline',
@@ -649,7 +651,7 @@ class GDBTable:
         9: 'multipatch',
     }
 
-    _field_types = {
+    _field_types: ClassVar = {
         0:  'int16',
         1:  'int32',
         2:  'float32',
@@ -726,13 +728,13 @@ class GDBTable:
 
     def to_markdown(self, *,
                     max_col: int = 48,
-                    truncate: int | None | Literal[True] = None,
+                    truncate: int | Literal[True] | None = None,
                     align: Literal['left', 'center', 'right'] = 'left',
         ) -> str:
         rows: list[str] = []
         maxlen = max(len(str(v)) for r in self for v in r.values())
         maxlen = max_col if maxlen > max_col else maxlen
-        headers = list(f'{k:^{maxlen}}' for k in self.fields.keys())
+        headers = [f'{k:^{maxlen}}' for k in self.fields.keys()]
         if truncate is True:
             truncate = maxlen
         header_row = f'| {'|'.join(headers)} |'
@@ -766,7 +768,7 @@ class GDBTable:
             csvfile.write(newline)
         return fl
 
-    def to_dict(self, fields: None | Sequence[str] = None) -> dict[str, list[Any]]:
+    def to_dict(self, fields: Sequence[str] | None = None) -> dict[str, list[Any]]:
         data = defaultdict[str, list[Any]](list)
 
         # Preserve field order
@@ -780,7 +782,7 @@ class GDBTable:
                     data[k].append(v)
         return data
 
-    def to_dataframe(self, fields: None | Sequence[str] = None) -> DataFrame:
+    def to_dataframe(self, fields: Sequence[str] | None = None) -> DataFrame:
         if not _HAS_PANDAS:
             raise SystemError('pandas is not available, install with `pip install pandas`')
         return DataFrame(self.to_dict(fields))
@@ -893,7 +895,7 @@ class GDBTable:
 
     @property
     def fields(self) -> dict[str, dict[str, Any]]:
-        _fields: dict[str, dict[str, Any]] = {}
+        fields: dict[str, dict[str, Any]] = {}
         desc = self.field_descriptions
         has_m = desc['has_m']
         has_z = desc['has_z']
@@ -921,7 +923,7 @@ class GDBTable:
                 info.update(reader.read_generic())
             else:
                 info.update(reader.read_default())
-            _fields[info['name']] = info
+            fields[info['name']] = info
 
             if info['flag'] is None:
                 info['nullable'] = None
@@ -932,14 +934,15 @@ class GDBTable:
                 info['required'] = bool(info['flag'] & 2)
                 info['editable'] = bool(info['flag'] & 4)
         self._row_offset = reader.index
-        return _fields
+        return fields
 
     def __len__(self) -> int:
         return self.table_header['row_count']
 
     def __iter__(self) -> Iterator[dict[str, Any]]:
         row_count = self.table_header['row_count']
-        if not row_count: return
+        if not row_count:
+            return
         fields = self.fields
         offset = self._row_offset
         nullable = sum(1 for f in fields.values() if f['nullable'])
@@ -947,8 +950,10 @@ class GDBTable:
         yielded_rows = 0
         reader = RowReader(memoryview(self.table), start=offset)
         for fid, offset in enumerate(self.field_offsets, start=1):
-            if not offset: continue
-            if yielded_rows == row_count: break
+            if not offset:
+                continue
+            if yielded_rows == row_count:
+                break
 
             reader.index = offset
             _blob_len = reader.int32(False)  # unused?
