@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
+    Final,
     Literal,
     NamedTuple,
     Required,
@@ -20,6 +20,8 @@ from typing import (
     TypedDict,
     TypeVarTuple,
 )
+
+from arcpy.mp import PDFFormat
 
 if TYPE_CHECKING:
     from arcpy import SpatialReference
@@ -65,6 +67,7 @@ def convert_dtypes(dtypes: np.dtype[Any]) -> dict[str, type]:
 # Typevar that can be used with a cursor to type the yielded tuples
 # SearchCursor[int, str, str]('table', ['total', 'name', 'city'])
 _RowTs = TypeVarTuple('_RowTs')
+_NoClause: Final = SQLClause(None, None)
 
 
 class SearchCursor(Iterator[tuple[*_RowTs]]):
@@ -75,7 +78,7 @@ class SearchCursor(Iterator[tuple[*_RowTs]]):
         where_clause: str | None = None,
         spatial_reference: str | int | SpatialReference | None = None,
         explode_to_points: bool | None = False,
-        sql_clause: SQLClause = SQLClause(None, None),
+        sql_clause: SQLClause = _NoClause,
         datum_transformation: str | None = None,
         spatial_filter: Any = None,
         spatial_relationship: SpatialRelationship | None = None,
@@ -94,7 +97,7 @@ class SearchCursor(Iterator[tuple[*_RowTs]]):
     def _dtype(self) -> np.dtype[Any]: ...
 
 
-class InsertCursor(Generic[*_RowTs]):
+class InsertCursor:
     _enable_simplify: bool = False
 
     def __init__(
@@ -121,7 +124,7 @@ class UpdateCursor(Iterator[tuple[*_RowTs]]):
         where_clause: str | None = None,
         spatial_reference: str | int | SpatialReference | None = None,
         explode_to_points: bool | None = False,
-        sql_clause: SQLClause = SQLClause(None, None),
+        sql_clause: SQLClause = _NoClause,
         skip_nulls: bool | None = False,
         null_value: Any | dict[str, Any] = None,
         datum_transformation: str | None = None,
@@ -358,7 +361,7 @@ DefaultPDFExport: PDFFormatSetting = {
 # Utility functions to make conversion between case standards easier
 def snake_to_camel(s: str) -> str:
     words = s.split('_')
-    words = [words[0]] + list(map(str.title, words[1:]))
+    words = [words[0], *list(map(str.title, words[1:]))]
     return ''.join(words)
 
 
@@ -397,7 +400,6 @@ def camel_to_snake(s: str) -> str:
 
 
 def get_pdf_format(pdf_path: str | Path, setting: PDFFormatSetting):
-    from arcpy.mp import PDFFormat
     fmt = PDFFormat(str(pdf_path))
     for k, v in setting.items():
         if not hasattr(fmt, k):
@@ -446,30 +448,30 @@ _CalculationType = Literal['esriARTCalculation', 'esriARTValidation', 'esriARTCo
 
 # System representation of an attribute rule
 class AttributeRule(TypedDict):
-        id: int
-        name: str
-        type: _CalculationType
-        evaluationOrder: int
-        fieldName: str
-        subtypeCode: int
-        description: str
-        errorNumber: int
-        errorMessage: str
-        userEditable: bool
-        isEnabled: bool
-        referencesExternalService: bool
-        excludeFromClientEvaluation: bool
-        scriptExpression: str
-        triggeringEvents: list[_TriggerEvent]
-        checkParameters: dict[str, Any]
-        category: int
-        severity: int
-        tags: str
-        batch: bool
-        requiredGeodatabaseClientVersion: str
-        creationTime: int
-        subtypeCodes: list[int]
-        triggeringFields: list[str]
+    id: int
+    name: str
+    type: _CalculationType
+    evaluationOrder: int
+    fieldName: str
+    subtypeCode: int
+    description: str
+    errorNumber: int
+    errorMessage: str
+    userEditable: bool
+    isEnabled: bool
+    referencesExternalService: bool
+    excludeFromClientEvaluation: bool
+    scriptExpression: str
+    triggeringEvents: list[_TriggerEvent]
+    checkParameters: dict[str, Any]
+    category: int
+    severity: int
+    tags: str
+    batch: bool
+    requiredGeodatabaseClientVersion: str
+    creationTime: int
+    subtypeCodes: list[int]
+    triggeringFields: list[str]
 
 
 def convert_rule(rule: AttributeRule) -> dict[str, Any]:
@@ -487,61 +489,61 @@ def convert_rule(rule: AttributeRule) -> dict[str, Any]:
         'triggeringEvents': 'triggering_events',
         'triggeringFields': 'triggering_fields',
     }
-    _converted: dict[str, Any] = {}
-    _converted['triggering_events'] = [
+    converted: dict[str, Any] = {}
+    converted['triggering_events'] = [
         e.removeprefix('esriARTE').upper()
         for e in rule['triggeringEvents']
     ]
-    _converted['type'] = rule['type'].removeprefix('esriART').upper()
-    _converted['exclude_from_client_evaluation'] = (
+    converted['type'] = rule['type'].removeprefix('esriART').upper()
+    converted['exclude_from_client_evaluation'] = (
         'EXCLUDE'
         if rule['excludeFromClientEvaluation']
         else 'INCLUDE'
     )
-    _converted['batch'] = (
+    converted['batch'] = (
         'BATCH'
         if rule['batch']
         else 'NOT_BATCH'
     )
-    _converted['is_editable'] = (
+    converted['is_editable'] = (
         'EDITABLE'
         if rule['userEditable']
         else 'NONEDITABLE'
     )
-    _converted['subtype'] = [s for s in rule['subtypeCodes']]
+    converted['subtype'] = list(rule['subtypeCodes'])
     for k in rule:
-        _conv_key = attr_map.get(k, k)
+        conv_key = attr_map.get(k, k)
         # -1 is a flag for None that needs to be converted
         if isinstance(rule[k], int) and rule[k] < 0:
             rule[k] = None
 
         # Skip manually converted values
-        if _conv_key in _converted:
+        if conv_key in converted:
             continue
 
-        _converted[_conv_key] = rule[k]
+        converted[conv_key] = rule[k]
 
-    return _converted
+    return converted
 
 
 def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AlterAttributeRule"""
-    _rule = convert_rule(rule)  # Will always have correct keys
-    _keys = {
+    rule_dict = convert_rule(rule)  # Will always have correct keys
+    keys = {
         *AlterRuleOpts.__optional_keys__,
         *AlterRuleOpts.__required_keys__
     }
-    return AlterRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
+    return AlterRuleOpts(**{k: v for k, v in rule_dict.items() if k in keys})  # pyright: ignore[reportArgumentType]
 
 
 def to_rule_add(rule: AttributeRule) -> AddRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
-    _rule = convert_rule(rule)  # Will always have correct keys
-    _keys = {
+    rule_dict = convert_rule(rule)  # Will always have correct keys
+    keys = {
         *AddRuleOpts.__optional_keys__,
         *AddRuleOpts.__required_keys__
     }  # Linter does not understand this _keys check
-    return AddRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
+    return AddRuleOpts(**{k: v for k, v in rule_dict.items() if k in keys})  # pyright: ignore[reportArgumentType]
 
 
 # Typed passthough options for Attribute Rule functions
