@@ -108,23 +108,23 @@ class DomainSchema(TypedDict):
 
 class BaseDomain:
     """Base class for interacting with Domains.
-    
-    General setup structure is pulled from pathlib.Path since 
+
+    General setup structure is pulled from pathlib.Path
     """
     def __new__(cls, wrapped: da.Domain, *args: Any, **kwargs: Any):
         if cls is Domain:
-            _dtype = wrapped.domainType
+            domain_type = wrapped.domainType
             match wrapped.domainType:
                 case 'CodedValue':
                     cls = CodedValueDomain
                 case 'Range':
                     cls = RangeDomain
                 case _:
-                    raise TypeError(f'Domain of type {_dtype} is not supported')
+                    raise TypeError(f'Domain of type {domain_type} is not supported')
         return object.__new__(cls)
 
     def __init__(self, wrapped: da.Domain, workspace: str | Path | Dataset) -> None:
-        from ..database import Dataset
+        from ..database import Dataset  # noqa: PLC0415 (prevent circular)
         self._domain = wrapped
         if not isinstance(workspace, Dataset):
             self.dataset = Dataset(workspace)
@@ -234,7 +234,7 @@ class Domain(BaseDomain):
                  subtype_code: int | None = None,
                  ) -> None:
         """Assign the domain to a Field
-        
+
         Args:
             table: The table to apply the domain to
             field: The field in the table to apply the domain to
@@ -287,7 +287,7 @@ class Domain(BaseDomain):
                  configuration_keyword: str | None = None
                  ) -> Table:
         """Convert the domain to a Table in its workspace
-        
+
         Args:
             table_name: The name of the output table
             code_field: The field name for the codes
@@ -380,7 +380,7 @@ class Domain(BaseDomain):
         if domain_type == 'CodedValue':
             domain = CodedValueDomain(new_domain, workspace)
             if coded_values:
-                domain.codedValues = {k: v for k, v in coded_values.items()}
+                domain.codedValues = dict(coded_values.items())
             return domain
         elif domain_type == 'Range':
             domain = RangeDomain(new_domain, workspace)
@@ -398,7 +398,7 @@ class Domain(BaseDomain):
                    overwrite_existing: bool = False,
                    ) -> CodedValueDomain:
         """Create a CodedValue domain from a Table
-        
+
         Args:
             table: The table or featureclass to create the domain from
             name: The name of the domain
@@ -406,8 +406,8 @@ class Domain(BaseDomain):
             description_field: The field to use for descriptions
             workspace: The workspace to create the domain in (default: table.workspace)
             description: An optional description for the new domain
-            overwrite_existing: If set to `True`, any existing domains with the name will be replaced,<br> 
-                otherwise new values are appended to the existing domain
+            overwrite_existing: If set to `True`, any existing domains with the name will be replaced,<br>
+             otherwise new values are appended to the existing domain
         """
         if code_field not in table.fields or description_field not in table.fields:
             msg = (
@@ -431,7 +431,7 @@ class Domain(BaseDomain):
     @classmethod
     def from_dict(cls, definition: SystemDomain, workspace: str | None = None) -> Domain:
         """Create a Domain object from a system domain definition"""
-        dom: da.Domain = type('__domain', (object,), {k: v for k, v in definition.items()})
+        dom: da.Domain = type('__domain', (object,), dict(definition.items()))  # type: ignore
         return cls(dom, workspace)
 
 
@@ -475,12 +475,12 @@ class CodedValueDomain(Domain):
 
     @codedValues.setter
     def codedValues(self, update_values: CodedValuesNullable) -> None:
-        """Update the coded values for the domain. 
-        
-        Note: 
-        Values will be used to *update* the current values, to remove, set description to `None` 
-        If you need an empty description, set the description to an empty string
-        
+        """Update the coded values for the domain.
+
+        Note:
+        Values will be used to *update* the current values, to remove, set description to `None`
+         If you need an empty description, set the description to an empty string
+
         Example:
             ```python
             >>> dom = CodedValueDomain(...)
@@ -585,10 +585,10 @@ class DomainManager:
 
     def usage(self, *domain_names: str) -> DomainUsageMap:
         """A mapping of domains to features to fields that shows usage of a domain in a dataset
-        
+
         Args:
             *domain_names: Varargs of all domain names to include in the output mapping
-        
+
         Returns:
             A Nested mapping of `Domain Name -> Feature Class -> [Field Name, ...]`
         """
@@ -619,13 +619,13 @@ class DomainManager:
 
     def export_module(self, path: str | Path) -> None:
         """Export the workspace domain to a Python module that contains literals and dictionary mappings.
-        
+
         Args:
             path: The export path to the module file
         """
 
         path = Path(path)
-        _domains = self.to_dict()
+        doms = self.to_dict()
 
         if not path.suffix.endswith('.py'):
             path = (path / 'domains.py')
@@ -648,11 +648,11 @@ class DomainManager:
             fl.write('    SystemDomain = None\n')
             fl.write('\n\n')
             fl.write('DomainName = Literal[\n')
-            for domain in _domains:
+            for domain in doms:
                 fl.write(f"\n    '{domain}',")
             fl.write('\n]\n\n')
             fl.write('DOMAINS: dict[DomainName, SystemDomain] = {')
-            for domain, domain_val in _domains.items():
+            for domain, domain_val in doms.items():
                 fl.write("\n"f"    '{domain}': ""{")
                 fl.write(f"\n        'name': {_(domain_val['name'])},")
                 fl.write(f"\n        'domainType': {_(domain_val['domainType'])},")
