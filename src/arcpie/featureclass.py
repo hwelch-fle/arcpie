@@ -102,17 +102,6 @@ from arcpy.management import (
     SelectLayerByAttribute,  # type: ignore
 )
 
-from ._types import (
-    AddRuleOpts,
-    AlterRuleOpts,
-    AttributeRule,
-    Subtype,
-    convert_dtypes,
-    convert_rule,
-    to_rule_add,
-    to_rule_alter,
-)
-
 # Library imports
 from .cursor import (
     FeatureToken,
@@ -128,6 +117,16 @@ from .cursor import (
     UpdateOptions,
     WhereClause,
     convert_field,
+)
+from .types import (
+    AddRuleOpts,
+    AlterRuleOpts,
+    AttributeRule,
+    Subtype,
+    convert_dtypes,
+    convert_rule,
+    to_rule_add,
+    to_rule_alter,
 )
 
 FieldName = str  # | FeatureToken

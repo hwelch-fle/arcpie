@@ -53,17 +53,17 @@ from arcpie.schema.domain import DomainManager
 from arcpie.schema.field import GeoType
 from arcpie.schema.workspace import SchemaWorkspace
 
-from ._types import (
-    AttributeRule,
-    RelationshipAddRuleOpts,
-    RelationshipOpts,
-    RelationshipRemoveRuleOpts,
-)
 from .featureclass import (
     FeatureClass,
     Table,
 )
 from .gdb_loader import FileGDB
+from .types import (
+    AttributeRule,
+    RelationshipAddRuleOpts,
+    RelationshipOpts,
+    RelationshipRemoveRuleOpts,
+)
 from .utils import convert_schema, patch_schema_rules
 
 # da.Walk needs to be primed in the main thread
