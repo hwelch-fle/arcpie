@@ -1,37 +1,30 @@
 from __future__ import annotations
 
+from builtins import range as py_range
+from collections.abc import Iterator, Mapping
 from datetime import date, datetime, time
 from pathlib import Path
-from collections.abc import Iterator, Mapping
 from typing import Any, Literal, Self, TypedDict, get_args, overload
-from builtins import range as py_range
 
 from arcpy import da
-
 from arcpy.management import (
-    # Export/Import
-    DomainToTable, # type: ignore
-    TableToDomain, # type: ignore
-    
-    # CRUD
-    CreateDomain, # type: ignore
-    AlterDomain, # type: ignore
-    DeleteDomain, # type: ignore
-    
+    AddCodedValueToDomain,  # type: ignore
+    AlterDomain,  # type: ignore
     # Assignment
-    AssignDomainToField, # type: ignore
-    RemoveDomainFromField, # type: ignore
-    
-    # Range
-    SetValueForRangeDomain, # type: ignore
-    
+    AssignDomainToField,  # type: ignore
+    # CRUD
+    CreateDomain,  # type: ignore
+    DeleteCodedValueFromDomain,  # type: ignore
+    DeleteDomain,  # type: ignore
+    # Export/Import
+    DomainToTable,  # type: ignore
+    SetValueForRangeDomain,  # type: ignore
     # CodedValue
-    SortCodedValueDomain, # type: ignore
-    AddCodedValueToDomain, # type: ignore
-    DeleteCodedValueFromDomain, # type: ignore
+    SortCodedValueDomain,  # type: ignore
+    TableToDomain,  # type: ignore
 )
 
-from arcpie._types import SystemDomain
+from arcpie.types import SystemDomain
 
 from ..featureclass import FeatureClass, Table
 
@@ -41,7 +34,7 @@ if TYPE_CHECKING:
     from .field import FieldType
 
 
-__all__ = ('Domain', 'CodedValueDomain', 'RangeDomain')
+__all__ = ('CodedValueDomain', 'Domain', 'RangeDomain')
 
 
 type NumericType = int | float
@@ -60,44 +53,44 @@ type CodedValuesNullable = Mapping[ValueType, Description | None]
 
 def map_args(fr: Any, to: Any) -> dict[Any, Any]:
     """Map two literals"""
-    return dict(zip(get_args(fr), get_args(to)))
+    return dict(zip(get_args(fr), get_args(to), strict=False))
 
 
-# Domain.type   
-DomainFieldType  = Literal['Short', 'Long', 'BigInteger', 'Float', 'Double', 'Text', 'Date', 'DateOnly', 'TimeOnly']
+# Domain.type
+DomainFieldType = Literal['Short', 'Long', 'BigInteger', 'Float', 'Double', 'Text', 'Date', 'DateOnly', 'TimeOnly']
 _DomainFieldType = Literal['SHORT', 'LONG', 'BIGINTEGER', 'FLOAT', 'DOUBLE', 'TEXT', 'DATE', 'DATEONLY', 'TIMEONLY']
 _DOMAIN_FIELD_TYPE_MAP: dict[DomainFieldType, _DomainFieldType] = map_args(DomainFieldType, _DomainFieldType)
 
 
 # Domain.mergePolicy
-MergePolicy  = Literal['DefaultValue', 'AreaWeighted', 'SumValues']
+MergePolicy = Literal['DefaultValue', 'AreaWeighted', 'SumValues']
 _MergePolicy = Literal['DEFAULT', 'AREA_WEIGHTED', 'SUM_VALUES']
 _DOMAIN_MERGE_POLICY_MAP: dict[MergePolicy, _MergePolicy] = map_args(MergePolicy, _MergePolicy)
 
 
 # Domain.splitPolicy
-SplitPolicy  = Literal['DefaultValue', 'Duplicate', 'GeometryRatio']
+SplitPolicy = Literal['DefaultValue', 'Duplicate', 'GeometryRatio']
 _SplitPolicy = Literal['DEFAULT', 'DUPLICATE', 'GEOMETRY_RATIO']
 _DOMAIN_SPLIT_POLICY_MAP: dict[SplitPolicy, _SplitPolicy] = map_args(SplitPolicy, _SplitPolicy)
 
 
 # Domain.domainType
-DomainType  = Literal['CodedValue', 'Range']
+DomainType = Literal['CodedValue', 'Range']
 _DomainType = Literal['CODED', 'RANGE']
 _DOMAIN_TYPE_MAP: dict[DomainType, _DomainType] = map_args(DomainType, _DomainType)
 
 
 # Map Domain Types to valid Field types
 VALID_FIELD_TYPES_FOR: dict[DomainFieldType, set[FieldType]] = {
-    'Short': {'SHORT'}, 
-    'Long': {'LONG', 'SHORT'}, 
-    'BigInteger': {'BIGINTEGER', 'LONG', 'SHORT'}, 
-    'Float': {'FLOAT'}, 
-    'Double': {'DOUBLE', 'FLOAT'}, 
-    'Text': {'TEXT'}, 
+    'Short': {'SHORT'},
+    'Long': {'LONG', 'SHORT'},
+    'BigInteger': {'BIGINTEGER', 'LONG', 'SHORT'},
+    'Float': {'FLOAT'},
+    'Double': {'DOUBLE', 'FLOAT'},
+    'Text': {'TEXT'},
     'TimeOnly': {'TIMEONLY'},
-    'DateOnly': {'DATEONLY'}, 
-    'Date': {'DATE', 'DATEHIGHPRECISION', 'DATEONLY', 'TIMEONLY'}, 
+    'DateOnly': {'DATEONLY'},
+    'Date': {'DATE', 'DATEHIGHPRECISION', 'DATEONLY', 'TIMEONLY'},
 }
 
 
@@ -115,23 +108,23 @@ class DomainSchema(TypedDict):
 
 class BaseDomain:
     """Base class for interacting with Domains.
-    
-    General setup structure is pulled from pathlib.Path since 
+
+    General setup structure is pulled from pathlib.Path
     """
     def __new__(cls, wrapped: da.Domain, *args: Any, **kwargs: Any):
         if cls is Domain:
-            _dtype = wrapped.domainType
+            domain_type = wrapped.domainType
             match wrapped.domainType:
                 case 'CodedValue':
                     cls = CodedValueDomain
                 case 'Range':
                     cls = RangeDomain
                 case _:
-                    raise TypeError(f'Domain of type {_dtype} is not supported')
+                    raise TypeError(f'Domain of type {domain_type} is not supported')
         return object.__new__(cls)
-        
+
     def __init__(self, wrapped: da.Domain, workspace: str | Path | Dataset) -> None:
-        from ..database import Dataset
+        from ..database import Dataset  # noqa: PLC0415 (prevent circular)
         self._domain = wrapped
         if not isinstance(workspace, Dataset):
             self.dataset = Dataset(workspace)
@@ -151,25 +144,25 @@ class BaseDomain:
     @property
     def type(self) -> da.DomainFieldType:
         return self._domain.type
-    
+
     @property
     def domainType(self) -> DomainType:
         return self._domain.domainType
-    
+
     # read/write
     @property
     def description(self) -> str:
         return self._domain.description
-    
+
     @description.setter
     def description(self, description: Description) -> None:
         AlterDomain(self.workspace, self.name, new_domain_description=description)
         self.sync()
-    
+
     @property
     def mergePolicy(self) -> MergePolicy:
         return self._domain.mergePolicy
-    
+
     @mergePolicy.setter
     def mergePolicy(self, merge_policy: MergePolicy) -> None:
         flag_map = _DOMAIN_MERGE_POLICY_MAP
@@ -177,11 +170,11 @@ class BaseDomain:
             raise ValueError(f'{merge_policy} is not one of {list(flag_map.keys())}')
         AlterDomain(self.workspace, self.name, merge_policy=flag_map[merge_policy])
         self.sync()
-    
+
     @property
     def splitPolicy(self) -> SplitPolicy:
         return self._domain.splitPolicy
-    
+
     @splitPolicy.setter
     def splitPolicy(self, split_policy: SplitPolicy) -> None:
         flag_map = _DOMAIN_SPLIT_POLICY_MAP
@@ -189,20 +182,20 @@ class BaseDomain:
             raise ValueError(f'{split_policy} is not one of {list(flag_map.keys())}')
         AlterDomain(self.workspace, self.name, split_policy=flag_map[split_policy])
         self.sync()
-        
+
     @property
     def name(self) -> str:
         return self._domain.name
-    
+
     @name.setter
     def name(self, name: str) -> None:
         AlterDomain(self.workspace, self.name, new_domain_name=name)
         self.sync()
-        
+
     @property
     def owner(self) -> str:
         return self._domain.owner
-    
+
     @owner.setter
     def owner(self, owner: str) -> None:
         AlterDomain(self.workspace, self.name, new_domain_owner=owner)
@@ -241,7 +234,7 @@ class Domain(BaseDomain):
                  subtype_code: int | None = None,
                  ) -> None:
         """Assign the domain to a Field
-        
+
         Args:
             table: The table to apply the domain to
             field: The field in the table to apply the domain to
@@ -267,14 +260,14 @@ class Domain(BaseDomain):
     def delete(self) -> None:
         """Delete the domain"""
         DeleteDomain(self.workspace, self.name)
-    
+
     def add_to(self, workspace: Dataset) -> None:
         """Add the domain to a root workspace/Dataset"""
         if workspace.parent is not None:
-            raise ValueError(f'Domains can only be added to the root Dataset!')
+            raise ValueError('Domains can only be added to the root Dataset!')
         CreateDomain(
-            in_workspace=str(workspace.conn.resolve()), 
-            domain_name=self.name, 
+            in_workspace=str(workspace.conn.resolve()),
+            domain_name=self.name,
             domain_description=self.description,
             field_type=_DOMAIN_FIELD_TYPE_MAP[self.type],
             domain_type=_DOMAIN_TYPE_MAP[self.domainType],
@@ -286,15 +279,15 @@ class Domain(BaseDomain):
                 AddCodedValueToDomain(str(workspace), self.name, code, value)
         if isinstance(self, RangeDomain):
             SetValueForRangeDomain(str(workspace), self.name, *self.range)
-    
-    def to_table(self, table_name: str, 
+
+    def to_table(self, table_name: str,
                  *,
                  code_field: str = 'code',
                  description_field: str = 'description',
                  configuration_keyword: str | None = None
                  ) -> Table:
         """Convert the domain to a Table in its workspace
-        
+
         Args:
             table_name: The name of the output table
             code_field: The field name for the codes
@@ -302,53 +295,52 @@ class Domain(BaseDomain):
             configuration_keyword: An optional config keyword for the database
         """
         if self.domainType != 'CodedValue':
-            raise TypeError(f'Only `CodedValue` domains can be converted to a table')
+            raise TypeError('Only `CodedValue` domains can be converted to a table')
         return Table(
             *DomainToTable(
-                in_workspace=self.workspace, 
-                domain_name=self.name, 
+                in_workspace=self.workspace,
+                domain_name=self.name,
                 out_table=table_name,
                 code_field=code_field,
                 description_field=description_field,
                 configuration_keyword=configuration_keyword,
             )
         )
-    
-    
+
     # exposed props from subclasses
-    # isinstance will typenarrow. 
-    # Using base Domain constructor will always create the correct 
+    # isinstance will typenarrow.
+    # Using base Domain constructor will always create the correct
     # subclass at runtime.
-    
+
     # Range props
-    @property 
+    @property
     def range(self) -> tuple[ValueType, ValueType] | None:
         return self._domain.range
-    
+
     # CodedValue props
     @property
     def codedValues(self) -> CodedValues | None:
         return self._domain.codedValues
-    
+
     def sort(self, by: Literal['code', 'value'], order: Literal['asc', 'desc']) -> None:
         """CodedValue Only"""
-    
+
     # constructors
     @overload
     @classmethod
-    def create(cls, workspace: str, name: str, 
+    def create(cls, workspace: str, name: str,
                *,
                domain_type: Literal['CodedValue'],
                field_type: DomainFieldType,
                coded_values: CodedValues,
-               description: str, 
+               description: str,
                split_policy: SplitPolicy = ...,
                merge_policy: MergePolicy = ...,
                ) -> CodedValueDomain: ...
-    
+
     @overload
     @classmethod
-    def create(cls, workspace: str, name: str, 
+    def create(cls, workspace: str, name: str,
                *,
                domain_type: Literal['Range'],
                field_type: DomainFieldType,
@@ -357,22 +349,22 @@ class Domain(BaseDomain):
                split_policy: SplitPolicy = ...,
                merge_policy: MergePolicy = ...,
                ) -> RangeDomain: ...
-    
+
     @classmethod
-    def create(cls, workspace: str, name: str, 
+    def create(cls, workspace: str, name: str,
                *,
                domain_type: DomainType,
                field_type: DomainFieldType,
-               description: str = '', 
+               description: str = '',
                split_policy: SplitPolicy = 'Duplicate',
                merge_policy: MergePolicy = 'DefaultValue',
-               
+
                # Required by overload
                domain_range: RangeValue | None = None,
                coded_values: CodedValues | None = None) -> CodedValueDomain | RangeDomain:
         """Create a new domain"""
         assert domain_type in ['CodedValue', 'Range'], f'Invalid domain type {domain_type}'
-        
+
         CreateDomain(
             in_workspace=workspace,
             domain_name=name,
@@ -384,11 +376,11 @@ class Domain(BaseDomain):
         )
         new_domain, *_ = [d for d in da.ListDomains(workspace) if d.name == name] or [None]
         if new_domain is None:
-            raise ValueError(f'Something went wrong creating the Domain...')
+            raise ValueError('Something went wrong creating the Domain...')
         if domain_type == 'CodedValue':
             domain = CodedValueDomain(new_domain, workspace)
             if coded_values:
-                domain.codedValues = {k: v for k, v in coded_values.items()}
+                domain.codedValues = dict(coded_values.items())
             return domain
         elif domain_type == 'Range':
             domain = RangeDomain(new_domain, workspace)
@@ -406,7 +398,7 @@ class Domain(BaseDomain):
                    overwrite_existing: bool = False,
                    ) -> CodedValueDomain:
         """Create a CodedValue domain from a Table
-        
+
         Args:
             table: The table or featureclass to create the domain from
             name: The name of the domain
@@ -414,8 +406,8 @@ class Domain(BaseDomain):
             description_field: The field to use for descriptions
             workspace: The workspace to create the domain in (default: table.workspace)
             description: An optional description for the new domain
-            overwrite_existing: If set to `True`, any existing domains with the name will be replaced,<br> 
-                otherwise new values are appended to the existing domain
+            overwrite_existing: If set to `True`, any existing domains with the name will be replaced,<br>
+             otherwise new values are appended to the existing domain
         """
         if code_field not in table.fields or description_field not in table.fields:
             msg = (
@@ -423,7 +415,7 @@ class Domain(BaseDomain):
                 f'must be one of {table.fields}'
             )
             raise ValueError(msg)
-        
+
         workspace = workspace or table.workspace
         TableToDomain(
             in_table=str(table),
@@ -437,25 +429,26 @@ class Domain(BaseDomain):
         return CodedValueDomain([d for d in da.ListDomains(workspace) if d.name == name].pop(), workspace)
 
     @classmethod
-    def from_dict(cls, definition: SystemDomain, workspace: str| None = None) -> Domain:
+    def from_dict(cls, definition: SystemDomain, workspace: str | None = None) -> Domain:
         """Create a Domain object from a system domain definition"""
-        dom: da.Domain = type(f'__domain', (object,), {k: v for k,v in definition.items()})
+        dom: da.Domain = type('__domain', (object,), dict(definition.items()))  # type: ignore
         return cls(dom, workspace)
+
 
 class RangeDomain(Domain):
     """Domain with a Range component"""
-    
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.name}, {self.range})'
-    
+
     if TYPE_CHECKING:
         # Narrow type for __new__
         def __new__(cls, wrapped: da.Domain, workspace: str | Path | Dataset[Any]) -> Self: ...
-    
+
     @property
     def range(self) -> tuple[ValueType, ValueType]:
         return self._domain.range
-    
+
     @range.setter
     def range(self, domain_range: RangeValue) -> None:
         SetValueForRangeDomain(self.workspace, self.name, domain_range[0], domain_range[1])
@@ -464,30 +457,30 @@ class RangeDomain(Domain):
     @property
     def domainType(self) -> Literal['Range']:
         return 'Range'
-    
+
 
 class CodedValueDomain(Domain):
     """Domain with a CodedValue component"""
-    
+
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.name}, {self.codedValues})'
-    
+
     if TYPE_CHECKING:
         # Narrow type for __new__
         def __new__(cls, wrapped: da.Domain, workspace: str | Path | Dataset[Any]) -> Self: ...
-    
+
     @property
     def codedValues(self) -> CodedValues:
         return self._domain.codedValues
-    
+
     @codedValues.setter
     def codedValues(self, update_values: CodedValuesNullable) -> None:
-        """Update the coded values for the domain. 
-        
-        Note: 
-        Values will be used to *update* the current values, to remove, set description to `None` 
-        If you need an empty description, set the description to an empty string
-        
+        """Update the coded values for the domain.
+
+        Note:
+        Values will be used to *update* the current values, to remove, set description to `None`
+         If you need an empty description, set the description to an empty string
+
         Example:
             ```python
             >>> dom = CodedValueDomain(...)
@@ -510,11 +503,11 @@ class CodedValueDomain(Domain):
             if description is not None:
                 AddCodedValueToDomain(self.workspace, self.name, code, description)
         self.sync()
-        
+
     @property
     def domainType(self) -> Literal['CodedValue']:
         return 'CodedValue'
-    
+
     def sort(self, by: Literal['code', 'value'], order: Literal['asc', 'desc']) -> None:
         SortCodedValueDomain(
             self.workspace,
@@ -522,20 +515,20 @@ class CodedValueDomain(Domain):
             sort_by='CODE' if by == 'code' else 'DESCRIPTION',
             sort_order='ASCENDING' if order == 'asc' else 'DESCENDING',
         )
-    
+
 
 type DomainUsageMap = Mapping[str, FieldUsage]
 
 
 class DomainManager:
     """Container for managing dataset domains"""
-    
+
     def __init__(self, dataset: Dataset[Any]) -> None:
         if dataset.parent is not None:
             dataset = dataset.parent
         self.dataset = dataset
         self.workspace = str(dataset)
-    
+
     def __repr__(self) -> str:
         return (
             f'{self.__class__.__name__}'
@@ -543,66 +536,66 @@ class DomainManager:
             f'RangeDomains: {len(self.range_domains)} , '
             f'CodedValueDomains: {len(self.coded_value_domains)})'
         )
-    
+
     @property
     def domains(self) -> list[Domain]:
         return [
             Domain(d, self.dataset)
             for d in da.ListDomains(self.workspace)
         ]
-    
+
     @property
     def coded_value_domains(self) -> list[CodedValueDomain]:
         return [
             d for d in self.domains
             if isinstance(d, CodedValueDomain)
         ]
-    
+
     @property
     def range_domains(self) -> list[RangeDomain]:
         return [
             d for d in self.domains
             if isinstance(d, RangeDomain)
         ]
-    
+
     @property
     def domain_names(self) -> list[str]:
         return [d.name for d in self.domains]
-    
+
     def __iter__(self) -> Iterator[Domain]:
         return iter(self.domains)
-    
+
     def __len__(self) -> int:
         return len(self.domains)
-    
+
     def __contains__(self, domain: str) -> bool:
         return domain in self.domain_names
-    
+
     def __getitem__(self, domain: str) -> Domain:
         for d in self.domains:
             if d.name == domain:
                 return d
         raise KeyError(f'{domain} is not a domain in {self.dataset.name}')
-    
+
     def get[D](self, domain: str, default: D = None) -> Domain | D:
         try:
             return self[domain]
         except KeyError:
             return default
-    
+
     def usage(self, *domain_names: str) -> DomainUsageMap:
         """A mapping of domains to features to fields that shows usage of a domain in a dataset
-        
+
         Args:
             *domain_names: Varargs of all domain names to include in the output mapping
-        
+
         Returns:
             A Nested mapping of `Domain Name -> Feature Class -> [Field Name, ...]`
         """
-        
+
         if not domain_names:
             domain_names = tuple(self.domain_names)
-        
+
         schema = self.dataset.schema
         fc_usage: DomainUsageMap = {}
         for dataset in schema['datasets']:
@@ -619,47 +612,47 @@ class DomainManager:
                         fc_usage[field_domain].setdefault(feature['name'], [])
                         fc_usage[field_domain][feature['name']].append(field.get('name', '...'))
         return fc_usage
-    
+
     def to_dict(self) -> dict[str, DomainSchema]:
         """Use with json.dump/dumps"""
         return {d.name: d.to_dict() for d in self.domains}
-        
+
     def export_module(self, path: str | Path) -> None:
         """Export the workspace domain to a Python module that contains literals and dictionary mappings.
-        
+
         Args:
             path: The export path to the module file
         """
-        
+
         path = Path(path)
-        _domains = self.to_dict()
-        
+        doms = self.to_dict()
+
         if not path.suffix.endswith('.py'):
             path = (path / 'domains.py')
-            
+
         path.parent.mkdir(exist_ok=True, parents=True)
-        
+
         def _(val: Any) -> str:
             if val is None:
                 return 'None'
             return repr(val)
-        
+
         with path.open('wt', encoding='utf-8') as fl:
             fl.write(f'"""{self.dataset.name} domains module"""')
             fl.write('\n\n')
             fl.write('from typing import Literal, TYPE_CHECKING')
             fl.write('\n\n')
             fl.write('if TYPE_CHECKING:\n')
-            fl.write('    from arcpie._types import SystemDomain\n')
+            fl.write('    from arcpie.types import SystemDomain\n')
             fl.write('else:\n')
             fl.write('    SystemDomain = None\n')
             fl.write('\n\n')
             fl.write('DomainName = Literal[\n')
-            for domain in _domains:
+            for domain in doms:
                 fl.write(f"\n    '{domain}',")
             fl.write('\n]\n\n')
             fl.write('DOMAINS: dict[DomainName, SystemDomain] = {')
-            for domain, domain_val in _domains.items():
+            for domain, domain_val in doms.items():
                 fl.write("\n"f"    '{domain}': ""{")
                 fl.write(f"\n        'name': {_(domain_val['name'])},")
                 fl.write(f"\n        'domainType': {_(domain_val['domainType'])},")
@@ -678,10 +671,10 @@ class DomainManager:
                 fl.write(f"\n        'owner': {_(domain_val['owner'])},")
                 fl.write('\n    },')
             fl.write('\n}\n')
-              
+
     def import_domains(self, domains: dict[str, SystemDomain], *, overwrite: bool = False) -> None:
         """Import domains from a domain mapping (DOMAINS global in exported module)"""
-        
+
         for d_name, d_vals in domains.items():
             if d_name in self:
                 if overwrite:
@@ -689,10 +682,9 @@ class DomainManager:
                 else:
                     continue
             if d_vals['domainType'] == 'CodedValue':
-                dom = CodedValueDomain.from_dict(d_vals, self.workspace)       
+                dom = CodedValueDomain.from_dict(d_vals, self.workspace)
             elif d_vals['domainType'] == 'Range':
                 dom = RangeDomain.from_dict(d_vals, self.workspace)
             else:
                 raise ValueError(f'Invalid domain type {d_vals["domainType"]}')
             dom.add_to(self.dataset)
-            

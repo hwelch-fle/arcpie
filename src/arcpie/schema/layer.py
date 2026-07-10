@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import TypedDict, Literal
 
-from typing import Any, TypedDict, Literal
+from typing import Any, Literal, TypedDict
 
-# TODO: This is a VERY rough layout of the Layer schema. It's missing a lot of Literal flags and the Renderer class 
+# TODO: This is a VERY rough layout of the Layer schema. It's missing a lot of Literal flags and the Renderer class
 
 ESRIDatasetType = Literal['esriDTFeatureClass']
 ESRIWorspaceFactoryType = Literal['FileGDB']
+
 
 class SchemaDataConnection(TypedDict):
     customParameters: list[Any]
@@ -17,11 +17,13 @@ class SchemaDataConnection(TypedDict):
     workspaceConnectionString: str
     workspaceFactory: ESRIWorspaceFactoryType
 
+
 class SchemaExpressionInfo(TypedDict):
     expression: str
     returnType: Literal['Default']
     title: str
     type: Literal['CIMExpressionInfo']
+
 
 class SchemaNumberFormat(TypedDict):
     alignmentOption: Literal['esriAlignRight']
@@ -32,6 +34,7 @@ class SchemaNumberFormat(TypedDict):
     type: Literal['CIMNumericFormat']
     useSeparator: bool
     zeroPad: bool
+
 
 class SchemaFieldDescription(TypedDict):
     alias: str
@@ -44,6 +47,7 @@ class SchemaFieldDescription(TypedDict):
     type: Literal['CIMFieldDescription']
     valueAsRatio: bool
     visible: bool
+
 
 class SchemaFeatureTable(TypedDict):
     bindVariables: list[Any]
@@ -69,6 +73,7 @@ class SchemaFeatureTable(TypedDict):
     type: Literal['CIMFeatureTable']
     useSubtypeValue: bool
 
+
 class SchemaFeatureTemplate(TypedDict):
     defaultValues: dict[str, Any]
     excludedToolGUIDs: list[str]
@@ -79,12 +84,14 @@ class SchemaFeatureTemplate(TypedDict):
     toolOptions: list[Any]
     type: Literal['CIMRowTemplate']
 
+
 class SchemaSeparator(TypedDict):
     separator: str
     splitAfter: bool
     splitForced: bool
     type: Literal['CIMMaplexStackingSeparator']
     visible: bool
+
 
 class SchemaLabelStackingProperties(TypedDict):
     maximumNumberOfCharsPerLine: int
@@ -95,6 +102,7 @@ class SchemaLabelStackingProperties(TypedDict):
     stackAlignment: Literal['ChooseBest']
     trimStackingSeparators: bool
     type: Literal['CIMMaplexLabelStackingProperties']
+
 
 class SchemaMaplexProperties(TypedDict):
     alignLabelToLineDirection: bool
@@ -146,6 +154,7 @@ class SchemaMaplexProperties(TypedDict):
     labelLargestPolygon: bool
     labelPriority: int
 
+
 class SchemaLabelClass(TypedDict):
     expression: str
     expressionEngine: Literal['Arcade']
@@ -153,6 +162,7 @@ class SchemaLabelClass(TypedDict):
     featuresToLabel: Literal['AllVisibleFeatures']
     iD: int
     maplexLabelPlacementProperties: SchemaMaplexProperties
+
 
 class SchemaLayer3DProperties(TypedDict):
     castShadows: bool
@@ -178,18 +188,22 @@ class SchemaLayer3DProperties(TypedDict):
     verticalExaggeration: int
     verticalUnit: dict[Literal['uwkid'], int]
 
+
 class SchemaLayerElevation(TypedDict):
     isRelativeToScene: bool
     offsetZ: float
     type: Literal['CIMLayerElevationSurface']
+
 
 class SchemaSourceModifiedTime(TypedDict):
     time: Any
     timeReference: Any
     type: Literal['TimeInstant']
 
+
 # TODO: This is a massive class
 class SchemaRenderer(TypedDict): ...
+
 
 class SchemaLayer(TypedDict):
     actions: list[Any]

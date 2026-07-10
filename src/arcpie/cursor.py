@@ -3,34 +3,33 @@
 from collections.abc import (
     Sequence,
 )
-
 from typing import (
+    TYPE_CHECKING,
     Any,
-    TypedDict,
     Literal,
     NamedTuple,
-    TYPE_CHECKING,
+    TypedDict,
 )
 
 from arcpy import (
-    SpatialReference,
-    Geometry,
-    Polygon,
-    PointGeometry,
-    Polyline,
-    Multipoint,
-    Multipatch,
     Extent,
     Field as ArcField,
+    Geometry,
+    Multipatch,
+    Multipoint,
+    PointGeometry,
+    Polygon,
+    Polyline,
+    SpatialReference,
 )
 
 if TYPE_CHECKING:
-    from arcpy.da import (
-        SpatialRelationship,
-        SearchOrder,
-    )
     from arcpy import (
         FieldType as ArcFieldType,
+    )
+    from arcpy.da import (
+        SearchOrder,
+        SpatialRelationship,
     )
 else:
     ArcFieldType = str
@@ -73,14 +72,15 @@ TableTokens: tuple[TableToken, ...] = TableToken.__args__
 FeatureToken = Literal[TableToken | ShapeToken]
 FeatureTokens: tuple[FeatureToken, ...] = FeatureToken.__args__
 
-GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint | Multipatch
+type GeometryType = Geometry | Polygon | PointGeometry | Polyline | Multipoint | Multipatch
+
 
 class WhereClause:
     """Wraps a string clause to signal to FeatureClass/Table indexes that a Where Clause is being passed"""
-    
-    def __init__(self, where_clause: str, skip_validation: bool=False) -> None:
+
+    def __init__(self, where_clause: str, skip_validation: bool = False) -> None:
         """Object for storing and validating where clauses
-        
+
         Args:
             where_clause (str): The where clause that you want to pass to a FeatureClass
             skip_validation (bool): Skip the validation step (default: False)
@@ -95,7 +95,7 @@ class WhereClause:
 
     def __repr__(self) -> str:
         return self.where_clause
-    
+
     def get_fields(self, clause: str) -> Sequence[str]:
         """Sanitize a where clause by removing whitespace"""
 
@@ -120,16 +120,16 @@ class WhereClause:
 
     def validate(self, fields: Sequence[str]) -> bool:
         """Check to see if the clause fields are in the fields list
-        
+
         Args:
             fields (Sequence[str]): The fields to check against
         """
         return self.skip_validation or set(self.fields) <= set(fields)
-        
+
 
 class SQLClause(NamedTuple):
     """Wrapper for Cursor sql_clause attribute,
-    
+
     Attributes:
         prefix (str): The SQL prefix to be prepended to the `FROM` part of the statment
         postfix (str): The SQL postfix that will be appended to the `WHERE` clause
@@ -147,19 +147,20 @@ class SQLClause(NamedTuple):
         [('foo', 1001), ('bar', 999), ('baz', 567), ('buzz', 345), ('bang', 233)]
         ```
     """
-    prefix: str|None
-    postfix: str|None
+    prefix: str | None
+    postfix: str | None
+
 
 class SearchOptions(TypedDict, total=False):
     """Optional parameters for SearchCursors
-    
+
     Attributes:
         where_clause (str): A SQL query that is inserted after the SQL `WHERE` (`SELECT {prefix} {fields} FROM {table} WHERE {where_clause} {postfix}...`)
         spatial_reference (str | int | SpatialReference): Perform an on the fly projection of the yielded geometry to this reference
         explode_to_points (bool): Return a row per vertex in each feature (e.g. `[SHAPE, 'eric', 'idle'] -> [Point, 'eric', 'idle'], [Point, 'eric', 'idle'], ...`)
-        sql_clause (SQLClause): A tuple of SQL queries that is inserted after the SQL 
+        sql_clause (SQLClause): A tuple of SQL queries that is inserted after the SQL
             `SELECT` and `WHERE` clauses (`SELECT {prefix} {fields} FROM {table} WHERE {where_clause} {postfix}...`)
-        datum_transformation (str): The transformation to use during projection if there is a datum difference between the feature projection and the 
+        datum_transformation (str): The transformation to use during projection if there is a datum difference between the feature projection and the
             target SpatialReference (you can use `arcpy.ListTransformations` to find valid transformations)
         spatial_filter (Geometry): A shape that will be used to test each feature against using the specified `spatial_relationship` (`'INTERSECTS'`)
             by default.
@@ -189,10 +190,12 @@ class SearchOptions(TypedDict, total=False):
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
 
+
 class InsertOptions(TypedDict, total=False):
     """Optional parameters for InsertCursors"""
     datum_transformation: str | None
     explicit: bool
+
 
 class UpdateOptions(TypedDict, total=False):
     """Optional parameters for UpdateCursors"""
@@ -200,13 +203,14 @@ class UpdateOptions(TypedDict, total=False):
     spatial_reference: str | int | SpatialReference
     explode_to_points: bool
     sql_clause: SQLClause
-    #skip_nulls: bool
-    #null_value: dict[str, Any]
+    # skip_nulls: bool
+    # null_value: dict[str, Any]
     datum_transformation: str | None
     explicit: bool
     spatial_filter: GeometryType | Extent
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
+
 
 FieldType = Literal[
     'SHORT',
@@ -225,9 +229,10 @@ FieldType = Literal[
     'RASTER',
 ]
 
+
 class Field(TypedDict, total=False):
     """Field Representation
-    
+
     Attributes:
         field_type (FieldType): The type of the field (required)
         field_precision (int): The precision (digits) of numeric fields (default: database determined)
@@ -248,16 +253,17 @@ class Field(TypedDict, total=False):
     field_domain: str
     field_default: Any
 
-def get_field_type(arc_field_type: ArcFieldType, *, strict: bool=False) -> FieldType:
+
+def get_field_type(arc_field_type: ArcFieldType, *, strict: bool = False) -> FieldType:
     """Convert a field type flag from a describe arcpy.Field to arguments for AddField
-    
+
     Args:
         arc_field_type (ArcFieldType): The field type as reported by arcpy.Describe(...).fields
         strict (bool): Raise a ValueError if this is set to True, otherwise assume `TEXT`
-    
+
     Returns:
         (FieldType)
-        
+
     Raises:
         (ValueError): If `strict` flag is set and the input type is unmapped
     """
@@ -272,9 +278,9 @@ def get_field_type(arc_field_type: ArcFieldType, *, strict: bool=False) -> Field
             return 'DATEONLY'
         case 'Double':
             return 'DOUBLE'
-        case 'Geometry': # No Passthrough
+        case 'Geometry':  # No Passthrough
             return 'BLOB'
-        case 'GlobalID': # No Passthrough
+        case 'GlobalID':  # No Passthrough
             return 'GUID'
         case 'GUID':
             return 'GUID'
@@ -296,15 +302,16 @@ def get_field_type(arc_field_type: ArcFieldType, *, strict: bool=False) -> Field
             return 'TIMESTAMPOFFSET'
         case _:
             if strict:
-                raise ValueError()
-            return 'TEXT' 
+                raise ValueError
+            return 'TEXT'
+
 
 def convert_field(arc_field: ArcField) -> Field:
     """Convert an arcpy Field object to a Field argument dictionary
-    
+
     Args:
         arc_field (arcpy.Field): The Field object returned by Describe().fields
-    
+
     Returns:
         (Field): A Field argument dictionary that can be used to construct a new field
     """

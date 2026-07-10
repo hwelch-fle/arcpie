@@ -2,44 +2,46 @@
 
 from __future__ import annotations
 
-from datetime import date, time
-
 from collections.abc import (
-    Iterator, 
     Iterable,
+    Iterator,
     Sequence,
 )
-
+from datetime import date, time
 from pathlib import Path
 from typing import (
-    Literal,
-    Self, 
-    Any, 
-    TypeVarTuple,
     TYPE_CHECKING,
-    TypedDict,
-    Required,
-    Generic,
+    Any,
+    Final,
+    Literal,
     NamedTuple,
+    Required,
+    Self,
+    TypedDict,
+    TypeVarTuple,
 )
 
 if TYPE_CHECKING:
     from arcpy import SpatialReference
     from arcpy._mp import Layer
     from arcpy.da import (
-        SpatialRelationship,
-        SearchOrder,
         Domain,
+        SearchOrder,
+        SpatialRelationship,
     )
+    from arcpy.mp import PDFFormat
 else:
     SpatialRelationship = None
     SearchOrder = None
 
-import numpy as np
 import builtins
 from datetime import datetime
 from types import TracebackType
+
+import numpy as np
+
 from .cursor import SQLClause
+
 
 def cast_type(dt: np.dtype[Any]) -> type:
     match dt.type:
@@ -56,12 +58,16 @@ def cast_type(dt: np.dtype[Any]) -> type:
         case _:
             return builtins.object
 
+
 def convert_dtypes(dtypes: np.dtype[Any]) -> dict[str, type]:
     return {field: cast_type(dtypes[field]) for field in dtypes.names or {}}
+
 
 # Typevar that can be used with a cursor to type the yielded tuples
 # SearchCursor[int, str, str]('table', ['total', 'name', 'city'])
 _RowTs = TypeVarTuple('_RowTs')
+_NoClause: Final = SQLClause(None, None)
+
 
 class SearchCursor(Iterator[tuple[*_RowTs]]):
     def __init__(
@@ -71,7 +77,7 @@ class SearchCursor(Iterator[tuple[*_RowTs]]):
         where_clause: str | None = None,
         spatial_reference: str | int | SpatialReference | None = None,
         explode_to_points: bool | None = False,
-        sql_clause: SQLClause = SQLClause(None, None),
+        sql_clause: SQLClause = _NoClause,
         datum_transformation: str | None = None,
         spatial_filter: Any = None,
         spatial_relationship: SpatialRelationship | None = None,
@@ -89,8 +95,10 @@ class SearchCursor(Iterator[tuple[*_RowTs]]):
     @property
     def _dtype(self) -> np.dtype[Any]: ...
 
-class InsertCursor(Generic[*_RowTs]):
+
+class InsertCursor:
     _enable_simplify: bool = False
+
     def __init__(
         self,
         in_table: str | Layer,
@@ -104,8 +112,10 @@ class InsertCursor(Generic[*_RowTs]):
     def fields(self) -> tuple[str, ...]: ...
     def insertRow(self, row: tuple[*_RowTs]) -> int: ...
 
+
 class UpdateCursor(Iterator[tuple[*_RowTs]]):
     _enable_simplify: bool | None = False
+
     def __init__(
         self,
         in_table: str | Layer,
@@ -113,7 +123,7 @@ class UpdateCursor(Iterator[tuple[*_RowTs]]):
         where_clause: str | None = None,
         spatial_reference: str | int | SpatialReference | None = None,
         explode_to_points: bool | None = False,
-        sql_clause: SQLClause = SQLClause(None, None),
+        sql_clause: SQLClause = _NoClause,
         skip_nulls: bool | None = False,
         null_value: Any | dict[str, Any] = None,
         datum_transformation: str | None = None,
@@ -132,13 +142,15 @@ class UpdateCursor(Iterator[tuple[*_RowTs]]):
     def __next__(self) -> tuple[*_RowTs]: ...
     def __iter__(self) -> Iterator[tuple[*_RowTs]]: ...
 
+
 class Subtype(TypedDict):
     Name: str
-    FieldValues: dict[str, tuple[Any|None, Domain|None]]
+    FieldValues: dict[str, tuple[Any | None, Domain | None]]
     SubtypeField: str
 
 # Esri spec from here https://developers.arcgis.com/rest/services-reference/enterprise/geometry-objects/
 # TODO: Figure out the chaos that is the ESRI geometry spec
+
 
 EsriJsonFieldType = Literal[
     'esriFieldTypeOID',
@@ -150,12 +162,12 @@ EsriJsonFieldType = Literal[
 ]
 
 GeoJsonShape = Literal[
-    'Point', 
-    'LineString', 
-    'Polygon', 
-    'Multipoint', 
-    'MultiLineString', 
-    'MultiPolygon', 
+    'Point',
+    'LineString',
+    'Polygon',
+    'Multipoint',
+    'MultiLineString',
+    'MultiPolygon',
     'GeometryCollection'
 ]
 
@@ -182,13 +194,15 @@ GeoJsonToEsri: dict[GeoJsonShape, EsriJsonShape | None] = {
     'Multipoint': 'esriGeometryMultipoint',
     'MultiLineString': 'esriGeometryPolyline',
     'MultiPolygon': 'esriGeometryPolygon',
-    'GeometryCollection': None # No ESRI type for mixed shape collections
+    'GeometryCollection': None  # No ESRI type for mixed shape collections
 }
+
 
 class EsriJsonField(TypedDict, total=False):
     name: str
     type: EsriJsonFieldType
     alias: str
+
 
 class Point(NamedTuple):
     x: float
@@ -196,15 +210,18 @@ class Point(NamedTuple):
     z: float
     m: float
 
+
 class ComplexShapeMixin(TypedDict, total=False):
     hasZ: bool
     hasM: bool
     ids: list[list[int]]
     spatialReference: dict[str, str]
 
+
 class EsriGeometryCurve(TypedDict, total=False):
     c: list[tuple[Point, tuple[float, float]]]
     a: list[tuple[Point, tuple[float, float], bool, bool]]
+
 
 class EsriGeometryPoint(TypedDict, total=False):
     x: float
@@ -214,6 +231,7 @@ class EsriGeometryPoint(TypedDict, total=False):
     id: int
     spatialReference: dict[str, str]
 
+
 class EsriGeometryMultipoint(ComplexShapeMixin, total=False):
     points: list[Point]
 
@@ -221,12 +239,15 @@ class EsriGeometryMultipoint(ComplexShapeMixin, total=False):
 class EsriGeometryPolyline(ComplexShapeMixin, total=False):
     paths: list[Point]
 
+
 class EsriGeometryPolygon(TypedDict, total=False):
     rings: list[Point]
+
 
 class EsriJsonFeature(TypedDict, total=False):
     attributes: dict[str, Any]
     geometry: dict[str, Any]
+
 
 class EsriJson(TypedDict, total=False):
     displayFieldName: str
@@ -238,26 +259,31 @@ class EsriJson(TypedDict, total=False):
     fields: list[EsriJsonField]
     features: list[EsriJsonFeature]
 
+
 class GeoJsonGeometry(TypedDict, total=False):
     type: GeoJsonShape
     coordinates: list[list[float]]
     properties: dict[str, Any]
 
+
 class GeoJsonFeature(TypedDict, total=False):
     type: Literal['Feature']
     geometry: GeoJsonGeometry
+
 
 class GeoJsonFeatureCollection(TypedDict, total=False):
     type: Literal['FeatureCollection']
     features: list[GeoJsonFeature]
 
+
 if TYPE_CHECKING:
     from arcpy._mp import (
-        ImageQuality,
         ImageCompression,
+        ImageQuality,
         LayerAttributes,
     )
-    
+
+
 class PDFSetting(TypedDict, total=False):
     resolution: int
     image_quality: ImageQuality
@@ -275,11 +301,13 @@ class PDFSetting(TypedDict, total=False):
     convert_markers: bool
     simulate_overprint: bool
 
+
 class MapSeriesPDFSetting(PDFSetting, total=False):
     page_range_type: Literal['ALL', 'CURRENT', 'RANGE', 'SELECTED']
     multiple_files: Literal['PDF_MULTIPLE_FILES_PAGE_NAME', 'PDF_MULTIPLE_FILES_PAGE_NUMBER', 'PDF_SINGLE_FILE']
     page_range_string: str
     show_export_count: bool
+
 
 # New for 3.6 (mp.PDFFormat)
 class PDFFormatSetting(TypedDict):
@@ -304,6 +332,7 @@ class PDFFormatSetting(TypedDict):
     simulateOverprint: bool
     width: float
 
+
 DefaultPDFExport: PDFFormatSetting = {
     'clipToElements': False,
     'compressVectorGraphics': True,
@@ -327,11 +356,13 @@ DefaultPDFExport: PDFFormatSetting = {
     'width': 960
 }
 
+
 # Utility functions to make conversion between case standards easier
 def snake_to_camel(s: str) -> str:
     words = s.split('_')
-    words = [words[0]] + list(map(str.title, words[1:]))
+    words = [words[0], *list(map(str.title, words[1:]))]
     return ''.join(words)
+
 
 _camel_map = {
     'A': '_a',
@@ -362,11 +393,12 @@ _camel_map = {
     'Z': '_z'
 }
 
+
 def camel_to_snake(s: str) -> str:
     return ''.join([_camel_map.get(c, c) for c in s])
 
-def get_pdf_format(pdf_path: str|Path, setting: PDFFormatSetting):
-    from arcpy.mp import PDFFormat
+
+def get_pdf_format(pdf_path: str | Path, setting: PDFFormatSetting):
     fmt = PDFFormat(str(pdf_path))
     for k, v in setting.items():
         if not hasattr(fmt, k):
@@ -375,8 +407,9 @@ def get_pdf_format(pdf_path: str|Path, setting: PDFFormatSetting):
         setattr(fmt, k, v)
     return fmt
 
+
 # Allow overriding this to change global export defaults for any
-# class that uses this  
+# class that uses this
 PDFDefault = PDFSetting(
     resolution=96,
     image_quality='BEST',
@@ -387,7 +420,7 @@ PDFDefault = PDFSetting(
     georef_info=True,
     jpeg_compression_quality=80,
     clip_to_elements=False,
-    output_as_image= False,
+    output_as_image=False,
     embed_color_profile=True,
     pdf_accessibility=False,
     keep_layout_background=True,
@@ -411,32 +444,34 @@ _TriggerEvent = Literal['esriARTEUpdate', 'esriARTEInsert', 'esriARTEDelete']
 CalculationType = Literal['CALCULATION', 'VALIDATION', 'CONSTRAINT']
 _CalculationType = Literal['esriARTCalculation', 'esriARTValidation', 'esriARTConstraint']
 
+
 # System representation of an attribute rule
 class AttributeRule(TypedDict):
-        id: int
-        name: str
-        type: _CalculationType
-        evaluationOrder: int
-        fieldName: str
-        subtypeCode: int
-        description: str
-        errorNumber: int
-        errorMessage: str
-        userEditable: bool
-        isEnabled: bool
-        referencesExternalService: bool
-        excludeFromClientEvaluation: bool
-        scriptExpression: str
-        triggeringEvents: list[_TriggerEvent]
-        checkParameters: dict[str, Any]
-        category: int
-        severity: int
-        tags: str
-        batch: bool
-        requiredGeodatabaseClientVersion: str
-        creationTime: int
-        subtypeCodes: list[int]
-        triggeringFields: list[str]
+    id: int
+    name: str
+    type: _CalculationType
+    evaluationOrder: int
+    fieldName: str
+    subtypeCode: int
+    description: str
+    errorNumber: int
+    errorMessage: str
+    userEditable: bool
+    isEnabled: bool
+    referencesExternalService: bool
+    excludeFromClientEvaluation: bool
+    scriptExpression: str
+    triggeringEvents: list[_TriggerEvent]
+    checkParameters: dict[str, Any]
+    category: int
+    severity: int
+    tags: str
+    batch: bool
+    requiredGeodatabaseClientVersion: str
+    creationTime: int
+    subtypeCodes: list[int]
+    triggeringFields: list[str]
+
 
 def convert_rule(rule: AttributeRule) -> dict[str, Any]:
     """Convert system keys to Python keys"""
@@ -453,59 +488,62 @@ def convert_rule(rule: AttributeRule) -> dict[str, Any]:
         'triggeringEvents': 'triggering_events',
         'triggeringFields': 'triggering_fields',
     }
-    _converted: dict[str, Any] = {}
-    _converted['triggering_events'] = [
+    converted: dict[str, Any] = {}
+    converted['triggering_events'] = [
         e.removeprefix('esriARTE').upper()
         for e in rule['triggeringEvents']
     ]
-    _converted['type'] = rule['type'].removeprefix('esriART').upper()
-    _converted['exclude_from_client_evaluation'] = (
-        'EXCLUDE' 
-        if rule['excludeFromClientEvaluation'] 
+    converted['type'] = rule['type'].removeprefix('esriART').upper()
+    converted['exclude_from_client_evaluation'] = (
+        'EXCLUDE'
+        if rule['excludeFromClientEvaluation']
         else 'INCLUDE'
     )
-    _converted['batch'] = (
-        'BATCH' 
-        if rule['batch'] 
+    converted['batch'] = (
+        'BATCH'
+        if rule['batch']
         else 'NOT_BATCH'
     )
-    _converted['is_editable'] = (
-        'EDITABLE' 
-        if rule['userEditable'] 
+    converted['is_editable'] = (
+        'EDITABLE'
+        if rule['userEditable']
         else 'NONEDITABLE'
     )
-    _converted['subtype'] = [s for s in rule['subtypeCodes']]
+    converted['subtype'] = list(rule['subtypeCodes'])
     for k in rule:
-        _conv_key = attr_map.get(k, k)
+        conv_key = attr_map.get(k, k)
         # -1 is a flag for None that needs to be converted
         if isinstance(rule[k], int) and rule[k] < 0:
             rule[k] = None
-        
+
         # Skip manually converted values
-        if _conv_key in _converted:
+        if conv_key in converted:
             continue
-        
-        _converted[_conv_key] = rule[k]
-    
-    return _converted
+
+        converted[conv_key] = rule[k]
+
+    return converted
+
 
 def to_rule_alter(rule: AttributeRule) -> AlterRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AlterAttributeRule"""
-    _rule = convert_rule(rule) # Will always have correct keys
-    _keys = {
+    rule_dict = convert_rule(rule)  # Will always have correct keys
+    keys = {
         *AlterRuleOpts.__optional_keys__,
         *AlterRuleOpts.__required_keys__
     }
-    return AlterRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
+    return AlterRuleOpts(**{k: v for k, v in rule_dict.items() if k in keys})  # pyright: ignore[reportArgumentType]
+
 
 def to_rule_add(rule: AttributeRule) -> AddRuleOpts:
     """Convert a system AttributeRule to a set of key value pairs that can be used with AddAttributeRule"""
-    _rule = convert_rule(rule) # Will always have correct keys
-    _keys = {
+    rule_dict = convert_rule(rule)  # Will always have correct keys
+    keys = {
         *AddRuleOpts.__optional_keys__,
         *AddRuleOpts.__required_keys__
-    } # Linter does not understand this _keys check
-    return AddRuleOpts(**{k: v for k, v in _rule.items() if k in _keys})  # pyright: ignore[reportArgumentType]
+    }  # Linter does not understand this _keys check
+    return AddRuleOpts(**{k: v for k, v in rule_dict.items() if k in keys})  # pyright: ignore[reportArgumentType]
+
 
 # Typed passthough options for Attribute Rule functions
 class AlterRuleOpts(TypedDict, total=False):
@@ -519,6 +557,7 @@ class AlterRuleOpts(TypedDict, total=False):
     exclude_from_client_evaluation: Literal['EXCLUDE', 'INCLUDE']
     tags: str
     triggering_fields: Sequence[str]
+
 
 class AddRuleOpts(TypedDict, total=False):
     """Typed kwargs for AddAttributeRule"""
@@ -538,6 +577,7 @@ class AddRuleOpts(TypedDict, total=False):
     tags: str
     triggering_fields: Sequence[str]
 
+
 type Description = str
 type NumericType = int | float
 type DateType = datetime | date | time
@@ -546,6 +586,8 @@ _DomainType = Literal["CodedValue", "Range"]
 _DomainFieldType = Literal["Short", "Long", "BigInteger", "Float", "Double", "Text", "Date", "DateOnly", "TimeOnly"]
 _DomainMergePolicy = Literal["AreaWeighted", "DefaultValue", "SumValues"]
 _DomainSplitPolicy = Literal["DefaultValue", "Duplicate", "GeometryRatio"]
+
+
 class SystemDomain(TypedDict):
     codedValues: dict[CodeType, Description] | None
     description: Description
@@ -557,6 +599,7 @@ class SystemDomain(TypedDict):
     splitPolicy: _DomainSplitPolicy
     type: _DomainFieldType
 
+
 class RelationshipAddRuleOpts(TypedDict, total=False):
     in_rel_class: str
     origin_subtype: str
@@ -564,13 +607,15 @@ class RelationshipAddRuleOpts(TypedDict, total=False):
     origin_maximum: int
     destination_subtype: str
     destination_minimum: int
-    destination_maximum: int 
+    destination_maximum: int
+
 
 class RelationshipRemoveRuleOpts(TypedDict, total=False):
     in_rel_class: str
     origin_subtype: str
     destination_subtype: str
     remove_all: Literal['REMOVE', 'NOT_ALL']
+
 
 class RelationshipOpts(TypedDict, total=False):
     origin_table: str
@@ -587,10 +632,13 @@ class RelationshipOpts(TypedDict, total=False):
     destination_primary_key: str
     destination_foreign_key: str
 
+
 DomainFieldType = Literal['SHORT', 'LONG', 'BIGINTEGER', 'FLOAT', 'DOUBLE', 'TEXT', 'DATE', 'DATEONLY', 'TIMEONLY']
 DomainSplitPolicy = Literal['DEFAULT', 'DUPLICATE', 'GEOMETRY_RATIO']
 DomainMergePolicy = Literal['DEFAULT', 'SUM_VALUES', 'AREA_WEIGHTED']
 DomainType = Literal['CODED', 'RANGE']
+
+
 class AlterDomainOpts(TypedDict, total=False):
     """Use with arcpy.management.AlterDomain"""
     new_domain_name: str
@@ -598,6 +646,7 @@ class AlterDomainOpts(TypedDict, total=False):
     new_domain_owner: str
     split_policy: DomainSplitPolicy
     merge_policy: DomainMergePolicy
+
 
 class CreateDomainOpts(TypedDict, total=False):
     """Use with arcpy.management.CreateDomain"""
@@ -608,18 +657,20 @@ class CreateDomainOpts(TypedDict, total=False):
     split_policy: DomainSplitPolicy
     merge_policy: DomainMergePolicy
 
+
 def parse_domain(domain: Domain) -> SystemDomain:
     return SystemDomain(**domain.__dict__)
 
+
 DomainParamMap = {
-    'Short': 'SHORT', 
-    'Long': 'LONG', 
-    'BigInteger': 'BIGINTEGER', 
-    'Float': 'FLOAT', 
-    'Double': 'DOUBLE', 
-    'Text': 'TEXT', 
-    'Date': 'DATE', 
-    'DateOnly': 'DATEONLY', 
+    'Short': 'SHORT',
+    'Long': 'LONG',
+    'BigInteger': 'BIGINTEGER',
+    'Float': 'FLOAT',
+    'Double': 'DOUBLE',
+    'Text': 'TEXT',
+    'Date': 'DATE',
+    'DateOnly': 'DATEONLY',
     'TimeOnly': 'TIMEONLY',
     'CodedValue': 'CODED',
     'Range': 'RANGE',
@@ -630,8 +681,10 @@ DomainParamMap = {
     'AreaWeighted': 'AREA_WEIGHTED',
 }
 
+
 def domain_param(param: str) -> Any:
     return DomainParamMap.get(param) or param
+
 
 # Parameter Datatypes for Tool Parameters
 ParameterDatatype = Literal[
