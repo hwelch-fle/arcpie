@@ -1,11 +1,10 @@
 from . import (
-    _types as _types,
     cursor as cursor,
     database as database,
     featureclass as featureclass,
-    network as network,
     project as project,
     toolbox as toolbox,
+    types as types,
     utils as utils,
 )
 from .cursor import (
@@ -24,9 +23,6 @@ from .featureclass import (
     count as count,
     filter_fields as filter_fields,
     where as where,
-)
-from .network import (
-    FeatureGraph as FeatureGraph,
 )
 from .toolbox import (
     Parameters as Parameters,
