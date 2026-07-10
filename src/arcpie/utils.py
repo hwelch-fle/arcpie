@@ -45,11 +45,14 @@ from .featureclass import (
     count,
     where,
 )
+from .schema import SchemaDataset, SchemaWorkspace
 
 if TYPE_CHECKING:
     from .database import (
         Dataset,
     )
+
+import itertools
 
 from arcpy.management import (
     ConvertSchemaReport,  # pyright: ignore[reportUnknownVariableType]
@@ -66,14 +69,14 @@ from .project import (
 
 def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
     """Natural sort key for use in string sorting
-    
+
     Args:
         val (str): A value that you want the natural sort key for
-    
+
     Returns:
-        (tuple[tuple[int, ...], tuple[str, ...]): A tuple containing all numeric and 
-        string components in order of appearance. Best used as a sort key
-    
+        (tuple[tuple[int, ...], tuple[str, ...]): A tuple containing all numeric and
+         string components in order of appearance. Best used as a sort key.
+
     Usage:
         ```python
         >>> pages = ['P-1.3', 'P-2.11', ...]
@@ -82,29 +85,29 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
         ['P-1.1', 'P-1.2', ...]
         ```
     """
-    _digits: list[int] = []
-    _alpha: list[str] = []
-    _digit_chars: list[str] = []
+    digits: list[int] = []
+    alpha: list[str] = []
+    digit_chars: list[str] = []
     for s in val:
         if s.isdigit():
-            _digit_chars.append(s)
+            digit_chars.append(s)
         else:
-            _alpha.append(s)
-            if _digit_chars:
-                _digits.append(int(''.join(_digit_chars)))
-                _digit_chars.clear()
-    if _digit_chars:
-        _digits.append(int(''.join(_digit_chars)))
-    return tuple(_digits), tuple(_alpha)
+            alpha.append(s)
+            if digit_chars:
+                digits.append(int(''.join(digit_chars)))
+                digit_chars.clear()
+    if digit_chars:
+        digits.append(int(''.join(digit_chars)))
+    return tuple(digits), tuple(alpha)
 
 
 def get_subtype_count(fc: Table | FeatureClass, drop_empty: bool = False) -> dict[str, int]:
     """Get the subtype counts for a Table or FeatureClass
-    
+
     Args:
         fc (Table | FeatureClass): The Table/FeatureClass you want subtype counts for
         drop_empty (bool): Drop any counts that have no features from the output dictionary (default: False)
-    
+
     Returns:
         (dict[str, int]): A mapping of subtype name to subtype count
     """
@@ -160,19 +163,19 @@ def print(*values: object,
 
 def get_subtype_counts(gdb: Dataset, *, drop_empty: bool = False) -> dict[str, dict[str, int]]:
     """Get a mapping of subtype counts for all featureclasses that have subtypes in the provided Dataset
-    
+
     Args:
         gdb (Dataset): The Dataset instance to get subtype counts for
         drop_empty (bool): Drop any counts that have no features from the output dictionary (default: False)
-    
+
     Returns:
         (dict[str, dict[str, int]]): A mapping of FeatureClass -> SubtypeName -> SubtypeCount
-    
+
     Usage:
         ```python
         >>> get_subtype_counts(Dataset('<path/to/gdb>', drop_empty=True))
         {
-            'FC1': 
+            'FC1':
                 {
                     'Default': 10
                     'Subtype 1': 6
@@ -180,7 +183,7 @@ def get_subtype_counts(gdb: Dataset, *, drop_empty: bool = False) -> dict[str, d
                 },
             ...
         }
-        ```  
+        ```
     """
     feats: list[Table] = [*gdb.feature_classes.values(), *gdb.tables.values()]
     return {
@@ -193,50 +196,50 @@ def get_subtype_counts(gdb: Dataset, *, drop_empty: bool = False) -> dict[str, d
 
 def export_project_lyrx(project: Project, out_dir: Path, *, indent: int = 4, sort: bool = False, skip_empty: bool = True) -> None:
     """Pull all layers from a project file and output them in a directory as lyrx files
-    
+
     Args:
         project (Project): The `arcpie.Project` instance to export
         out_dir (Path|str): The target directory for the layer files
         indent (int): Indentation level of the ouput files (default: 4)
         sort (bool): Sort the output file by key name (default: False)
         skip_empty (bool): Skips writing empty lyrx files for layers with no lyrx data (default: True)
-    
+
     Usage:
         ```python
         >>> export_project_lyrx(arcpie.Project('<path/to/aprx>'), '<path/to/output_dir>')
         ```
-    
+
     Note:
         Output structure will match the structure of the project:
         `Map -> Group -> Layer`
         Where each level is a directory. Group Layers will have a directory entry with individual
-        files for each layer they contain, as well as a single layerfile that contains all their 
-        child layers.
+         files for each layer they contain, as well as a single layerfile that contains all their
+         child layers.
     """
     out_dir = Path(out_dir)
     for map in project.maps:
         map_dir = out_dir / map.unique_name
         for layer in map.layers:
-            _lyrx = getattr(layer, 'lyrx', None)
-            if _lyrx is None:
+            lyrx = getattr(layer, 'lyrx', None)
+            if lyrx is None:
                 print(f'{(layer.cim_dict or {}).get("type")} is invalid!')
                 continue
-            if skip_empty and not _lyrx:
+            if skip_empty and not lyrx:
                 continue
             out_file = (map_dir / layer.longName).with_suffix('.lyrx')
             out_file.parent.mkdir(parents=True, exist_ok=True)
-            out_file.write_text(json.dumps(_lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
+            out_file.write_text(json.dumps(lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
 
 
 def export_project_maps(project: Project, out_dir: Path | str, *, indent: int = 4, sort: bool = False) -> None:
     """Pull all layers from a project file and output them in a directory as mapx files
-    
+
     Args:
         project (Project): The `arcpie.Project` instance to export
         out_dir (Path|str): The target directory for the mapx files
         indent (int): Indentation level of the ouput files (default: 4)
         sort (bool): Sort the output file by key name (default: False)
-    
+
     Usage:
         ```python
         >>> export_project_maps(arcpie.Project('<path/to/aprx>'), '<path/to/output_dir>')
@@ -251,38 +254,35 @@ def export_project_maps(project: Project, out_dir: Path | str, *, indent: int = 
 
 
 def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTable]) -> dict[str, Any]:
-    _base_map = source_map.mapx
+    base_map = source_map.mapx
 
     # Remove existing definitions
-    _base_map.pop('layerDefinition', None)
-    _base_map.pop('tableDefinitions', None)
+    base_map.pop('layerDefinition', None)
+    base_map.pop('tableDefinitions', None)
 
     # Remove existing CIM paths
-    _map_def: dict[str, Any] = _base_map['mapDefinition']
-    _map_def.pop('layers', None)
-    _map_def.pop('standaloneTables', None)
+    map_def: dict[str, Any] = base_map['mapDefinition']
+    map_def.pop('layers', None)
+    map_def.pop('standaloneTables', None)
 
     if layers:
-        _map_def['layers'] = [l.URI for l in layers]
-        _base_map['layerDefinitions'] = [l.cim_dict for l in layers]
+        map_def['layers'] = [lay.URI for lay in layers]
+        base_map['layerDefinitions'] = [lay.cim_dict for lay in layers]
 
     if tables:
-        _map_def['standaloneTables'] = [t.URI for t in tables]
-        _base_map['tableDefinitions'] = [t.cim_dict for t in tables]
+        map_def['standaloneTables'] = [t.URI for t in tables]
+        base_map['tableDefinitions'] = [t.cim_dict for t in tables]
 
-    return _base_map
-
-
-from .schema import SchemaDataset, SchemaWorkspace
+    return base_map
 
 
 def convert_schema(schema: Dataset[Any] | Path | str, to: Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML', 'DYNAMIC_HTML'] = 'JSON') -> BytesIO:
     """Convert a Schema from one format to another
-    
+
     Args:
         schema (Dataset|Path|str): Path to the schemafile or Dataset to convert
         to (Literal['JSON', 'XLSX', 'HTML', 'PDF', 'XML', 'DYNAMIC_HTML']): Target format (default: 'JSON')
-        
+
     Yields:
         bytes: Raw bytes object containing the schema file
     """
@@ -300,11 +300,11 @@ def patch_schema_rules(schema: SchemaWorkspace | Path | str,
                        *,
                        remove_rules: bool = False) -> SchemaWorkspace:
     """Patch an exported Schema doc by re-linking attribute rules to table names
-    
+
     Args:
         schema (Path|str): The input schema to patch
         remove_rules (bool): Remove attribute rules from the schema (default: False)
-    
+
     Returns:
         SchemaWorkspace: A patched schema dictionary
     """
@@ -355,24 +355,23 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
                 buffer: float = 0.0,
                 min_len: float = 0.0) -> Iterator[tuple[int, Polyline]]:
     """Split lines at provided points
-    
+
     Args:
         lines (FeatureClass[Polyline]): Line features to split
         points (FeatureClass[PointGeometry]): Points to split on
         buffer (float): Split buffer in feature units (default: 0.0 [exact])
         min_len (float): Minumum length for a new line in feature units (default: 0.0)
-    
+
     Yields:
         ( tuple[int, Polyline]] ): Tuples of parent OID and child shape
-    
+
     Warning:
         When splitting features in differing projections, the point features will be projected
         into the spatial reference of the line features.
-    
+
     Example:
         ```python
         >>> # Simple process for splitting lines in place
-        ... 
         >>> # Initialize a set to capture the removed ids
         >>> removed: set[int] = set()
         >>> with lines.editor:
@@ -384,7 +383,7 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
         ...     # Remove old lines (if you're inserting to the same featureclass)
         ...     with lines.update_cursor('OID@') as cur:
         ...         for _ in filter(lambda r: r[0] in removed, cur):
-        ...             cur.deleteRow() 
+        ...             cur.deleteRow()
         ```
     """
     line_iter: Iterator[tuple[Polyline, int]] = lines['SHAPE@', 'OID@']
@@ -397,7 +396,7 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
             continue
 
         prev_measure = 0.0
-        measures = sorted(line.measureOnLine(p) for p in int_points) + [line.length]
+        measures = [*sorted(line.measureOnLine(p) for p in int_points), line.length]
         for measure in measures:
             seg = line.segmentAlongLine(prev_measure, measure)
             prev_measure = measure
@@ -407,11 +406,11 @@ def split_at_points(lines: FeatureClass[Polyline, Any], points: FeatureClass[Poi
 
 def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyline], points: Sequence[PointGeometry] | Iterator[PointGeometry]) -> Iterator[Polyline]:
     """Split a Polyline or Sequence/Iterable of polylines at provided points
-    
+
     Args:
         lines (Polyline | Sequence[Polyline] | Iterator[Polyline]): The line or lines to split
         points (Sequence[PointGeometry] | Iterator[PointGeometry]): The points to split at
-    
+
     Yields:
         (Polyline): Segments of the polyline split at the input points
     """
@@ -430,7 +429,7 @@ def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyli
             continue
         prev_measure = 0.0
         measures = sorted(line.measureOnLine(p) for p in int_points)
-        for measure in measures + [line.length]:
+        for measure in [*measures, line.length]:
             if prev_measure == measure:
                 continue
             yield line.segmentAlongLine(prev_measure, measure).projectAs(line.spatialReference)
@@ -475,7 +474,7 @@ def shortest_path(
     precision: int = 6,
     ) -> Polyline | list[Polyline] | None:
     """Find the shortest path or paths given a source point, target point and network of Polylines
-    
+
     Args:
         source (PointGeometry | Point): The start point for the path
         target (PointGeometry | Point): The end point for the path
@@ -484,33 +483,33 @@ def shortest_path(
         method (Literal['dijkstra', 'bellman-ford']): The graph traversal algorithm to use (default: 'dijkstra')
         weighted (bool): Use line lengths to weight the paths (default: True)
         precision (int): Number of decimal places to round coordinates to (default: 6)
-    
+
     Returns:
         (Polyline | None): The unioned polyline of the path or None if no path is found
-    
+
     Yields:
         (Polyline): Yields all shortest paths if `all_paths` is set (None is still *returned* if no path found)
-    
+
     Raises:
         (ValueError): When input arguments are not of the correct types (`PointLike`, `PointLike`, `LineCollection`)
-        
+
     Example:
         ```python
         path = shortest_path(p1, p2, line_features)
         paths = shortest_path(p1, p2, line_features, all_paths=True)
-        
+
         if path is None:
             print('No Path')
         else:
             print(path.length)
-        
+
         # Check that path(s) were found
         if paths is None:
             print('No Path')
         else:
             for p in paths:
                 print(p.length)
-        ```   
+        ```
     """
 
     # Parameter Validations
@@ -533,43 +532,43 @@ def shortest_path(
         if source.isMultipart:
             raise ValueError('source point must not be multipart')
         source = source.projectAs(network[0].spatialReference).centroid
-    _source = (round(source.X, precision), round(source.Y, precision))
+    source_pt = (round(source.X, precision), round(source.Y, precision))
 
     if isinstance(target, PointGeometry):
         if target.isMultipart:
             raise ValueError('target point must not be multipart')
         target = target.projectAs(network[0].spatialReference).centroid
-    _target = (round(target.X, precision), round(target.Y, precision))
+    target_pt = (round(target.X, precision), round(target.Y, precision))
 
     G = Graph(
         [
             (
-                (round(l.firstPoint.X, precision), round(l.firstPoint.Y, precision)),
-                (round(l.lastPoint.X, precision), round(l.lastPoint.Y, precision)),
-                {'shape': l, 'length': l.length}
+                (round(line.firstPoint.X, precision), round(line.firstPoint.Y, precision)),
+                (round(line.lastPoint.X, precision), round(line.lastPoint.Y, precision)),
+                {'shape': line, 'length': line.length}
             )
-            for l in network
+            for line in network
         ]
     )
     try:
         if all_paths:
-            paths = nx_all_shortest_paths(G, _source, _target, weight='length' if weighted else None, method=method)
+            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
         else:
-            paths = nx_shortest_path(G, _source, _target, weight='length' if weighted else None, method=method)
+            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
     except (NodeNotFound, NetworkXNoPath):
         return None
 
     if all_paths:
-        _paths: list[Polyline] = []
+        new_paths: list[Polyline] = []
         for path in paths:
             assert isinstance(path, list)
-            edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(path, path[1:])]
-            _paths.append(reduce(lambda acc, s: acc.union(s), edges))  # pyright: ignore[reportArgumentType]
-        return _paths
+            edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in itertools.pairwise(path)]
+            new_paths.append(reduce(lambda acc, s: acc.union(s), edges))  # pyright: ignore[reportArgumentType]
+        return new_paths
 
     else:
         assert isinstance(paths, list)
-        edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in zip(paths, paths[1:])]
+        edges: list[Polyline] = [G.get_edge_data(u, v)['shape'] for u, v in itertools.pairwise(paths)]
         if edges:
             return reduce(lambda acc, s: acc.union(s), edges)  # pyright: ignore[reportReturnType]
 
@@ -582,7 +581,7 @@ def box_on_point(
     start: Literal['tl', 'tr', 'bl', 'br'] = 'tl'
     ) -> Polygon:
     """Build a rectangular box on a point
-    
+
     Args:
         center (Point|PointGeometry): The center point of the box
         width (float): The width of the box
@@ -590,7 +589,7 @@ def box_on_point(
         angle (float): An angle to roatate the box by in radians (default: 0.0)
         ref (SpatialReference|None): An optional spatial reference to apply to the output polygon
         start (Literal['tl', 'tr', 'bl', 'br']): The corner of the box that should be the start point (default: 'tl')
-        
+
     Returns:
         (Polygon): A rectangular polygon (with provided ref or ref inhereted from center)
     """
@@ -625,43 +624,43 @@ def box_on_point(
 
 def two_point_circle(center: Point | PointGeometry, end: Point | PointGeometry, ref: SpatialReference | None = None) -> Polyline:
     """Create a circle using a center point and an end point
-    
+
     Args:
         center (Point|PointGeometry): The center of the circle
         end: (Point|PointGeometry): The end point of the arc (distance from center is Circle radius)
         ref: (SpatialReference|None): The SpatialReference to use with the returned geometry
-        
+
     Returns:
         (Polyline): A Circular Polyline
-    
+
     Note:
         If PointGeometries are provided, they will be projected as the provided ref
-        If no ref is provided, the shape will inherit the reference of the center
-        
+         If no ref is provided, the shape will inherit the reference of the center
+
         Reference resolution is as follows:
         `ref -> center.spatialReference -> end.spatialReference`
-        
-        If both points are Point objects with no spatial reference, and no ref is provided, 
-        The returned Polyline will have no spatial reference
+
+        If both points are Point objects with no spatial reference, and no ref is provided,
+         The returned Polyline will have no spatial reference
     """
     if isinstance(center, PointGeometry):
-        _c_ref = center.spatialReference
-        if ref and _c_ref != ref:
+        c_ref = center.spatialReference
+        if ref and c_ref != ref:
             center = center.projectAs(ref)
         else:
-            ref = ref or _c_ref
+            ref = ref or c_ref
         center = center.centroid
     if isinstance(end, PointGeometry):
-        _e_ref = end.spatialReference
-        if ref and _e_ref != ref:
+        e_ref = end.spatialReference
+        if ref and e_ref != ref:
             end = end.projectAs(ref)
         else:
-            ref = ref or _e_ref
+            ref = ref or e_ref
         end = end.centroid
 
     esri_json: dict[str, Any] = {}
-    _arc: dict[str, Any] = {'a': [[end.X, end.Y, end.Z, end.M], [center.X, center.Y], 0, 1]}
-    esri_json['curvePaths'] = [[[end.X, end.Y, end.Z], _arc]]
+    arc: dict[str, Any] = {'a': [[end.X, end.Y, end.Z, end.M], [center.X, center.Y], 0, 1]}
+    esri_json['curvePaths'] = [[[end.X, end.Y, end.Z], arc]]
     if ref:
         esri_json['spatialReference'] = {'wkid': ref.factoryCode, 'latestWkid': ref.factoryCode}
     return AsShape(esri_json, esri_json=True)  # type: ignore
@@ -669,24 +668,24 @@ def two_point_circle(center: Point | PointGeometry, end: Point | PointGeometry, 
 
 def center_circle(center: Point | PointGeometry, radius: float, ref: SpatialReference | None = None) -> Polyline:
     """Create a circle using a center point and a radius
-    
+
     Args:
         center (Point|PointGeometry): The center of the circle
         radius: (float): The dist
         ref: (SpatialReference|None): The SpatialReference to use with the returned geometry
-        
+
     Returns:
         (Polyline): A Circular Polyline
-    
+
     Note:
         If a PointGeometry are provided, it will be projected as the provided ref
         If no ref is provided, the shape will inherit the reference of the center
-        
+
         Reference resolution is as follows:
         `ref -> center.spatialReference`
-        
-        If no center reference can be found and no ref is provided, the returned geometry will 
-        have no reference
+
+        If no center reference can be found and no ref is provided, the returned geometry will
+         have no reference
     """
     if isinstance(center, PointGeometry):
         ref = ref or center.spatialReference
@@ -696,19 +695,19 @@ def center_circle(center: Point | PointGeometry, radius: float, ref: SpatialRefe
 
 def vectors_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.01, snap: bool = False) -> tuple[Vector, Vector]:
     """Get the vector of the line at the given point (p-delta -> p+delta)
-    
+
     Args:
         line: The line to get a Vector for
         point: The PointGeometry specifying the vector location (projects to line reference)
         delta: The distance (meters) to traverse the line (default: `0.01`)
         snap: If the input point is disjoint from the line, snap it to the line (default: 'False')
-    
+
     Returns:
         A tuple of Vectors representing the bearing to start and end at distance delta from point
-    
+
     Raises:
         ValueError if the point is disjoint from the line and `snap` is unset
-    
+
     Note:
         If the in point is a start/end point on the line, one of the Vectors will be a null vector!
     """
@@ -743,13 +742,13 @@ def vectors_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0
 
 def vector_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.01, snap: bool = False) -> Vector:
     """Get the vector of the line at the given point (p-delta -> p+delta)
-    
+
     Args:
         line: The line to get a Vector for
         point: The PointGeometry specifying the vector location (projects to line reference)
         delta: The distance (meters) to traverse the line in both directions (default: `0.01`)
         snap: If the input point is disjoint from the line, snap it to the line (default: 'False')
-    
+
     Returns:
         A Vector of length delta*2 that describes the slope of the line at the provided point
     """
@@ -759,7 +758,7 @@ def vector_at(line: Polyline, point: PointGeometry | Point, *, delta: float = 0.
 
 def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterator[PointGeometry]:
     """Get a point iterator for a Polyline
-    
+
     Args:
         line: The Polyline to iterate points for
         start: Include the line startpoint (default: `True`)
@@ -777,12 +776,12 @@ def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterato
 
 def iter_parts(line: Polyline, start: bool = True, end: bool = True) -> Iterator[Iterator[PointGeometry]]:
     """Get a part iterator for a Polyline
-    
+
     Args:
         line: The Polyline to iterate parts for
         start: Include the line startpoint (default: `True`)
         end: Include the line endpoint (default: `True`)
-    
+
     Yields:
         Iterators of part PointGeometries for all parts in the line
     """
@@ -798,10 +797,10 @@ type Scalar = int | float
 @dataclass
 class Vector:
     """Simple Vector implementation that takes a start and end point (uses Spherical notation for theta and phi).\n
-    
+
     If `PointGeometries` are passed as the head and tail points, the head
     will inherit the reference of the tail
-    
+
     Attributes:
         x (float): The X component of the vector
         y (float): The Y component of the vector
@@ -811,7 +810,7 @@ class Vector:
         dist (float): The magnitute of the vector (distance b/w start and end)
         mid (Point): The midpoint of the vector along its magnitude
         ref (SpatialReference | None): Ano optional spatial reference for all Vector geometry to inherit
-        
+
     Methods:
         translate(point, mag): Translate a point along the Vector (Vector tail is set to point location)
         reverse: Reverse the Vector
@@ -821,7 +820,7 @@ class Vector:
         cross(other): Cross product of two vectors (LHS is origin)
         scale(scalar): Scale a vector using a scalar
         angle(other, order[`accute`|`obtuse`]=`accute`): Get angle between two vectors
-        
+
         __rshift__: Implements `>>` for use in translating points (vector must be LHS)
         __neg__: Implements unary `-` operator for Vectors. Same as .reverse()
         __add__: Implements `+` operator for Vectors. RHS Vector will be used as anchor
@@ -839,14 +838,14 @@ class Vector:
     def __post_init__(self) -> None:
 
         if isinstance(self.tail, PointGeometry):
-            _ref = self.ref or self.tail.spatialReference
-            self.tail = self.tail.projectAs(_ref).centroid
-            self.ref = _ref
+            ref = self.ref or self.tail.spatialReference
+            self.tail = self.tail.projectAs(ref).centroid
+            self.ref = ref
 
         if isinstance(self.head, PointGeometry):
-            _ref = self.ref or self.head.spatialReference
-            self.head = self.head.projectAs(_ref).centroid
-            self.ref = _ref
+            ref = self.ref or self.head.spatialReference
+            self.head = self.head.projectAs(ref).centroid
+            self.ref = ref
 
         self.is_null = (
             self.head.X == self.tail.X
@@ -883,16 +882,16 @@ class Vector:
 
     @property
     def polyline(self) -> Polyline:
-        _ref = self.ref
+        ref = self.ref
         start = self.tail
         end = self.head
         if isinstance(start, PointGeometry):
-            _ref = start.spatialReference
+            ref = start.spatialReference
             start = start.centroid
         if isinstance(end, PointGeometry):
-            _ref = _ref or end.spatialReference
+            ref = ref or end.spatialReference
             end = end.centroid
-        return Polyline(Array([start, end]), _ref)
+        return Polyline(Array([start, end]), ref)
 
     @property
     def head_geom(self) -> PointGeometry:
@@ -956,7 +955,7 @@ class Vector:
 
     def scale(self, scale: Scalar) -> Vector:
         """Scalar multiplication of vector (`*`)
-         
+
         Note: Scaling by Zero will return a null vector located at the vector tail
         """
         if scale == 0:  # Special case for creating a spatially aware null vector
@@ -983,7 +982,7 @@ class Vector:
 
     def angle(self, other: Vector) -> float:
         """Get the angle in radians between two vectors
-        
+
         Note: When checking angle against a null vector, 0 is returned
         """
         if self.is_null or other.is_null:
@@ -1021,17 +1020,17 @@ class Vector:
     def translate(self, point: PointGeometry, mag: float | None = None) -> PointGeometry: ...
     def translate(self, point: Any, mag: float | None = None) -> Any:
         """Translate the provided point along the vector direction. `>>`
-        
+
         The Point will be moved from its original location along the vector angle the provided distance.
         The location of the `Vector` object is not taken into account, only angle and magnitude
-        
+
         Args:
             point: The point to translate along the given vector
             mag: The distance to translate the point (default: `self.mag`)
-        
+
         Returns:
             A translated Point/PointGeometry
-            
+
         Example:
             ```python
                 trans_point = vec >> point
@@ -1082,7 +1081,7 @@ class Vector:
 
 class PolylineEditor:
     """Allow simple polyline editing using indexes and slices
-    
+
     multipart polylines will be indexed on global point index,
     ```
         [[p1: 3pts], [p2: 2pts]] ->  [0, 1, 2, 3, 4]
@@ -1180,15 +1179,15 @@ class PolylineEditor:
     @overload
     def __getitem__(self, key: SupportsIndex) -> PointGeometry: ...
     def __getitem__(self, key: SupportsIndex | slice):
-        _points = list(self)
-        return _points[key]
+        points = list(self)
+        return points[key]
 
     @overload
     def __setitem__(self, key: slice, value: Iterable[Point] | Iterable[PointGeometry]) -> None: ...
     @overload
     def __setitem__(self, key: SupportsIndex, value: Point | PointGeometry) -> None: ...
     def __setitem__(self, key: SupportsIndex | slice, value: Point | PointGeometry | Iterable[Point] | Iterable[PointGeometry]) -> None:
-        _parts = self.part_editors
+        parts = self.part_editors
         if isinstance(value, (Point, PointGeometry)):
             value = self._cast_point(value)
         else:
@@ -1198,20 +1197,20 @@ class PolylineEditor:
             part_idx, local_idx = self._part_at_index(key.start or 0)
             local_stop = local_idx + (key.stop - key.start) if key.stop else None
             key = slice(local_idx, local_stop, key.step)
-            _points = list(_parts[part_idx])
-            _points[key] = value
-            _parts[part_idx] = PolylineEditor(self.from_points(_points))
+            points = list(parts[part_idx])
+            points[key] = value
+            parts[part_idx] = PolylineEditor(self.from_points(points))
 
         elif isinstance(key, SupportsIndex) and isinstance(value, PointGeometry):
             part_idx, local_idx = self._part_at_index(key)
-            _points = list(_parts[part_idx])
-            _points[key] = value
-            _parts[part_idx] = PolylineEditor(self.from_points(_points))
+            points = list(parts[part_idx])
+            points[key] = value
+            parts[part_idx] = PolylineEditor(self.from_points(points))
 
         else:
             raise ValueError(f'Unsupported types for key: {type(key)}, value: {type(value)}')
 
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
+        self.polyline = self.merge_lines(p.polyline for p in parts)
 
     @overload
     def get[D](self, key: slice, default: D = None) -> list[PointGeometry] | D: ...
@@ -1289,32 +1288,32 @@ class PolylineEditor:
         """Remove a point from a polyline at the specified index (default: -1)"""
         part_idx, local_idx = self._part_at_index(index)
 
-        _parts = list(self.parts)
-        _new_part = list(self.part_editors[part_idx])
-        pt = _new_part.pop(local_idx)
+        parts = list(self.parts)
+        new_part = list(self.part_editors[part_idx])
+        pt = new_part.pop(local_idx)
 
-        _parts[part_idx] = self.from_points(_new_part)
-        self.polyline = self.merge_lines(_parts)
+        parts[part_idx] = self.from_points(new_part)
+        self.polyline = self.merge_lines(parts)
         return pt
 
     def insert(self, index: SupportsIndex, point: Point | PointGeometry) -> None:
         """Insert a point at the specified index
-        
+
         Note:
             Inserts the point at the global point index, whichever part that may be in
-            If you want to insert a point at a specific part index, use `.parts` to access the 
-            part and then insert the point there. This does not apply to single part features since 
-            the local part index is equal to the global index.
+             If you want to insert a point at a specific part index, use `.parts` to access the
+             part and then insert the point there. This does not apply to single part features since
+             the local part index is equal to the global index.
         """
         point = self._cast_point(point)
         part_idx, local_idx = self._part_at_index(index)
 
-        _parts = list(self.parts)
-        _new_part = list(self.part_editors[part_idx])
-        _new_part.insert(local_idx, point)
+        parts = list(self.parts)
+        new_part = list(self.part_editors[part_idx])
+        new_part.insert(local_idx, point)
 
-        _parts[part_idx] = self.from_points(_new_part)
-        self.polyline = self.merge_lines(_parts)
+        parts[part_idx] = self.from_points(new_part)
+        self.polyline = self.merge_lines(parts)
 
     def index(self, point: Point | PointGeometry, start: SupportsIndex = 0, stop: SupportsIndex | None = None) -> int:
         """Get the global index of the first instance of the specified point, raise a ValueError if the point is not in the Polyline"""
@@ -1325,27 +1324,27 @@ class PolylineEditor:
 
     def append(self, point: Point | PointGeometry) -> None:
         """Append a point to the last part of the Polyline"""
-        _points = list(self.part_editors[-1])
+        points = list(self.part_editors[-1])
 
-        _points.append(self._cast_point(point))
-        _parts = self.parts[:-1]
+        points.append(self._cast_point(point))
+        parts = self.parts[:-1]
 
-        _parts.append(self.from_points(_points))
-        self.polyline = self.merge_lines(_parts)
+        parts.append(self.from_points(points))
+        self.polyline = self.merge_lines(parts)
 
     def extend(self, points: Iterable[Point | PointGeometry]) -> None:
         """Extend the last part of the polyline with the points"""
-        _points = list(self.part_editors[-1])
+        points = list(self.part_editors[-1])
 
-        _points.extend(self._cast_point(p) for p in points)
-        _parts = self.parts[:-1]
+        points.extend(self._cast_point(p) for p in points)
+        parts = self.parts[:-1]
 
-        _parts.append(self.from_points(_points))
-        self.polyline = self.merge_lines(_parts)
+        parts.append(self.from_points(points))
+        self.polyline = self.merge_lines(parts)
 
     def reverse(self) -> None:
         """Reverse the polyline parts and the points of each part of the polyline
-        
+
         Example:
             [[a, b], [c, d]] -> [[d, c], [b, a]]
             [a, b, c, d] -> [d, c, b, a]
@@ -1379,26 +1378,28 @@ class PolylineEditor:
 
     def dedupe(self, keep: Literal['first', 'last'] = 'last') -> int:
         """Remove all duplicate points in a line keeping last instance (returns the number of points removed)
-        
+
         Note:
-            If a duplciate is found in a seperate part, it is not considered a duplicate and will be kept 
-            setting `keep` to `'last'` will remove duplicates from the end of the line first
+            If a duplciate is found in a seperate part, it is not considered a duplicate and will be kept
+             setting `keep` to `'last'` will remove duplicates from the end of the line first
         """
-        _parts = list(self.part_editors)
-        _removed = 0
-        for part in _parts:
-            _points = list(part)
-            if keep == 'first': _points.reverse()
+        parts = list(self.part_editors)
+        removed = 0
+        for part in parts:
+            points = list(part)
+            if keep == 'first':
+                points.reverse()
 
-            for point in filter(lambda point: _points.count(point) > 1, _points):
-                _points.remove(point)
-                _removed += 1
+            for point in filter(lambda point: points.count(point) > 1, points):
+                points.remove(point)
+                removed += 1
 
-            if keep == 'first': _points.reverse()
-            part.polyline = self.from_points(_points)
+            if keep == 'first':
+                points.reverse()
+            part.polyline = self.from_points(points)
 
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
-        return _removed
+        self.polyline = self.merge_lines(p.polyline for p in parts)
+        return removed
 
     def reset(self) -> None:
         """Revert all changes to `polyline` and restore the original geometry"""
@@ -1407,10 +1408,10 @@ class PolylineEditor:
     def snap(self, line: Polyline | PolylineEditor) -> None:
         if isinstance(line, PolylineEditor):
             line = line.polyline
-        _parts = self.part_editors
-        for i, part in enumerate(_parts):
-            _parts[i].polyline = PolylineEditor.from_points(line.snapToLine(p) for p in part)
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
+        parts = self.part_editors
+        for i, part in enumerate(parts):
+            parts[i].polyline = PolylineEditor.from_points(line.snapToLine(p) for p in part)
+        self.polyline = self.merge_lines(p.polyline for p in parts)
 
     def generalize(self, distance: float) -> None:
         """Generalize the polyline"""
@@ -1418,29 +1419,29 @@ class PolylineEditor:
 
     def append_part(self, part: Polyline | PolylineEditor) -> None:
         """Add a part to the polyline"""
-        _parts = self.part_editors
+        parts = self.part_editors
         if isinstance(part, PolylineEditor):
             new_parts = part.part_editors
         else:
             new_parts = PolylineEditor(part).part_editors
-        _parts.extend(new_parts)
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
+        parts.extend(new_parts)
+        self.polyline = self.merge_lines(p.polyline for p in parts)
 
     def pop_part(self, index: SupportsIndex = -1, /) -> Polyline:
         """pop a part from the polyline (default: -1)"""
-        _parts = self.part_editors
-        if len(_parts) == 1:
+        parts = self.part_editors
+        if len(parts) == 1:
             raise ValueError('cannot pop parts from a single part polyline')
-        part = _parts.pop(index)
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
+        part = parts.pop(index)
+        self.polyline = self.merge_lines(p.polyline for p in parts)
         return part.polyline
 
     def move(self, vec: Vector) -> None:
         """Move the polyline along a Vector"""
-        _parts = self.part_editors
-        for i, part in enumerate(_parts):
-            _parts[i].polyline = self.from_points(vec.translate(p) for p in part)
-        self.polyline = self.merge_lines(p.polyline for p in _parts)
+        parts = self.part_editors
+        for i, part in enumerate(parts):
+            parts[i].polyline = self.from_points(vec.translate(p) for p in part)
+        self.polyline = self.merge_lines(p.polyline for p in parts)
 
     def project_as(self, ref: SpatialReference | int) -> None:
         """Project the polyline in the given reference"""
@@ -1458,20 +1459,20 @@ class PolylineEditor:
                 self.reverse()
 
     def align(self, line: Polyline | PolylineEditor, *, tolerance: float = 0.01) -> None:
-        """Adjust points of the polyline to be coincident with the target line of they are within `tolerance` units 
-        If multiple points are within the tolerance, the closest is picked
+        """Adjust points of the polyline to be coincident with the target line of they are within `tolerance` units.
+         If multiple points are within the tolerance, the closest is picked
         """
         if isinstance(line, Polyline):
             line = PolylineEditor(line)
-        _other_points = list(line)
+        other_points = list(line)
         for idx, point in enumerate(self):
-            nearest = min(_other_points, key=lambda p: p.distanceTo(point))
+            nearest = min(other_points, key=lambda p: p.distanceTo(point))
             if nearest.distanceTo(point) <= tolerance:
                 self[idx] = nearest
 
     def split_at_angle(self, ang: float, units: Literal['degrees', 'radians'] = 'radians', *, tolerance: float = 0.1) -> list[Polyline]:
         """Split the polyline at points where the instantaneous angle (radians) is greater than the specified angle (radians)
-        
+
         Args:
             ang: The target angle at a point to be split at
             units: Specify the units of the provided angle and tolerance
@@ -1487,8 +1488,8 @@ class PolylineEditor:
         for part in self.part_editors:
             last_split = 0
             for idx, point in enumerate(part[1:-1], start=1):
-                l, r = vectors_at(part.polyline, point)
-                if abs(l @ r) < ang + tolerance:
+                left, right = vectors_at(part.polyline, point)
+                if abs(left @ right) < ang + tolerance:
                     segs.append(self.from_points(part[last_split:idx + 1]))
                     last_split = idx
 
@@ -1508,7 +1509,7 @@ class PolylineEditor:
 
     def intersections(self, other: Polyline | PolylineEditor) -> Iterator[PointGeometry]:
         """Iterable of Point Intersections between this line and the other
-        
+
         Note: Intersections are de-duplicated and returned as PointGeometry objects
         """
         if isinstance(other, PolylineEditor):
@@ -1516,7 +1517,7 @@ class PolylineEditor:
 
         intersection = self.polyline.intersect(other, 1)
         if isinstance(intersection, PointGeometry) and intersection.isMultipart:
-            intersection = Multipoint(Array([p for p in intersection]), self.polyline.spatialReference)
+            intersection = Multipoint(Array(list(intersection)), self.polyline.spatialReference)
 
         if isinstance(intersection, Multipoint):
             seen: list[PointGeometry] = []
@@ -1536,7 +1537,7 @@ class PolylineEditor:
     @classmethod
     def merge_lines(cls, lines: Iterable[Polyline]) -> Polyline:
         """Merge a sequence of Polylines into one Polyline (uses `union` so each line becomes a part)
-        
+
         Example:
             ```python
                 lines = [[a,b,c,d], [e,f,g,h]]
@@ -1546,24 +1547,24 @@ class PolylineEditor:
         """
         # Merge algorithm that keeps sequential touching lines in the same part,
         # but allows for disjoint parts to remain disjoint
-        _parts: list[list[PointGeometry]] = []
-        _last_point: PointGeometry | None = None
-        _ref: SpatialReference | None = None
+        parts: list[list[PointGeometry]] = []
+        last_point: PointGeometry | None = None
+        ref: SpatialReference | None = None
         for line in lines:
-            if _ref is None:
-                _ref = line.spatialReference
+            if ref is None:
+                ref = line.spatialReference
             points = list(cls(line))
-            if _last_point and not points[0].disjoint(_last_point):
-                _parts[-1].extend(points)
+            if last_point and not points[0].disjoint(last_point):
+                parts[-1].extend(points)
             else:
-                _parts.append(points)
-            _last_point = points[-1]
+                parts.append(points)
+            last_point = points[-1]
         return Polyline(
             Array(
                 Array(p.centroid for p in part)
-                for part in _parts
+                for part in parts
             ),
-            _ref
+            ref
         )
         # return reduce(lambda acc, l: acc.union(l), lines) # type: ignore
 
