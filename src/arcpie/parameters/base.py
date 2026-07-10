@@ -240,11 +240,11 @@ class Parameters(list[Parameter]):
     def __getitem__(self, key: str, /) -> Parameter: ...
     def __getitem__(self, key: SupportsIndex | slice | str, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
-            _matches = [p for p in self if p.name == key]
-            if not _matches:
+            matches = [p for p in self if p.name == key]
+            if not matches:
                 raise KeyError(key)
-            if len(_matches) == 1:
-                return _matches.pop()
+            if len(matches) == 1:
+                return matches.pop()
             raise KeyError(f'{key} is used for multiple parameters')
         return self[key]
 

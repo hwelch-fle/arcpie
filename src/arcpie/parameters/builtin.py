@@ -647,7 +647,7 @@ class GPTableView(Parameter):
 
 
 class GPTerrainLayer(Parameter):
-    """A reference to a terrain, including symbology and rendering properties. It’s used to draw a terrain."""
+    """A reference to a terrain, including symbology and rendering properties. It's used to draw a terrain."""
 
 
 class DETextfile(Parameter):
