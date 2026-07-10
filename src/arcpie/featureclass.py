@@ -1342,12 +1342,12 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         """
         # Allow passing a single field as a string `fc.fields_as('OID@')` to maintain
         # The call format of *Cursor objects
+        orig_fields = self.fields
         self._fields = tuple(fields)
-        fields = self.fields
         try:
             yield self
         finally:
-            self._fields = fields
+            self._fields = orig_fields
 
     @contextmanager
     def options(self,
