@@ -1191,7 +1191,7 @@ class Table(Generic[_Schema]):
     def __contains__(self, field: str) -> bool:
         """Implementation of contains that checks for a field existing in the `FeatureClass`
         """
-        return field in self.fields
+        return field.lower() in map(str.lower, self.fields)
 
     def __iter__(self) -> Iterator[_Schema]:
         """Iterate all rows in the Table or FeatureClass yielding mappings of field name to field value
