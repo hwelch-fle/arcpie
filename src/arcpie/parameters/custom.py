@@ -125,7 +125,11 @@ class ValueTable(p.GPValueTable):
             self.values = dfts
 
         # Don't allow default initializer to set these
+        ctx.pop('defaults', None)
         ctx.pop('default', None)
+        ctx.pop('filters', None)
         ctx.pop('filter', None)
+        ctx.pop('columns', None)
+        ctx.pop('values', None)
 
         super()._post_init(ctx)

@@ -131,7 +131,10 @@ def resolve_bases(param: type) -> list[str]:
     if len(bases) > 1:
         bases = [ib for b in bases[1:] for ib in resolve_bases(b)]
     else:
-        bases = [param.__name__]
+        name = param.__name__
+        if name == 'Parameter':
+            name = param.__qualname__
+        bases = [name]
     return sorted(set(bases))
 
 
@@ -141,7 +144,7 @@ class ParameterAttrs(TypedDict, total=False):
     # default == value
     default: Any
     value: Any
-    dependencies: list[str]
+    dependencies: list[str | Parameter]
     required: bool
     # For GPString only
     hidden: bool
@@ -172,19 +175,18 @@ class Parameter(_Parameter):
     ) -> None:
 
         if datatype is None:
-            datatype = param_datatype(resolve_bases(self.__class__))
+            datatype = param_datatype(resolve_bases(type(self)))
             if len(datatype) == 1:
                 datatype = datatype.pop()
 
         self._iscomposite = isinstance(datatype, list)
 
-        # arcpy needs __class__.__name__ to be 'Parameter'
-        self.__class__.__name__ = 'Parameter'
-
         if name is None:
             # snake case name
             name = displayName.lower().replace(' ', '_')
 
+        # arcpy needs __class__.__name__ to be 'Parameter'
+        self.__class__.__name__ = 'Parameter'
         super().__init__(
             name=name,
             displayName=displayName,
