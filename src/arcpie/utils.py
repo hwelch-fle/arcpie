@@ -896,38 +896,38 @@ class Vector:
     @property
     def head_geom(self) -> PointGeometry:
         """Get a point geometry object for the vector head (end)"""
-        return self.head if isinstance(self.head, PointGeometry) else PointGeometry(self.head)
+        return self.head if isinstance(self.head, PointGeometry) else PointGeometry(self.head, self.ref)
 
     @property
     def tail_geom(self) -> PointGeometry:
         """Get a point geometry object for the vector tail (start)"""
-        return self.tail if isinstance(self.tail, PointGeometry) else PointGeometry(self.tail)
+        return self.tail if isinstance(self.tail, PointGeometry) else PointGeometry(self.tail, self.ref)
 
     @property
     def mid_geom(self) -> PointGeometry:
         """Get a point geometry object for the vector midpoint (inherits reference from head/tail)"""
-        return self.mid if isinstance(self.mid, PointGeometry) else PointGeometry(self.mid)
+        return self.mid if isinstance(self.mid, PointGeometry) else PointGeometry(self.mid, self.ref)
 
     def __repr__(self) -> str:
         return f'Vector(x={self.x}, y={self.y}, z={self.z}, tail={self.tail})'
 
     def reverse(self) -> Vector:
         """Reversed vector"""
-        return Vector(self.head, self.tail)
+        return Vector(self.head, self.tail, self.ref)
 
     def __neg__(self) -> Vector:
         return self.reverse()
 
     def norm(self) -> Vector:
         """Normal vector originating at tail"""
-        return Vector(self.tail, self.translate(self.tail, 1))
+        return Vector(self.tail, self.translate(self.tail, 1), self.ref)
 
     def __abs__(self):
         return self.norm()
 
     def add(self, other: Vector) -> Vector:
         """Vector addition originating at LHS (`+`)"""
-        return Vector(self.tail, other >> self.head)
+        return Vector(self.tail, other >> self.head, self.ref)
 
     def __add__(self, other: Vector):
         return self.add(other)
@@ -944,14 +944,14 @@ class Vector:
         if self.is_null:
             return self
         if other.is_null:  # Null vector at own tail
-            return Vector(self.tail, self.tail)
-        other = Vector(self.tail, other >> self.tail)
+            return Vector(self.tail, self.tail, self.ref)
+        other = Vector(self.tail, other >> self.tail, self.ref)
         targ = self.tail_geom.move(
             dx=self.y * other.z - self.z * other.y,
             dy=self.z * other.x - self.x * other.z,
             dz=self.x * other.y - self.y * other.x,
         )
-        return Vector(self.tail, targ)
+        return Vector(self.tail, targ, self.ref)
 
     def scale(self, scale: Scalar) -> Vector:
         """Scalar multiplication of vector (`*`)
@@ -959,8 +959,8 @@ class Vector:
         Note: Scaling by Zero will return a null vector located at the vector tail
         """
         if scale == 0:  # Special case for creating a spatially aware null vector
-            return Vector(self.tail, self.tail)
-        return Vector(self.tail, self.translate(self.tail, scale * self.dist))
+            return Vector(self.tail, self.tail, self.ref)
+        return Vector(self.tail, self.translate(self.tail, scale * self.dist), self.ref)
 
     def __mul__(self, other: Vector | Scalar) -> Vector:
         if isinstance(other, Vector):
@@ -974,7 +974,7 @@ class Vector:
 
     def dot(self, other: Vector) -> float:
         """Dot product of two vectors originating at LHS (`@`)"""
-        other = Vector(self.tail, other >> self.tail)
+        other = Vector(self.tail, other >> self.tail, self.ref)
         return self.x * other.x + self.y * other.y + self.z * other.z
 
     def __xor__(self, other: Vector):
@@ -988,7 +988,7 @@ class Vector:
         if self.is_null or other.is_null:
             return 0
 
-        other = Vector(self.tail, other >> self.tail)
+        other = Vector(self.tail, other >> self.tail, self.ref)
         v = round((self ^ other) / (self.dist * other.dist), 15)
         ang = round(math.acos(v), 15)
         return ang
@@ -1004,7 +1004,7 @@ class Vector:
 
     def __eq__(self, other: object) -> bool:
         if isinstance(other, Vector):
-            other = Vector(self.tail, other >> self.tail)
+            other = Vector(self.tail, other >> self.tail, self.ref)
             return self ^ other == self.dist**2
         return super().__eq__(other)
 
@@ -1044,7 +1044,7 @@ class Vector:
             raise TypeError(f'point must be Point or PointGeometry not {type(point)}')
 
         target = point
-        ref = None
+        ref = self.ref
 
         if isinstance(target, PointGeometry):
             ref = target.spatialReference
@@ -1518,6 +1518,9 @@ class PolylineEditor:
         """
         if isinstance(other, PolylineEditor):
             other = other.polyline
+
+        if other.disjoint(self.polyline):
+            return
 
         intersection = self.polyline.intersect(other, 1)
         if isinstance(intersection, PointGeometry) and intersection.isMultipart:
