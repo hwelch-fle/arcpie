@@ -1078,6 +1078,10 @@ class Vector:
     def __rshift__(self, point: Point | PointGeometry) -> Point | PointGeometry:
         return self.translate(point)
 
+    @classmethod
+    def from_polyline(cls, polyline: Polyline) -> Vector:
+        return cls(polyline.firstPoint, polyline.lastPoint, polyline.spatialReference)
+
 
 class PolylineEditor:
     """Allow simple polyline editing using indexes and slices
@@ -1090,7 +1094,7 @@ class PolylineEditor:
     """
     def __init__(self, polyline: Polyline, ref: SpatialReference | None = None) -> None:
         self.ref = ref or polyline.spatialReference
-        polyline = polyline.projectAs(ref) if ref else polyline
+        polyline = polyline.projectAs(ref) if ref and ref != polyline.spatialReference else polyline
         self._orig_polyline = polyline
         self.polyline = polyline
 
