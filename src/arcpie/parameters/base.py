@@ -242,7 +242,7 @@ class Parameters(list[Parameter]):
     def __getitem__(self, key: str, /) -> Parameter: ...
     def __getitem__(self, key: SupportsIndex | slice | str, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
-            matches = [p for p in self if p.name == key]
+            matches = [p for p in self if p.name.lower().replace(' ', '_') == key]
             if not matches:
                 raise KeyError(key)
             if len(matches) == 1:
