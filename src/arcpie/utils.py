@@ -14,6 +14,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Literal,
+    Protocol,
     SupportsIndex,
     overload,
 )
@@ -794,6 +795,10 @@ def iter_parts(line: Polyline, start: bool = True, end: bool = True) -> Iterator
 type Scalar = int | float
 
 
+class Movable[T](Protocol):
+    def move(self, dx: float, dy: float, dz: float | None) -> T: ...
+
+
 @dataclass
 class Vector:
     """Simple Vector implementation that takes a start and end point (uses Spherical notation for theta and phi).\n
@@ -907,6 +912,18 @@ class Vector:
     def mid_geom(self) -> PointGeometry:
         """Get a point geometry object for the vector midpoint (inherits reference from head/tail)"""
         return self.mid if isinstance(self.mid, PointGeometry) else PointGeometry(self.mid, self.ref)
+
+    @property
+    def bearing(self) -> float:
+        """Angle within the coordinate system for the vector (radians)
+
+        Note:
+            Defaults to 'PLANAR' measurement if using a projected spatial reference
+        """
+        return math.radians(self.tail_geom.angleAndDistanceTo(
+            self.head_geom,
+            'PLANAR' if self.ref and self.ref.GCS == self.ref else 'GEODESIC',
+        )[0])
 
     def __repr__(self) -> str:
         return f'Vector(x={self.x}, y={self.y}, z={self.z}, tail={self.tail})'
@@ -1070,6 +1087,16 @@ class Vector:
             if isinstance(point, PointGeometry)
             else target
         )
+
+    def move[T](self, geo: Movable[T], mag: float | None = None) -> T:
+        head = self.head if isinstance(self.head, Point) else self.head.centroid
+        tail = self.tail if isinstance(self.tail, Point) else self.tail.centroid
+        if mag is not None:
+            head = self.translate(tail, mag)
+        dx = tail.X - head.X
+        dy = tail.Y - head.Y
+        dz = (tail.Z or 0) - (head.Z or 0)
+        return geo.move(dx, dy, dz or None)
 
     @overload
     def __rshift__(self, point: Point) -> Point: ...
@@ -1275,7 +1302,7 @@ class PolylineEditor:
     # List Interface
 
     def _cast_point(self, point: Point | PointGeometry) -> PointGeometry:
-        return PointGeometry(point, self.polyline.spatialReference) if isinstance(point, Point) else point
+        return PointGeometry(point, self.ref) if isinstance(point, Point) else point
 
     def _part_at_index(self, index: SupportsIndex) -> tuple[int, int]:
         """Internal method for mapping global index to local part index"""
@@ -1510,6 +1537,33 @@ class PolylineEditor:
                 for seg in segs
             ]
         return segs
+
+    def add_point(self, point: PointGeometry, snap: bool = False) -> None:
+        """Insert a point in the polyline determining the ideal index based on measure
+
+        Args:
+            point: The point to insert
+            snap: Snap the point to the line before adding it (default: False)
+        """
+        pl = self.polyline
+        if point.spatialReference != self.ref:
+            point = point.projectAs(self.ref)
+        point = pl.snapToLine(point) if snap else point
+        pt_measure = pl.measureOnLine(point)
+        for idx, pt in enumerate(self):
+            if pl.measureOnLine(pt) > pt_measure:
+                self.insert(idx, point)
+                break
+
+    def add_points(self, points: Iterable[PointGeometry], snap: bool = False) -> None:
+        """Insert points into the line based on measure
+
+        Args:
+            points: The points to insert
+            snap: Snap the points to the line before adding them (default: False)
+        """
+        for point in points:
+            self.add_point(point, snap)
 
     def intersections(self, other: Polyline | PolylineEditor) -> Iterator[PointGeometry]:
         """Iterable of Point Intersections between this line and the other
