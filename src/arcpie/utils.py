@@ -1323,7 +1323,7 @@ class PolylineEditor:
         new_part = list(self.part_editors[part_idx])
         pt = new_part.pop(local_idx)
 
-        parts[part_idx] = self.from_points(new_part)
+        parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
         return pt
 
@@ -1581,12 +1581,15 @@ class PolylineEditor:
         segments.append(line.polyline)
         return segments
 
-    def add_point(self, point: PointGeometry, snap: bool = False) -> None:
+    def add_point(self, point: PointGeometry, snap: bool = False) -> int | None:
         """Insert a point in the polyline determining the ideal index based on measure
 
         Args:
             point: The point to insert
             snap: Snap the point to the line before adding it (default: False)
+
+        Returns:
+            The index of the newly added point or `None` if the point is already in the line
         """
         pl = self.polyline
         if point.spatialReference != self.ref:
@@ -1596,17 +1599,16 @@ class PolylineEditor:
         for idx, pt in enumerate(self):
             if pl.measureOnLine(pt) > pt_measure:
                 self.insert(idx, point)
-                break
+                return idx
 
-    def add_points(self, points: Iterable[PointGeometry], snap: bool = False) -> None:
+    def add_points(self, points: Iterable[PointGeometry], snap: bool = False) -> list[int | None]:
         """Insert points into the line based on measure
 
         Args:
             points: The points to insert
             snap: Snap the points to the line before adding them (default: False)
         """
-        for point in points:
-            self.add_point(point, snap)
+        return [self.add_point(point, snap) for point in points]
 
     def intersections(self, other: Polyline | PolylineEditor) -> Iterator[PointGeometry]:
         """Iterable of Point Intersections between this line and the other
