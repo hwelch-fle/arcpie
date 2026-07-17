@@ -1343,7 +1343,7 @@ class PolylineEditor:
         new_part = list(self.part_editors[part_idx])
         new_part.insert(local_idx, point)
 
-        parts[part_idx] = self.from_points(new_part)
+        parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
 
     def index(self, point: Point | PointGeometry, start: SupportsIndex = 0, stop: SupportsIndex | None = None) -> int:
@@ -1360,7 +1360,7 @@ class PolylineEditor:
         points.append(self._cast_point(point))
         parts = self.parts[:-1]
 
-        parts.append(self.from_points(points))
+        parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def extend(self, points: Iterable[Point | PointGeometry]) -> None:
@@ -1370,7 +1370,7 @@ class PolylineEditor:
         points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
 
-        parts.append(self.from_points(points))
+        parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def reverse(self) -> None:
@@ -1427,7 +1427,7 @@ class PolylineEditor:
 
             if keep == 'first':
                 points.reverse()
-            part.polyline = self.from_points(points)
+            part.polyline = self.from_points(points, self.ref)
 
         self.polyline = self.merge_lines(p.polyline for p in parts)
         return removed
@@ -1441,7 +1441,7 @@ class PolylineEditor:
             line = line.polyline
         parts = self.part_editors
         for i, part in enumerate(parts):
-            parts[i].polyline = PolylineEditor.from_points(line.snapToLine(p) for p in part)
+            parts[i].polyline = PolylineEditor.from_points((line.snapToLine(p) for p in part), self.ref)
         self.polyline = self.merge_lines(p.polyline for p in parts)
 
     def generalize(self, distance: float) -> None:
@@ -1469,10 +1469,12 @@ class PolylineEditor:
 
     def move(self, vec: Vector) -> None:
         """Move the polyline along a Vector"""
-        parts = self.part_editors
-        for i, part in enumerate(parts):
-            parts[i].polyline = self.from_points(vec.translate(p) for p in part)
-        self.polyline = self.merge_lines(p.polyline for p in parts)
+        # Vector now implements a generic `move` method.
+        self.polyline = vec.move(self.polyline)
+        # parts = self.part_editors
+        # for i, part in enumerate(parts):
+        #     parts[i].polyline = self.from_points((vec.translate(p) for p in part), self.ref)
+        # self.polyline = self.merge_lines(p.polyline for p in parts)
 
     def project_as(self, ref: SpatialReference | int) -> None:
         """Project the polyline in the given reference"""
@@ -1521,11 +1523,11 @@ class PolylineEditor:
             for idx, point in enumerate(part[1:-1], start=1):
                 left, right = vectors_at(part.polyline, point)
                 if abs(left @ right) < ang + tolerance:
-                    segs.append(self.from_points(part[last_split:idx + 1]))
+                    segs.append(self.from_points(part[last_split:idx + 1], self.ref))
                     last_split = idx
 
             if last_split != len(part) - 1:
-                segs.append(self.from_points(part[last_split:]))
+                segs.append(self.from_points(part[last_split:], self.ref))
 
         if self.polyline.hasCurves:
             # Use segment measure to preserve curves
