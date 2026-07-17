@@ -1538,6 +1538,47 @@ class PolylineEditor:
             ]
         return segs
 
+    @overload
+    def split_at_point(self, point: Point | PointGeometry, snap: Literal[True] = ...) -> tuple[Polyline, Polyline] | Polyline: ...
+    @overload
+    def split_at_point(self, point: Point | PointGeometry, snap: Literal[False] = ...) -> tuple[Polyline, Polyline] | Polyline | None: ...
+    def split_at_point(self, point: Point | PointGeometry, snap: bool = False) -> tuple[Polyline, Polyline] | Polyline | None:
+        """Split the Polyline at a point returning two Polylines
+
+        Args:
+            point: The Point to split the line at
+            snap: Snap the point to the line before splitting (default: `False`)
+
+        Note:
+            If the point is at the line extremeties, the polyline will be returned
+        """
+        pl = self.polyline
+        point = self._cast_point(point)
+        point = pl.snapToLine(point) if snap else point
+        if point.touches(pl):
+            return pl
+        measure = pl.measureOnLine(point)
+        return pl.segmentAlongLine(0, measure), pl.segmentAlongLine(measure, pl.length)
+
+    def split_at_points(self, points: Iterable[Point | PointGeometry], snap: bool = False) -> list[Polyline]:
+        """Split the line at the provided points
+
+        Args:
+            points: The Points to split the line at
+            snap: Snap the points to the line before splitting (default: `False`)
+        """
+        pl = self.polyline
+        line = PolylineEditor(self.polyline, self.ref)
+        segments = list[Polyline]()
+        points = sorted(points, key=lambda p: pl.measureOnLine(p))
+        for point in points:
+            parts = line.split_at_point(point, snap)
+            if isinstance(parts, tuple):
+                segments.append(parts[0])
+                line.polyline = parts[1]
+        segments.append(line.polyline)
+        return segments
+
     def add_point(self, point: PointGeometry, snap: bool = False) -> None:
         """Insert a point in the polyline determining the ideal index based on measure
 
