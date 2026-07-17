@@ -765,9 +765,20 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             yield from cur
 
     def insert_record(self, record: Schema, ignore_errors: bool = False) -> int | None:
-        """Insert a single record into the table"""
-        if missing_fields := set(record.keys()).difference(self.fields):
-            if ignore_errors:
+        """Insert a single record into the table
+
+        Args:
+            record: A dictionary of fieldname -> value records to insert
+            ignore_errors: Skip malformed records
+
+        Returns:
+            int | None: OID of the inserted record or `None` if the record is malformed or empty
+
+        Raises:
+            ValueError: `ignore_errors` is `False` and a malformed record is encountered
+        """
+        if (missing_fields := set(record.keys()).difference(self.fields)) or not record:
+            if not record or ignore_errors:
                 return None
             else:
                 raise ValueError(f'{missing_fields} not in {self.fields}')
