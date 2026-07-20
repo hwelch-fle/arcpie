@@ -135,7 +135,7 @@ FieldName = str  # | FeatureToken
 _T = TypeVar('_T')
 
 
-def count(featureclass: FeatureClass | Iterator[Any]) -> int:
+def count(it: FeatureClass[Any, Any] | Iterator[Any] | Iterable[Any]) -> int:
     """Get the record count of a FeatureClass
 
     Args:
@@ -155,10 +155,10 @@ def count(featureclass: FeatureClass | Iterator[Any]) -> int:
     """
     # The __len__() method of FeatureClass only iterates
     # object ID values so this is a small optimisation we can do
-    if isinstance(featureclass, FeatureClass):
-        return len(featureclass)
+    if isinstance(it, FeatureClass):
+        return len(it)  # type: ignore
 
-    return sum(1 for _ in featureclass)
+    return sum(1 for _ in it)
 
 
 def extract_singleton(vals: Sequence[Any] | Any) -> Any | Sequence[Any]:
