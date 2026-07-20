@@ -147,7 +147,7 @@ class Progressor[T]:
     # Root: [n/t] -> P1: [n/t] -> P2: [n/t] -> ...
     # This only applies when a Progressor is iterated while another
     # progressor is still iterating.
-    STACK: ClassVar[list[Progressor[Any]]] = []
+    stack: ClassVar[list[Progressor[Any]]] = []
 
     def __init__(
         self,
@@ -182,8 +182,39 @@ class Progressor[T]:
     def message(self, message: str) -> None:
         self._message = message
 
+    @property
+    def position(self) -> int:
+        """Get the position of this progressor"""
+        return self._pos
+
+    @classmethod
+    def global_position(cls) -> int:
+        """Get the position of the innermost (most recent) progressor on the stack"""
+        if not cls.stack:
+            return 0
+        return cls.stack[-1].position
+
+    @classmethod
+    def current(cls) -> Progressor[Any]:
+        return Progressor('') if not cls.stack else cls.stack[-1]
+
+    @classmethod
+    def set_progressor(cls, msg: str, rng: range) -> None:
+        """Alias for SetProgressor"""
+        SetProgressor('step', msg, rng.start, rng.stop, rng.step)
+
+    @classmethod
+    def set_position(cls, pos: int) -> None:
+        """Alias for SetProgressorPosition"""
+        SetProgressorPosition(pos)
+
+    @classmethod
+    def set_label(cls, label: str) -> None:
+        """Alias for SetProgressorLabel"""
+        SetProgressorLabel(label)
+
     def _reset(self) -> None:
-        stack = Progressor.STACK
+        stack = Progressor.stack
         if not stack or stack[-1] != self:
             return
         self._pos = 0
@@ -208,26 +239,26 @@ class Progressor[T]:
         return self.message
 
     def __repr__(self) -> str:
-        return ' ► '.join(map(str, Progressor.STACK))
+        return ' ► '.join(map(str, Progressor.stack))
 
     def __len__(self):
         return self.it_len - self._pos
 
     def __iter__(self):
-        stack = Progressor.STACK
+        stack = Progressor.stack
         is_root = not stack
         stack.append(self)
         if is_root:
-            SetProgressor('step', f'{self}', 0, self.it_len, 1)
-            SetProgressorPosition(self._pos)
+            Progressor.set_progressor(f'{self}', range(self.it_len))
+            Progressor.set_position(self._pos)
         try:
             for item in self.it:
                 if stack[-1] == self:
-                    SetProgressorLabel(f'{self!r}')
+                    Progressor.set_label(f'{self!r}')
                 yield item
                 self._pos += 1
                 if is_root:
-                    SetProgressorPosition(self._pos)
+                    Progressor.set_position(self._pos)
         except Exception as e:
             e.add_note(f'{self.message}: {self!r}')
             raise
