@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import datetime as dt
 import inspect
+import operator
 import time
 import traceback
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from cProfile import Profile
 from datetime import datetime
 from functools import wraps
@@ -14,7 +15,14 @@ from logging import Logger
 from pstats import Stats
 from traceback import format_exc
 from types import MappingProxyType, ModuleType
-from typing import Any
+from typing import Any, ClassVar, Literal
+
+from arcpy import (
+    ResetProgressor,
+    SetProgressor,
+    SetProgressorLabel,
+    SetProgressorPosition,
+)
 
 from arcpie.parameters import Parameter, Parameters
 from arcpie.parameters.custom import *  # noqa: F403
@@ -79,6 +87,152 @@ def profile(*selectors: str):
                 raise err
         return inner
     return wrapper
+
+
+def progressor[T](it: Iterable[T], msg: str = '...') -> Iterable[T]:
+    """Initialize a progress bar for an iterable
+
+    Args:
+        it: The iterable to initialize a progressor for
+        msg: The message to show in the progress bar label area
+
+    Example:
+        ```python
+        for parcel in progressor(parcels, 'Gathering'):
+            ...
+        ```
+
+    Note:
+        The iterable is consumed on progressor initialization to allow a size check.
+         Each iteration of the progressor will update the label area with a count in the
+         format: `{msg}: [{idx}/{total}]`
+    """
+    ResetProgressor()
+    it = list(it)
+    length = len(it)
+    SetProgressor('step', msg, 0, length, 1)
+    for idx, item in enumerate(it, start=1):
+        SetProgressorLabel(f'{msg}: [{idx}/{length}]')
+        yield item
+        SetProgressorPosition()
+    ResetProgressor()
+
+
+class Progressor[T]:
+    """A more configurable Progressor class that supports nesting.
+
+    Note:
+        To allow for progress position, the input iterable is consumed into a list.
+         If this is not what you want, it's best to handroll a progressor flow.
+
+    Example:
+        ```python
+        import time
+        a = Progressor(range(10), 'A')
+        b = Progressor(range(10), 'B')
+        c = Progressor(range(10), 'C')
+        for i in a:
+            time.sleep(0.1)
+            for j in b:
+                time.sleep(0.1)
+                for k in c:
+                    time.sleep(0.1)
+        ```
+    Each loop will initialize a new progressor and maintain its position.
+    """
+
+    # Store active progressor stack to prevent races
+    # Only first active progressor is shown, all subsequent progrressors
+    # are displayed in the Progress Bar label area:
+    # Root: [n/t] -> P1: [n/t] -> P2: [n/t] -> ...
+    # This only applies when a Progressor is iterated while another
+    # progressor is still iterating.
+    STACK: ClassVar[list[Progressor[Any]]] = []
+
+    def __init__(
+        self,
+        it: Iterable[T],
+        message: str = '...',
+        *,
+        mode: Literal['count', 'percent', 'bar', 'hide'] = 'count',
+        lazy: bool = False,
+        length_hint: int = 1,
+    ) -> None:
+        """
+        Args:
+            it: Iterable to create a Progressor for
+            message: The message to display in the progressor message box (default: `'...'`)
+            mode: Display a count/percent in the progressor message box `'hide'` shows message only (default: `'count'`)
+        """
+        if not lazy:
+            self.it = list(it)
+            self.it_len = len(self.it)
+        else:
+            self.it = it
+            self.it_len = operator.length_hint(it, length_hint)
+        self._message = self.__message = message
+        self.mode = mode
+        self._pos = 0
+
+    @property
+    def message(self) -> str:
+        return self._message
+
+    @message.setter
+    def message(self, message: str) -> None:
+        self._message = message
+
+    def _reset(self) -> None:
+        stack = Progressor.STACK
+        if not stack or stack[-1] != self:
+            return
+        self._pos = 0
+        self._message = self.__message
+        stack.pop()
+        if not stack:
+            ResetProgressor()
+
+    def __str__(self) -> str:
+        if self.mode and self.mode != 'hide':
+            pos = self._pos + 1
+            it_len = self.it_len
+            percent = pos / (it_len or 1)
+            a = round(percent * 5)
+            b = 5 - a
+            msgs = {
+                'count': f'[{pos}/{it_len}]',
+                'percent': f'[{100 * percent:0.0f}%]',
+                'bar': f'{chr(9619) * a}{chr(9617) * b}'
+            }
+            return f"{self.message}: {msgs.get(self.mode, msgs['count'])}"
+        return self.message
+
+    def __repr__(self) -> str:
+        return ' ► '.join(map(str, Progressor.STACK))
+
+    def __len__(self):
+        return self.it_len - self._pos
+
+    def __iter__(self):
+        stack = Progressor.STACK
+        is_root = not stack
+        stack.append(self)
+        if is_root:
+            SetProgressor('step', f'{self}', 0, self.it_len, 1)
+            SetProgressorPosition(self._pos)
+        try:
+            for item in self.it:
+                if stack[-1] == self:
+                    SetProgressorLabel(f'{self!r}')
+                yield item
+                self._pos += 1
+                if is_root:
+                    SetProgressorPosition(self._pos)
+        except Exception as e:
+            e.add_note(f'{self.message}: {self!r}')
+            raise
+        finally:
+            self._reset()
 
 
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
