@@ -102,6 +102,9 @@ class SQLExpression(p.GPSQLExpression): ...
 class FeatureDataset(p.DEFeatureDataset): ...
 
 
+class Workspace(p.DEWorkspace): ...
+
+
 class ValueTable(p.GPValueTable):
     def _post_init(self, ctx: ParameterAttrs) -> None:
         if 'defaults' not in ctx and 'default' in ctx:
