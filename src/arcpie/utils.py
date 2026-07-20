@@ -1351,7 +1351,7 @@ class PolylineEditor:
         for idx, p in enumerate(list(self)[start:stop]):
             if not point.disjoint(p):
                 return idx
-        raise ValueError(f'Point {point} not found in polyline')
+        raise IndexError(f'Point {point} not found in polyline')
 
     def append(self, point: Point | PointGeometry) -> None:
         """Append a point to the last part of the Polyline"""
