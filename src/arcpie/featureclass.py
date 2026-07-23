@@ -783,7 +783,11 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             else:
                 raise ValueError(f'{missing_fields} not in {self.fields}')
         with self.insert_cursor(*record.keys()) as cur:
-            return cur.insertRow(list(record.values()))
+            try:
+                return cur.insertRow(list(record.values()))
+            except Exception as e:
+                if not ignore_errors:
+                    raise ValueError(f'Malformed Row: {record}') from e
 
     def insert_records(self, records: Iterable[Schema], ignore_errors: bool = False) -> Iterator[int]:
         """Provide an iterable of records to insert
