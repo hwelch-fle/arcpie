@@ -132,7 +132,7 @@ def get_items(gdb: Path | str, *dtypes: str) -> dict[str, list[Path]]:
     return gdb_items
 
 
-class Dataset[Schema = Mapping[Any, Any]]:
+class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
     """A Container for managing workspace connections.
 
     A Dataset is initialized using `arcpy.da.Walk` and will discover all child datasets, tables, and featureclasses.
@@ -183,11 +183,11 @@ class Dataset[Schema = Mapping[Any, Any]]:
         self.conn = Path(conn)
         self.parent = parent
 
-        self._datasets = dict[str, Dataset[Any]]()
-        self._feature_classes = dict[str, FeatureClass[Any, Any]]()
-        self._tables = dict[str, Table[Any]]()
+        self._datasets = dict[str, Dataset]()
+        self._feature_classes = dict[str, FeatureClass]()
+        self._tables = dict[str, Table]()
         self._relationships = dict[str, Relationship]()
-        self._annotations = dict[str, FeatureClass[Any, Any]]()
+        self._annotations = dict[str, FeatureClass]()
 
         # Force root dataset to be a gdb, pointing to a folder can cause issues with Walk
         if self.parent is None:
@@ -208,22 +208,22 @@ class Dataset[Schema = Mapping[Any, Any]]:
         return self.conn.stem
 
     @property
-    def datasets(self) -> dict[str, Dataset[Any]]:
+    def datasets(self) -> dict[str, Dataset]:
         """A mapping of dataset names to child `Dataset` objects"""
         return self._datasets or {}
 
     @property
-    def feature_classes(self) -> dict[str, FeatureClass[Any, Any]]:
+    def feature_classes(self) -> dict[str, FeatureClass]:
         """A mapping of featureclass names to `FeatureClass` objects in the dataset root"""
         return self._feature_classes or {}
 
     @property
-    def annotations(self) -> dict[str, FeatureClass[Any, Any]]:
+    def annotations(self) -> dict[str, FeatureClass]:
         """A mapping of annotation names to `FeatureClass` objects"""
         return self._annotations or {}
 
     @property
-    def tables(self) -> dict[str, Table[Any]]:
+    def tables(self) -> dict[str, Table]:
         """A mapping of table names to `Table` objects in the dataset root"""
         return self._tables or {}
 
@@ -347,9 +347,9 @@ class Dataset[Schema = Mapping[Any, Any]]:
             for path in datatypes['FeatureClass']
             if path.name not in Dataset._invalid_tables
         }
-        self._tables = {path.name: Table[Any](path) for path in datatypes['Table']}
+        self._tables = {path.name: Table(path) for path in datatypes['Table']}
         self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
-        self._datasets = {path.name: Dataset[Any](path, parent=self) for path in datatypes['FeatureDataset']}
+        self._datasets = {path.name: Dataset[Schema](path, parent=self) for path in datatypes['FeatureDataset']}
 
         # Special case for raw walk since we extracted annotations directly
         if 'Annotation' in datatypes:
@@ -369,12 +369,17 @@ class Dataset[Schema = Mapping[Any, Any]]:
         except AttributeError:
             pass
 
-    def __getitem__(self, key: str) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship:
-        if ret := self.tables.get(key) or self.feature_classes.get(key) or self.datasets.get(key) or self.relationships.get(key):
+    def __getitem__(self, key: str) -> FeatureClass | Table | Dataset | Relationship:
+        if ret := (
+            self.tables.get(key)
+            or self.feature_classes.get(key)
+            or self.datasets.get(key)
+            or self.relationships.get(key)
+        ):
             return ret
         raise KeyError(f'{key} is not a child of {self.conn.stem}')
 
-    def get[D](self, key: str, default: D = None) -> FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship | D:
+    def get[D](self, key: str, default: D = None) -> FeatureClass | Table | Dataset | Relationship | D:
         try:
             return self[key]
         except KeyError:
@@ -387,12 +392,13 @@ class Dataset[Schema = Mapping[Any, Any]]:
         except KeyError:
             return False
 
-    def __iter__(self) -> Iterator[FeatureClass[Any, Any] | Table[Any] | Dataset[Any] | Relationship]:
+    def __iter__(self) -> Iterator[FeatureClass | Table | Dataset | Relationship]:
         yield from self.feature_classes.values()
 
         yield from self.tables.values()
 
         for dataset in self.datasets.values():
+            yield dataset  # Yield dataset proper AND its contents
             yield from dataset
 
         yield from self.relationships
