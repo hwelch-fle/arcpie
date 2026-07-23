@@ -852,6 +852,10 @@ class Vector:
             self.head = self.head.projectAs(ref).centroid
             self.ref = ref
 
+        if not self.ref:
+            # Default to WGS84
+            self.ref = SpatialReference(4326)
+
         self.is_null = (
             self.head.X == self.tail.X
             and self.head.Y == self.tail.Y
@@ -915,15 +919,10 @@ class Vector:
 
     @property
     def bearing(self) -> float:
-        """Angle within the coordinate system for the vector (radians)
-
-        Note:
-            Defaults to 'PLANAR' measurement if using a projected spatial reference
-        """
-        return math.radians(self.tail_geom.angleAndDistanceTo(
-            self.head_geom,
-            'PLANAR' if self.ref and self.ref.GCS == self.ref else 'GEODESIC',
-        )[0])
+        """Angle of the vector"""
+        head = self.head if isinstance(self.head, Point) else self.head.centroid
+        tail = self.tail if isinstance(self.tail, Point) else self.tail.centroid
+        return round(math.atan2(head.Y - tail.Y, head.X - tail.X), 16)
 
     def __repr__(self) -> str:
         return f'Vector(x={self.x}, y={self.y}, z={self.z}, tail={self.tail})'
@@ -938,6 +937,10 @@ class Vector:
     def norm(self) -> Vector:
         """Normal vector originating at tail"""
         return Vector(self.tail, self.translate(self.tail, 1), self.ref)
+
+    def unit(self) -> Vector:
+        """Return a unit vector originating at the origin"""
+        return Vector(Point(0, 0), self.translate(Point(0, 0), 1), self.ref)
 
     def __abs__(self):
         return self.norm()
@@ -966,7 +969,7 @@ class Vector:
         targ = self.tail_geom.move(
             dx=self.y * other.z - self.z * other.y,
             dy=self.z * other.x - self.x * other.z,
-            dz=self.x * other.y - self.y * other.x,
+            dz=(self.x * other.y - self.y * other.x) if self.z else None,
         )
         return Vector(self.tail, targ, self.ref)
 
@@ -1097,6 +1100,24 @@ class Vector:
         dy = tail.Y - head.Y
         dz = (tail.Z or 0) - (head.Z or 0)
         return geo.move(dx, dy, dz or None)
+
+    def rotate(self, angle: float) -> Vector:
+        """Rotate the vector counter-clockwise around the tail (2D)
+        Args:
+            angle: The angle in `radians` to rotate the vector by
+        """
+        unit = self.unit()
+        head = unit.head_geom.centroid
+        cos_theta = math.cos(angle)
+        sin_theta = math.sin(angle)
+        x = head.X * cos_theta - head.Y * sin_theta
+        y = head.Y * cos_theta + head.X * sin_theta
+        rot = Vector(Point(0, 0), Point(x, y), self.ref)
+        return Vector(self.tail, rot.translate(self.tail, self.dist), self.ref)
+
+    def rotate_degrees(self, angle: float) -> Vector:
+        """Alternate method for rotate that accepts an angle in degrees"""
+        return self.rotate(math.radians(angle % 360))
 
     @overload
     def __rshift__(self, point: Point) -> Point: ...
@@ -1469,12 +1490,47 @@ class PolylineEditor:
 
     def move(self, vec: Vector) -> None:
         """Move the polyline along a Vector"""
-        # Vector now implements a generic `move` method.
         self.polyline = vec.move(self.polyline)
-        # parts = self.part_editors
-        # for i, part in enumerate(parts):
-        #     parts[i].polyline = self.from_points((vec.translate(p) for p in part), self.ref)
-        # self.polyline = self.merge_lines(p.polyline for p in parts)
+
+    @overload
+    def offset(self, dist: float, side: Literal['both'] = 'both') -> tuple[Polyline, Polyline]: ...
+    @overload
+    def offset(self, dist: float, side: Literal['left', 'right']) -> Polyline: ...
+    def offset(self, dist: float, side: Literal['left', 'right', 'both'] = 'both') -> Polyline | tuple[Polyline, Polyline]:
+        """Offset the line in the provided direction
+
+        Args:
+            dist: The distance to offet by (feature units)
+            side: The side of the line to offset to
+        """
+        ref = self.ref
+        left_points = list[PointGeometry]()
+        right_points = list[PointGeometry]()
+        pi_2 = round(math.pi / 2, 15)
+        for p1, p2 in itertools.pairwise(self):
+            seg_vec = Vector(p1, p2, ref)
+            left_vec = seg_vec.rotate(pi_2).norm() * dist
+            right_vec = seg_vec.rotate(-pi_2).norm() * dist
+            if not left_points:
+                left_points.append(left_vec >> p1)
+            if not right_points:
+                right_points.append(right_vec >> p1)
+
+            right_points.append(right_vec >> p2)
+            left_points.append(left_vec >> p2)
+
+        left, right = (
+            PolylineEditor.from_points(left_points, ref),
+            PolylineEditor.from_points(right_points, ref)
+        )
+        if side == 'both':
+            return left, right
+        if side == 'left':
+            return left
+        if side == 'right':
+            return right
+
+        raise ValueError(f'{side} is not one of left, right, both')
 
     def project_as(self, ref: SpatialReference | int) -> None:
         """Project the polyline in the given reference"""
