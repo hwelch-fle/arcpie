@@ -149,30 +149,49 @@ class Progressor[T]:
     # progressor is still iterating.
     stack: ClassVar[list[Progressor[Any]]] = []
 
+    type ProgressorMode = Literal['auto', 'count', 'percent', 'bar', 'hide']
+    default_mode: ClassVar[ProgressorMode | Iterable[ProgressorMode]] = 'count'
+
     def __init__(
         self,
         it: Iterable[T],
         message: str = '...',
         *,
-        mode: Literal['count', 'percent', 'bar', 'hide'] = 'count',
+        mode: ProgressorMode | Iterable[ProgressorMode] = 'auto',
         lazy: bool = False,
-        length_hint: int = 1,
+        length_hint: int | None = None,
+        bar_width: int = 10,
     ) -> None:
         """
         Args:
-            it: Iterable to create a Progressor for
-            message: The message to display in the progressor message box (default: `'...'`)
-            mode: Display a count/percent in the progressor message box `'hide'` shows message only (default: `'count'`)
+            it: Iterable to create a Progressor for.
+            message: The message to display in the progressor message box. (default: ``'...'``)
+            mode: Display a count/percent in the progressor message box ``'hide'`` shows message only. (default: ``'count'``)
+            lazy: Don't immediately consume the iterable and instead use `__length_hint__` *or* `length_hint` param. (default: ``False``)
+            length_hint: If the iterable has not ``__len__`` or ``__length_hint__``, use this as the iterable length. (default: ``None``)
+
+        Note:
+            If you set ``lazy`` *or* ``length_hint``, the progressor will lazily iterate the iterable.
+            Excluding ``length_hint`` when ``lazy`` is set with an iterable with no ``__length_hint__``
+            attribute will cause the progress bar to set the max position to 1.
+            Alternatively, setting ``length_hint`` and not setting ``lazy`` will automatically make the progressor lazy.
         """
-        if not lazy:
+        if not lazy and length_hint is None:
             self.it = list(it)
             self.it_len = len(self.it)
         else:
             self.it = it
-            self.it_len = operator.length_hint(it, length_hint)
+            self.it_len = length_hint or operator.length_hint(it, 1)
         self._message = self.__message = message
-        self.mode = mode
+        self.mode = [mode] if isinstance(mode, str) else list(mode)
+        if mode == 'auto':
+            mode = type(self).default_mode
+        self._bar_width = bar_width
         self._pos = 0
+
+    @property
+    def is_root(self) -> bool:
+        return type(self).root() == self
 
     @property
     def message(self) -> str:
@@ -187,16 +206,40 @@ class Progressor[T]:
         """Get the position of this progressor"""
         return self._pos
 
+    @position.setter
+    def position(self, pos: int) -> None:
+        """Set the local position of this Progressor"""
+        self._pos = pos
+        if self.is_root:
+            type(self).set_position(self._pos)
+
+    @property
+    def length_hint(self) -> int:
+        return self.it_len
+
+    @length_hint.setter
+    def length_hint(self, length_hint: int) -> None:
+        self.it_len = length_hint
+        if self.is_root:
+            type(self).reset_progressor()
+            type(self).set_progressor(f'{self}', range(self.it_len))
+            type(self).set_position(self._pos)
+
     @classmethod
-    def global_position(cls) -> int:
+    def global_position(cls: type[Progressor[Any]]) -> int:
         """Get the position of the innermost (most recent) progressor on the stack"""
         if not cls.stack:
             return 0
         return cls.stack[-1].position
 
     @classmethod
-    def current(cls) -> Progressor[Any]:
-        return Progressor('') if not cls.stack else cls.stack[-1]
+    def current(cls: type[Progressor[Any]]) -> Progressor[Any]:
+        return cls('') if not cls.stack else cls.stack[-1]
+
+    @classmethod
+    def root(cls: type[Progressor[Any]]) -> Progressor[Any]:
+        """Get the outermost progressor (this one drives the window progress bar)"""
+        return cls('') if not cls.stack else cls.stack[0]
 
     @classmethod
     def set_progressor(cls, msg: str, rng: range) -> None:
@@ -204,61 +247,66 @@ class Progressor[T]:
         SetProgressor('step', msg, rng.start, rng.stop, rng.step)
 
     @classmethod
-    def set_position(cls, pos: int) -> None:
+    def reset_progressor(cls: type[Progressor[Any]]) -> None:
+        """Alias for ResetProgressor"""
+        ResetProgressor()
+
+    @classmethod
+    def set_position(cls: type[Progressor[Any]], pos: int) -> None:
         """Alias for SetProgressorPosition"""
         SetProgressorPosition(pos)
 
     @classmethod
-    def set_label(cls, label: str) -> None:
+    def set_label(cls: type[Progressor[Any]], label: str) -> None:
         """Alias for SetProgressorLabel"""
         SetProgressorLabel(label)
 
     def _reset(self) -> None:
-        stack = Progressor.stack
+        stack = type(self).stack
         if not stack or stack[-1] != self:
             return
         self._pos = 0
         self._message = self.__message
         stack.pop()
         if not stack:
-            ResetProgressor()
+            type(self).reset_progressor()
 
     def __str__(self) -> str:
-        if self.mode and self.mode != 'hide':
+        if self.mode and 'hide' not in self.mode:
             pos = self._pos + 1
             it_len = self.it_len
             percent = pos / (it_len or 1)
-            a = round(percent * 5)
-            b = 5 - a
+            a = round(percent * self._bar_width)
+            b = self._bar_width - a
             msgs = {
                 'count': f'[{pos}/{it_len}]',
                 'percent': f'[{100 * percent:0.0f}%]',
                 'bar': f'{chr(9619) * a}{chr(9617) * b}'
             }
-            return f"{self.message}: {msgs.get(self.mode, msgs['count'])}"
+            return f"{self.message}: {' '.join(msgs[mode] for mode in self.mode if mode in msgs)}"
         return self.message
 
     def __repr__(self) -> str:
-        return ' ► '.join(map(str, Progressor.stack))
+        return '\n\t► '.join(map(str, type(self).stack))
 
     def __len__(self):
         return self.it_len - self._pos
 
     def __iter__(self):
-        stack = Progressor.stack
+        stack = type(self).stack
         is_root = not stack
         stack.append(self)
         if is_root:
-            Progressor.set_progressor(f'{self}', range(self.it_len))
-            Progressor.set_position(self._pos)
+            type(self).set_progressor(f'{self}', range(self.it_len))
+            type(self).set_position(self._pos)
         try:
             for item in self.it:
                 if stack[-1] == self:
-                    Progressor.set_label(f'{self!r}')
+                    type(self).set_label(f'{self!r}')
                 yield item
                 self._pos += 1
                 if is_root:
-                    Progressor.set_position(self._pos)
+                    type(self).set_position(self._pos)
         except Exception as e:
             e.add_note(f'{self.message}: {self!r}')
             raise
