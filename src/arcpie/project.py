@@ -303,7 +303,7 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         if not self.pageRow:
             return {}  # pageRow is unset with no active page
 
-        return {f: self.pageRow.get(f) for f in self.page_field_names}
+        return {f: getattr(self.pageRow, f, self.pageRow.get(f)) for f in self.page_field_names}
 
     @property
     def current_page_name(self) -> str:
