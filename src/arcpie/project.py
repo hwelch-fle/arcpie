@@ -302,13 +302,20 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         """Get a mapping of values for the current page"""
         if not self.pageRow:
             return {}  # pageRow is unset with no active page
-
-        return {f: getattr(self.pageRow, f, self.pageRow.get(f)) for f in self.page_field_names}
+        try:
+            # pageRow is dict/Row in <=3.6
+            return {f: self.pageRow.get(f) for f in self.page_field_names}  # type: ignore (backwards compat)
+        except Exception:
+            # pageRow is NamedTuple in >=3.7, so get is replaced with getattr and a default None
+            return {f: getattr(self.pageRow, f, None) for f in self.page_field_names}
 
     @property
     def current_page_name(self) -> str:
         """Get the name of the active mapseries page"""
-        return self.page_values.get(self.page_field, 'No Page')
+        try:
+            return self.currentPageName
+        except AttributeError:
+            return self.page_values.get(self.page_field, 'No Page')
 
     def to_pdf(self, **settings: Unpack[MapSeriesPDFSetting]) -> BytesIO:
         from arcpy.mp import CreateExportFormat, CreateExportOptions  # type: ignore  # noqa: PLC0415
@@ -318,8 +325,9 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
             PDFFormat = MapSeriesExportOptions = object
 
         with NamedTemporaryFile() as tmp:
-            settings = MapseriesPDFDefault.copy()
-            settings.update(settings)
+            default = MapseriesPDFDefault.copy()
+            default.update(settings)
+            settings = default
             pdf: PDFFormat = CreateExportFormat('PDF', tmp.name)  # type: ignore
             pdf.resolution = settings.get('resolution', 96)
             pdf.imageQuality = settings.get('image_quality', 'BEST')
@@ -371,8 +379,9 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
             >>> ms.to_pdf(page_range_type='CURRENT')
             ```
         """
-        settings = MapseriesPDFDefault.copy()
-        settings.update(settings)
+        default = MapseriesPDFDefault.copy()
+        default.update(settings)
+        settings = default
         with NamedTemporaryFile() as tmp:
             pdf = self.exportToPDF(tmp.name, **settings)
             with Path(pdf).open('rb') as fl:
