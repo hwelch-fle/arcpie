@@ -7,9 +7,10 @@ import re
 import shutil
 import tempfile
 from collections.abc import Callable, Iterable, Iterator
-from contextlib import suppress
+from contextlib import contextmanager, suppress
 from copy import copy
 from pathlib import Path
+from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -28,7 +29,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import arcpy._mp as mpt
 import arcpy.cim as cim
 import arcpy.mp as mp
-from arcpy import Geometry, Point, PointGeometry, Polygon, SpatialReference
+from arcpy import Point, Polygon, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
 
@@ -82,6 +83,9 @@ type MPElement = (
     | mpt.LegendElement
     | mpt.PictureElement
     | mpt.TextElement
+    # ReportSections
+    | mpt.ReportSection
+    | mpt.ReportLayoutSection
     | None
 )
 
@@ -165,6 +169,8 @@ type _NoCIM = (
     | mpt.Bookmark
     | mpt.ElevationSource
     | mpt.StyleItem
+    | mpt.ReportSection
+    | mpt.ReportLayoutSection
     | None
 )
 
@@ -178,6 +184,8 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
             'Bookmark',
             'ElevationSource',
             'StyleItem',
+            'ReportSection',
+            'ReportLayoutSection',
         })
 
 
@@ -331,7 +339,6 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
 
 
 class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
-    """Project"""
 
     # Need to override Element.__init__ since ArcGISProject objects are special
     def __init__(self, aprx: Path | str | None) -> None:
@@ -546,6 +553,22 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         imported = self.import_document(rptx)
         assert isinstance(imported, Report)
         return imported
+
+    def __enter__(self) -> Self:
+        if self.elem.isReadOnly:
+            raise PermissionError(f'{self} is read only')
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> bool | None:
+        if exc:
+            raise exc
+        else:
+            self.save()
 
     @classmethod
     def from_directory(cls, directory: Path | str, *, outfile: Path | str) -> Project:
@@ -973,6 +996,70 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         lyrx['layerDefinitions'] = [self.cim_dict]
         return lyrx
 
+    @property
+    def definition_query(self):
+        return self.elem.definitionQuery
+
+    @definition_query.setter
+    def definition_query(self, query: str | None) -> None:
+        self.elem.definitionQuery = query or ''
+
+    @property
+    def selection(self) -> set[int]:
+        return set(self.feature_class['OID@'])
+
+    @contextmanager
+    def query_as(self, query: str | None):
+        cur = self.definition_query
+        try:
+            self.definition_query = query
+            yield self
+        finally:
+            self.definition_query = cur
+
+    def __len__(self) -> int:
+        return len(self.feature_class)
+
+    def select(self,
+               *,
+               predicate: Callable[[dict[str, Any]], bool] | None = None,
+               query: str | None = None,
+               method: mpt.Method | Literal['CLEAR', 'ALL'] = 'NEW',
+    ) -> Self:
+        if method == 'CLEAR':
+            self.elem.setSelectionSet([])
+            return self
+
+        if method == 'ALL':
+            self.elem.setSelectionSet(list(self.feature_class['OID@']))
+            return self
+
+        if predicate is not None:
+            self.elem.setSelectionSet(
+                [r['OID@'] for r in self.feature_class if predicate(r)],
+                method
+            )
+            return self
+
+        with self.query_as(query or self.definition_query):
+            self.elem.setSelectionSet(list(self.feature_class['OID@']), method)
+
+        return self
+
+    def selected(self) -> list[dict[str, Any]]:
+        oids = self.elem.getSelectionSet() or set()
+        return [row for row in self.feature_class if row['OID@'] in oids]
+
+    def unselected(self) -> list[dict[str, Any]]:
+        oids = self.elem.getSelectionSet() or set()
+        return [row for row in self.feature_class if row['OID@'] not in oids]
+
+    def clear_selection(self) -> Self:
+        return self.select(method='CLEAR')
+
+    def select_all(self) -> Self:
+        return self.select(method='ALL')
+
     def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
         outdir = Path(outdir)
         name = name or self.name
@@ -1033,6 +1120,69 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         lyrx['tables'] = [self.uri]
         lyrx['layerDefinitions'] = [self.cim_dict]
         return lyrx
+
+    @property
+    def definition_query(self):
+        return self.elem.definitionQuery
+
+    @definition_query.setter
+    def definition_query(self, query: str | None) -> None:
+        self.elem.definitionQuery = query or ''
+
+    @property
+    def selection(self) -> set[int]:
+        return set(self.table['OID@'])
+
+    @contextmanager
+    def query_as(self, query: str | None):
+        cur = self.definition_query
+        try:
+            self.definition_query = query
+            yield self
+        finally:
+            self.definition_query = cur
+
+    def __len__(self) -> int:
+        return len(self.table)
+
+    def select(self,
+               *,
+               predicate: Callable[[dict[str, Any]], bool] | None = None,
+               query: str | None = None,
+               method: mpt.Method | Literal['CLEAR', 'ALL'] = 'NEW',
+    ) -> Self:
+        if method == 'CLEAR':
+            self.elem.setSelectionSet([])
+            return self
+
+        if method == 'ALL':
+            self.elem.setSelectionSet(list(self.table['OID@']))
+            return self
+
+        if predicate is not None:
+            self.elem.setSelectionSet(
+                [r['OID@'] for r in self.table if predicate(r)],
+                method
+            )
+            return self
+
+        with self.query_as(query or self.definition_query):
+            self.elem.setSelectionSet(list(self.table['OID@']), method)
+        return self
+
+    def selected(self) -> list[dict[str, Any]]:
+        oids = self.elem.getSelectionSet() or set()
+        return [row for row in self.table if row['OID@'] in oids]
+
+    def unselected(self) -> list[dict[str, Any]]:
+        oids = self.elem.getSelectionSet() or set()
+        return [row for row in self.table if row['OID@'] not in oids]
+
+    def clear_selection(self) -> Self:
+        return self.select(method='CLEAR')
+
+    def select_all(self) -> Self:
+        return self.select(method='ALL')
 
     def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
         outdir = Path(outdir)
@@ -1418,8 +1568,8 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
 
 
 # MapSeries export only allows a subset of ExportFormats
-type _MSFormats = mpt.PDFFormat | mpt.PNGFormat | mpt.JPEGFormat | mpt.TIFFFormat
-_MSFormatNames = Literal['PDF', 'PNG', 'JPEG', 'TIFF']
+type _MSFormat = mpt.PDFFormat | mpt.PNGFormat | mpt.JPEGFormat | mpt.TIFFFormat
+_MSFormatName = Literal['PDF', 'PNG', 'JPEG', 'TIFF']
 
 
 class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
@@ -1500,7 +1650,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: _MSFormats | _MSFormatNames,
+               format: _MSFormat | _MSFormatName,
                *,
                out: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1511,7 +1661,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         ) -> tuple[bytes, ...]: ...
     @overload
     def export(self,
-               format: _MSFormats | _MSFormatNames,
+               format: _MSFormat | _MSFormatName,
                *,
                out: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1521,7 +1671,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                export_pages: Literal['all', 'current', 'custom', 'selected'] = ...,
         ) -> tuple[Path, ...]: ...
     def export(self,
-               format: _MSFormats | _MSFormatNames,
+               format: _MSFormat | _MSFormatName,
                *,
                out: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
@@ -1557,14 +1707,14 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
         if type(format).__name__.endswith('Format'):
             suffix = type(format).__name__[:3].lower()
-            format = cast(_MSFormats, format)
+            format = cast(_MSFormat, format)
 
         elif isinstance(format, str):
-            if format not in _MSFormatNames.__args__:
-                raise ValueError(f'MapSeries can only export to {_MSFormatNames.__args__}, not {format}')
+            if format not in _MSFormatName.__args__:
+                raise ValueError(f'MapSeries can only export to {_MSFormatName.__args__}, not {format}')
             # Some type forcing required here for the subset
             suffix = format[:3].lower()
-            format = cast(_MSFormats, mp.CreateExportFormat(format))
+            format = cast(_MSFormat, mp.CreateExportFormat(format))
 
         else:
             raise ValueError(f'Unknown format {type(format)} : {format}')
@@ -1645,18 +1795,237 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, MapFrame]): ...
 
 
-class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries, Layout]): ...
+class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries, Layout]):
+
+    @property
+    def page_count(self) -> int:
+        return self.elem.pageCount
+
+    def __len__(self) -> int:
+        return self.page_count
+
+    @property
+    def map_frame(self) -> MapFrame:
+        if not self.has_map_frame:
+            raise AttributeError(f'{self} has no associated MapFrame')
+        assert self.elem.mapFrame
+        return MapFrame(self.elem.mapFrame, self.parent)
+
+    @property
+    def has_map_frame(self) -> bool:
+        return self.elem.mapFrame is not None
+
+    @property
+    def current_bookmark(self):
+        if not self.has_current_bookmark:
+            raise AttributeError(f'{self} has no current Bookmark')
+        assert self.elem.currentBookmark
+        return Bookmark(self.elem.currentBookmark, self.map_frame)
+
+    @property
+    def has_current_bookmark(self) -> bool:
+        return self.elem.currentBookmark is not None
+
+    @property
+    def bookmarks(self) -> ElementList[Bookmark]:
+        return self._cached('bookmarks',
+            lambda: ElementList(
+                Bookmark(b, self.map_frame)
+                for b in self.elem.bookmarks
+            )
+        )
+
+    @property
+    def current_page_name(self) -> str:
+        try:
+            return self.elem.currentPageName
+        except Exception:
+            return self.current_bookmark.name
+
+    @current_page_name.setter
+    def current_page_name(self, name: str) -> None:
+        self.current_page_number = self.elem.getPageNumberFromName(name)
+
+    @property
+    def current_page_number(self) -> int:
+        return self.elem.currentPageNumber
+
+    @current_page_number.setter
+    def current_page_number(self, number: int) -> None:
+        self.elem.currentPageNumber = number
 
 
-class Report(Element[mpt.Report, cim.CIMReport, Project]): ...
+# Reports export only allows a subset of PDF exporting
+type _RPTFormat = mpt.PDFFormat
+_RPTFormatName = Literal['PDF']
 
 
-class ElevationSource(Element[mpt.ElevationSource, None, Project]): ...
+class Report(Element[mpt.Report, cim.CIMReport, Project]):
+
+    @property
+    def sections(self) -> ElementList[ReportElement[Any, Any]]:
+        return self._cached('sections',
+            lambda: ElementList(
+                ReportElement(e, self)
+                for e in self.elem.listSections()
+            )
+        )
+
+    @property
+    def report_sections(self) -> ElementList[ReportSection]:
+        return ElementList(
+            ReportSection(sec.elem, self)
+            for sec in self.sections
+            if type(sec.elem).__name__ == 'ReportSection'
+        )
+
+    @property
+    def report_layout_sections(self) -> ElementList[ReportLayoutSection]:
+        return ElementList(
+            ReportLayoutSection(sec.elem, self)
+            for sec in self.sections
+            if type(sec.elem).__name__ == 'ReportLayoutSection'
+        )
+
+    @property
+    def definition_query(self) -> str:
+        return self.elem.definitionQuery
+
+    @definition_query.setter
+    def definition_query(self, query: str | None) -> None:
+        self.elem.definitionQuery = query or ''
+
+    @contextmanager
+    def query_as(self, query: str | None):
+        cur = self.definition_query
+        try:
+            self.definition_query = query
+            yield self
+        finally:
+            self.definition_query = cur
+
+    @overload
+    def export(self,  # type: ignore (No Overlap?)
+               format: _RPTFormat | _RPTFormatName,
+               *,
+               out: None = None,
+               antialiasing: mpt.Antialiasing | None = ...,
+               report_options: mpt.ReportExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               page_offset: int = ...,
+               page_override: int = ...,
+               export_pages: mpt.ReportExportPages = ...,
+        ) -> tuple[bytes, ...]: ...
+    @overload
+    def export(self,
+               format: _RPTFormat | _RPTFormatName,
+               *,
+               out: Path | str = ...,
+               antialiasing: mpt.Antialiasing | None = ...,
+               report_options: mpt.ReportExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               page_offset: int = ...,
+               page_override: int = ...,
+               export_pages: mpt.ReportExportPages = ...,
+        ) -> tuple[Path, ...]: ...
+    def export(self,
+               format: _RPTFormat | _RPTFormatName,
+               *,
+               out: Path | str | None = None,
+               antialiasing: mpt.Antialiasing | None = None,
+               report_options: mpt.ReportExportOptions | None = None,
+               custom_pages: str | None = None,
+               page_offset: int = 1,
+               page_override: int = -1,
+               export_pages: mpt.ReportExportPages = 'ALL',
+        ) -> tuple[Path, ...] | tuple[bytes, ...]:
+
+        rpt_opts = report_options or mp.CreateExportOptions('REPORT')
+        rpt_opts = cast(mpt.ReportExportOptions, rpt_opts)
+        export_pages = cast(mpt.ReportExportPages, export_pages.upper())
+
+        if export_pages == 'CUSTOM' or custom_pages:
+            if not custom_pages:
+                raise ValueError("`export_pages` is set to 'custom', but no `custom_pages` argument given")
+            rpt_opts.customPages = custom_pages
+            rpt_opts.setExportPages('CUSTOM')
+        else:
+            rpt_opts.setExportPages(export_pages)
+        if page_offset != 1:
+            rpt_opts.startingPageNumberLabelOffset = page_offset
+        if page_override != -1:
+            rpt_opts.totalPageNumberOverride = page_override
+
+        display = None
+        out = Path(out) if out else None
+
+        if antialiasing:
+            display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
+            display.setAntialiasing(antialiasing)
+
+        if type(format).__name__.endswith('Format'):
+            suffix = type(format).__name__[:3].lower()
+            format = cast(_RPTFormat, format)
+
+        elif isinstance(format, str):
+            if format != 'PDF':
+                raise ValueError(f'Report can only export to PDF, not {format}')
+            # Some type forcing required here for the subset
+            suffix = format[:3].lower()
+            format = cast(_RPTFormat, mp.CreateExportFormat(format))
+
+        else:
+            raise ValueError(f'Unknown format {type(format)} : {format}')
+
+        out_name = f'{self.name}.{suffix}'
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            outfl = tmp / out_name
+            format.filePath = str(outfl)
+            self.elem.export(
+                format,
+                report_export_options=rpt_opts,
+                display_options=display,
+            )
+            pages = tuple((fl.name, fl.read_bytes()) for fl in tmp.glob('*.pdf'))
+
+        # Return the raw page data if an outfile is not specified
+        if not out:
+            return tuple(page[1] for page in pages)
+
+        paths = list[Path]()
+        fl_name, data = pages[0]
+        outfl = (
+            out
+            if out.suffix == '.pdf'
+            else out.parent / fl_name
+        )
+        out.write_bytes(data)
+        out.parent.mkdir(exist_ok=True, parents=True)
+        paths.append(outfl)
+        return tuple(paths)
+
+
+class ElevationSource(Element[mpt.ElevationSource, None, Project]):
+
+    @property
+    def source(self) -> str:
+        return self.elem.dataSource
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
 
 
 class Style(Element[None, None, Project]):
 
     def __init__(self, name: str, parent: Project):
+        super().__init__(None, parent)
         if name.endswith('.stylx'):
             self.fullname = name
             self.name = name.rsplit('\\', maxsplit=1)[-1].removesuffix('.stylx')
@@ -1665,15 +2034,6 @@ class Style(Element[None, None, Project]):
         self.parent = parent
         self.elem = None
         self.cache = dict[str, list[StyleItem]]()
-
-    @overload
-    def __getitem__(self, key: int) -> StyleItem: ...
-    @overload
-    def __getitem__(self, key: str) -> list[StyleItem]: ...
-    def __getitem__(self, key: int | str | Any) -> StyleItem | list[StyleItem]:
-        if isinstance(key, str):
-            return [s for s in self.items if s.key == key or s.name == key]
-        return self.items[key]
 
     def __repr__(self):
         return f'{type(self).__name__}({self.fullname})'
@@ -1760,6 +2120,47 @@ class StyleItem(Element[mpt.StyleItem, None, Style]):
     @property
     def tags(self) -> set[str]:
         return set(str(self.elem.tags).split(';'))
+
+
+class ReportElement[MPElem: mpt.ReportSection | mpt.ReportLayoutSection, CIM](Element[MPElem, CIM, Report]):
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
+
+
+class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
+
+    @property
+    def statistics(self) -> list[dict[str, Any]]:
+        return self.elem.statistics
+
+    @property
+    def definition_query(self) -> str:
+        return self.elem.definitionQuery
+
+    @definition_query.setter
+    def definition_query(self, query: str | None) -> None:
+        self.elem.definitionQuery = query or ''
+
+    @contextmanager
+    def query_as(self, query: str | None):
+        cur = self.definition_query
+        try:
+            self.definition_query = query
+            yield self
+        finally:
+            self.definition_query = cur
+
+    def set_name(self, name: str) -> None:
+        self.elem.name = name
+
+
+class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLayoutPageSection]): ...
 
 
 class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]):
