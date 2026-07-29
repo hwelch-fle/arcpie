@@ -13,17 +13,22 @@ from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
+    Literal,
+    Never,
+    Protocol,
     Self,
     SupportsIndex,
+    TypeIs,
     cast,
     overload,
+    runtime_checkable,
 )
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import arcpy._mp as mpt
 import arcpy.cim as cim
 import arcpy.mp as mp
-from arcpy import SpatialReference
+from arcpy import Geometry, Point, PointGeometry, Polygon, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
 
@@ -52,6 +57,7 @@ else:
         {'__getattr__': lambda s, n: None}
     )()
 
+from arcpy.metadata import Metadata
 
 type MPElement = (
     mpt.ArcGISProject
@@ -68,6 +74,14 @@ type MPElement = (
     | mpt.Report
     | mpt.ElevationSource
     | mpt.StyleItem
+    # LayoutElements
+    | mpt.MapSurroundElement
+    | mpt.TableFrameElement
+    | mpt.GraphicElement
+    | mpt.GroupElement
+    | mpt.LegendElement
+    | mpt.PictureElement
+    | mpt.TextElement
     | None
 )
 
@@ -110,7 +124,7 @@ def _get_name(elem: MPElement) -> str:
         props.get('longName')
         or props.get('name')
         or props.get('URI')
-        or (lambda: f'ID:{hex(id(elem))}')
+        or f'ID:{hex(id(elem))}'
     )
 
 
@@ -132,6 +146,41 @@ def _get_uri(elem: MPElement) -> str:
     return str(cim['uRI'])
 
 
+# Allow any class that has these attributes to be used in geometry operations
+@runtime_checkable
+class HasCentroid(Protocol):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.centroid: Point
+        self.trueCentroid: Point
+        self.spatialReference: SpatialReference
+
+
+# mapping elements with no get/set CIM methods
+# we use the typedef for hinting and the name list for runtime
+# validation since mp does not actually export these at runtime
+type _NoCIM = (
+    mpt.ArcGISProject
+    | mpt.MapView
+    | mpt.ElevationSurface
+    | mpt.Bookmark
+    | mpt.ElevationSource
+    | mpt.StyleItem
+    | None
+)
+
+
+def _cimless(obj: Any) -> TypeIs[_NoCIM]:
+    return type(obj).__name__ in frozenset(
+        {
+            'ArcGISProject',
+            'MapView',
+            'ElevationSurface',
+            'Bookmark',
+            'ElevationSource',
+            'StyleItem',
+        })
+
+
 # Element takes Base arcpy.mp element, cim definition (from `getDefinition`) and parent type
 class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None]:
     def __init__(self, elem: MPElem, parent: Parent | None = None) -> None:
@@ -143,8 +192,11 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
         self.uri = _get_uri(elem)
         self.unique_name = f'{self.name}:{self.uri}'
         self.cache = dict[str, Any]()
+        self._cache_enabled = True
 
     def _cached[T](self, attr: str, default: Callable[[], T] | None = None) -> T:
+        if default and not self._cache_enabled:
+            return default()
         if item := self.cache.get(attr):
             return copy(item)
         return copy(self.cache.setdefault(attr, default() if default else None))
@@ -166,8 +218,42 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
             self.cache.pop(prop, None)
 
     @property
+    def cache_enabled(self) -> bool:
+        """See if cache is enabled for this Element
+
+        Element cache sits on top of the base ArcGIS cache and will not be invalidated
+        unless this flag is set to `False` or an explicit `refresh` call is made
+
+        When accessing element items in a tight loop, this cache can be
+        ~100x faster (~1us vs ~100us) at the cost of de-sync if lots of changes are
+        being made to the element children/state (e.g. adding maps/layers in a loop).
+
+        Methods implemented on the arcpie wrappers will manage this cache, but changes
+        that happen outside arcpie will require manual cache invaludation.
+        """
+        return self._cache_enabled
+
+    @cache_enabled.setter
+    def cache_enabled(self, cache_enabled: bool) -> None:
+        """Enable or disable cache for this Element (default: enabled)"""
+        self._cache_enabled = cache_enabled
+        if not cache_enabled:
+            # Invalidate the cache when it is explicitly disabled
+            self.cache.clear()
+
+    @property
     def cim(self) -> CIMDef:
-        return self.elem.getDefinition('V3')  # type: ignore
+        elem = self.elem
+        if _cimless(elem):
+            raise AttributeError(f'{type(self).__name__} has no implemented CIM getter')
+        return cast(CIMDef, elem.getDefinition('V3'))
+
+    @cim.setter
+    def cim(self, cim: CIMDef) -> None:
+        elem = self.elem
+        if _cimless(elem):
+            raise AttributeError(f'{type(self).__name__} has no implemented CIM setter')
+        elem.setDefinition(cast(str, cim))  # Signature here is wrong CIM obj OR string name
 
     @property
     def cim_dict(self) -> dict[str, Any]:
@@ -182,7 +268,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
             raise
 
     def __repr__(self) -> str:
-        return f'{type(self).__name__}({self.name})'
+        return f'{type(self).__name__}({self.name if not self.name.startswith('ID:0x') else self.parent})'
 
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other) or (isinstance(other, type(self)) and self.elem == other.elem)
@@ -214,7 +300,7 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
     def __getitem__(self, key: re.Pattern[str], /) -> list[E]: ...
     def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | list[E]:
         if isinstance(key, (str, re.Pattern)):
-            if matches := [e for e in self if e.name == key or e.uri == key]:
+            if matches := [e for e in self if e.name == key or str(key) in e.name or e.uri == key]:
                 return matches
             if matches := [e for e in self if re.search(key, e.name)]:
                 return matches
@@ -252,6 +338,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         super().__init__(
             mp.ArcGISProject(str(aprx) if aprx else 'CURRENT'), None
         )
+        self._is_current = aprx is not None
         self.name = self.path.name
 
     def __repr__(self) -> str:
@@ -263,6 +350,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def cim(self) -> cim.CIMGISProject:
         with ZipFile(self.path) as zf, zf.open('GISProject.json') as cim:
             return jsontocim.GetJSONTypeOBJ(json.load(cim))  # type: ignore
+
+    @cim.setter
+    def cim(self, cim: Never) -> Never: ...  # type: ignore (Project CIM is ro)
 
     @property
     def path(self) -> Path:
@@ -325,6 +415,14 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             return Layout(cast(mpt.Layout, active), self)
         if view_type == 'Report':
             return Report(cast(mpt.Report, active), self)
+
+    @active_view.setter
+    def active_view(self, view: MapView | mpt.MapView | Layout | mpt.Layout | Report | mpt.Report) -> None:
+        if not self._is_current:
+            raise AttributeError('Can only set the view on an actve project initialized with "CURRENT"')
+        if isinstance(view, Element):
+            view = view.elem
+        self.elem.activeView = view
 
     @property
     def databases(self) -> list[Dataset]:
@@ -757,7 +855,7 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
-            out = tmp / f'{self.name}_export.{suffix}'
+            out = tmp / f'{self.name}.{suffix}'
             format.filePath = str(out)
             self.elem.export(format, display_options=display)
             data = out.read_bytes()
@@ -971,6 +1069,237 @@ class ElevationSurface(Element[mpt.ElevationSurface, cim.CIMLayerElevationSurfac
 
 class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
 
+    @property
+    def elements(self) -> ElementList[LayoutElement[Any, Any]]:
+        return self._cached('elements',
+            lambda: ElementList(
+                LayoutElement[Any, Any](e, self)
+                for e in self.elem.listElements()
+            )
+        )
+
+    @property
+    def graphic_elements(self) -> ElementList[GraphicElement]:
+        return ElementList(
+            GraphicElement(cast(mpt.GraphicElement, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'GraphicElement'
+        )
+
+    @property
+    def group_elements(self) -> ElementList[GroupElement]:
+        return ElementList(
+            GroupElement(cast(mpt.GroupElement, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'GroupElement'
+        )
+
+    @property
+    def map_frames(self) -> ElementList[MapFrame]:
+        return ElementList(
+            MapFrame(cast(mpt.MapFrame, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'MapFrame'
+        )
+
+    @property
+    def map_surround_elements(self) -> ElementList[MapSurroundElement]:
+        return ElementList(
+            MapSurroundElement(cast(mpt.MapSurroundElement, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'MapSurroundElement'
+        )
+
+    @property
+    def picture_elements(self) -> ElementList[PictureElement]:
+        return ElementList(
+            PictureElement(cast(mpt.PictureElement, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'PictureElement'
+        )
+
+    @property
+    def table_frame_elements(self) -> ElementList[TableFrameElement]:
+        return ElementList(
+            TableFrameElement(cast(mpt.TableFrameElement, e.elem), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'TableFrameElement'
+        )
+
+    @property
+    def text_elements(self) -> ElementList[TextElement]:
+        return ElementList(
+            TextElement(cast(mpt.TextElement, e), self)
+            for e in self.elements
+            if type(e.elem).__name__ == 'TextElement'
+        )
+
+    @property
+    def mapseries(self) -> MapSeries:
+        if not self.has_mapseries:
+            raise AttributeError(f'{self} has no associated MapSeries')
+        return MapSeries(cast(mpt.MapSeries, self.elem.mapSeries), self)
+
+    @property
+    def has_mapseries(self) -> bool:
+        return type(self.elem.mapSeries).__name__ == 'MapSeries'
+
+    @property
+    def bookmark_mapseries(self) -> BookmarkMapSeries:
+        if not self.has_bookmark_mapseries:
+            raise AttributeError(f'{self} has no associated BookmarkMapSeries')
+        return BookmarkMapSeries(cast(mpt.BookmarkMapSeries, self.elem.mapSeries), self)
+
+    @property
+    def has_bookmark_mapseries(self) -> bool:
+        return type(self.elem.mapSeries).__name__ == 'BookmarkMapSeries'
+
+    @property
+    def width(self) -> float:
+        return self.elem.pageWidth
+
+    @width.setter
+    def width(self, width: float) -> None:
+        self.elem.pageWidth = width
+
+    @property
+    def height(self) -> float:
+        return self.elem.pageHeight
+
+    @height.setter
+    def height(self, height: float) -> None:
+        self.elem.pageHeight = height
+
+    @property
+    def units(self) -> mpt.PageUnits:
+        return self.elem.pageUnits
+
+    @units.setter
+    def units(self, units: mpt.PageUnits) -> None:
+        self.elem.pageUnits = units
+
+    @property
+    def color_model(self) -> mpt.ColorModel:
+        return self.elem.colorModel
+
+    @color_model.setter
+    def color_model(self, color_model: mpt.ColorModel) -> None:
+        self.elem.colorModel = color_model
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.elem.metadata
+
+    @metadata.setter
+    def metadata(self, metadata: Metadata) -> None:
+        self.elem.metadata = metadata
+
+    @color_model.setter
+    def color_model(self, color_model: mpt.ColorModel) -> None:
+        self.elem.colorModel = color_model
+
+    def create_mapseries(
+        self,
+        frame: MapFrame | mpt.MapFrame,
+        layer: Layer | mpt.Layer,
+        name_field: str,
+        sort_field: str | None = None,
+    ) -> MapSeries:
+        if isinstance(frame, MapFrame):
+            frame = frame.elem
+        if isinstance(layer, Layer):
+            layer = layer.elem
+        return MapSeries(self.elem.createSpatialMapSeries(frame, layer, name_field, sort_field), self)
+
+    def create_bookmark_mapseries(
+        self,
+        frame: MapFrame | mpt.MapFrame,
+        bookmarks: Iterable[Bookmark] | Iterable[mpt.Bookmark] | None = None,
+    ) -> BookmarkMapSeries:
+        if isinstance(frame, MapFrame):
+            frame = frame.elem
+        bookmarks = [
+            b.elem if isinstance(b, Bookmark) else b
+            for b in bookmarks or []
+        ]
+        return BookmarkMapSeries(self.elem.createBookmarkMapSeries(frame, bookmarks), self)
+
+    def create_map_frame(
+        self,
+        geometry: Polygon | Point | HasCentroid,
+        map: Map | mpt.Map | None = None,
+        name: str | None = None,
+    ) -> MapFrame:
+        if not isinstance(geometry, Polygon | Point):
+            if not isinstance(cast(Any, geometry), HasCentroid):
+                raise ValueError(
+                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
+                    'must have trueCentroid, centroid and spatialReference attributes'
+                )
+            geometry = geometry.centroid
+        if isinstance(map, Map):
+            map = map.elem
+        return MapFrame(self.elem.createMapFrame(geometry, map, name), self)
+
+    def create_map_surround_element(
+        self,
+        geometry: Polygon | Point | HasCentroid,
+        surround_type: mpt.MapSurroundType,
+        frame: MapFrame | mpt.MapFrame | None = None,
+        style: StyleItem | mpt.StyleItem | None = None,
+    ) -> MapSurroundElement:
+        if not isinstance(geometry, Polygon | Point):
+            if not isinstance(cast(Any, geometry), HasCentroid):
+                raise ValueError(
+                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
+                    'must have trueCentroid, centroid and spatialReference attributes'
+                )
+            geometry = geometry.centroid
+        if isinstance(frame, MapFrame):
+            frame = frame.elem
+        if isinstance(style, StyleItem):
+            style = style.elem
+        return MapSurroundElement(self.elem.createMapSurroundElement(geometry, surround_type, frame, style), self)
+
+    def create_table_frame_element(
+        self,
+        geometry: Point | Polygon | HasCentroid,
+        frame: MapFrame | mpt.MapFrame | None = None,
+        table: Layer | mpt.Layer | Table | mpt.Table | None = None,
+        fields: Iterable[str] | None = None,
+        style: StyleItem | mpt.StyleItem | None = None,
+        name: str | None = None
+    ) -> TableFrameElement:
+        if not isinstance(geometry, Polygon | Point):
+            if not isinstance(cast(Any, geometry), HasCentroid):
+                raise ValueError(
+                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
+                    'must have trueCentroid, centroid and spatialReference attributes'
+                )
+            geometry = geometry.centroid
+        if isinstance(frame, MapFrame):
+            frame = frame.elem
+        if isinstance(style, StyleItem):
+            style = style.elem
+        if isinstance(table, Layer | Table):
+            table = table.elem
+        fields = list(fields) if fields else None
+        return TableFrameElement(self.elem.createTableFrameElement(geometry, frame, table, fields, style, name), self)
+
+    def delete_element(self, elem: LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement):
+        if isinstance(elem, LayoutElement):
+            elem = elem.elem
+        self.elem.deleteElement(elem)
+
+    def delete_elements(self, *elems: LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement) -> None:
+        for elem in elems:
+            self.delete_element(elem)
+
+    def resize(self, width: float | None = None, height: float | None = None, resize_elements: bool = True) -> None:
+        width = width or self.width
+        height = height or self.height
+        self.elem.changePageSize(width, height, resize_elements)
+
     @overload
     def export(self,  # type: ignore (No Overlap?)
                format: mp.Format | mpt.ExportFormat,
@@ -1021,6 +1350,38 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
         """Check if the MapFrame has an associated Map"""
         return self.elem.map is not None
 
+    @property
+    def alt_text(self) -> str:
+        return self.elem.altText
+
+    @alt_text.setter
+    def alt_text(self, text: str) -> None:
+        self.elem.altText = text
+
+    @property
+    def anchor(self) -> mpt.Anchor:
+        return self.elem.anchor
+
+    @anchor.setter
+    def anchor(self, anchor: mpt.Anchor) -> None:
+        self.elem.anchor = anchor
+
+    @property
+    def camera(self) -> mp.Camera:
+        return self.elem.camera
+
+    @camera.setter
+    def camera(self, camera: mp.Camera) -> None:
+        self.elem.camera = camera
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
+
     @overload
     def export(self,  # type: ignore (No Overlap?)
                format: mp.Format | mpt.ExportFormat,
@@ -1056,6 +1417,11 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
         )
 
 
+# MapSeries export only allows a subset of ExportFormats
+type _MSFormats = mpt.PDFFormat | mpt.PNGFormat | mpt.JPEGFormat | mpt.TIFFFormat
+_MSFormatNames = Literal['PDF', 'PNG', 'JPEG', 'TIFF']
+
+
 class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
     @property
@@ -1086,10 +1452,6 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
     def page_name_field(self) -> str:
         return self.elem.pageNameField.name
 
-    def reload(self) -> None:
-        """Refresh/Reload the mapseries (refresh is shadowed by Element cache control)"""
-        self.elem.refresh()
-
     @property
     def current_page_name(self) -> int | str:
         try:
@@ -1105,6 +1467,17 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
     @property
     def page_numbers(self) -> list[int]:
         return self.elem.selectedIndexFeatures
+
+    @property
+    def name(self) -> str:
+        return str(self.current_page_name)
+
+    @name.setter  # name of a mapseries is determined by current page
+    def name(self, name: Never) -> Never: ...
+
+    @property
+    def page_count(self) -> int:
+        return self.elem.pageCount
 
     @property
     def features(self) -> dict[int, dict[str, Any]]:
@@ -1125,6 +1498,129 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         else:
             return pr
 
+    @overload
+    def export(self,  # type: ignore (No Overlap?)
+               format: _MSFormats | _MSFormatNames,
+               *,
+               out: None = None,
+               antialiasing: mpt.Antialiasing | None = ...,
+               mapseries_options: mpt.MapSeriesExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               multi_file: bool = ...,
+               export_pages: Literal['all', 'current', 'custom', 'selected'] = ...,
+        ) -> tuple[bytes, ...]: ...
+    @overload
+    def export(self,
+               format: _MSFormats | _MSFormatNames,
+               *,
+               out: Path | str = ...,
+               antialiasing: mpt.Antialiasing | None = ...,
+               mapseries_options: mpt.MapSeriesExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               multi_file: bool = ...,
+               export_pages: Literal['all', 'current', 'custom', 'selected'] = ...,
+        ) -> tuple[Path, ...]: ...
+    def export(self,
+               format: _MSFormats | _MSFormatNames,
+               *,
+               out: Path | str | None = None,
+               antialiasing: mpt.Antialiasing | None = None,
+               mapseries_options: mpt.MapSeriesExportOptions | None = None,
+               custom_pages: str | None = None,
+               multi_file: bool = False,
+               export_pages: Literal['all', 'current', 'custom', 'selected'] = 'all',
+        ) -> tuple[Path, ...] | tuple[bytes, ...]:
+
+        ms_opts = mapseries_options or mp.CreateExportOptions('MAPSERIES')
+        ms_opts = cast(mpt.MapSeriesExportOptions, ms_opts)
+
+        if export_pages == 'custom' or custom_pages:
+            if not custom_pages:
+                raise ValueError("`export_pages` is set to 'custom', but no `custom_pages` argument given")
+            ms_opts.customPages = custom_pages
+            ms_opts.setExportPages('CUSTOM')
+        elif multi_file:
+            ms_opts.setExportFileOptions('MULTIPLE_FILES_PAGE_NAME')
+        elif export_pages == 'all':
+            ms_opts.setExportPages('ALL')
+        elif export_pages == 'current':
+            ms_opts.setExportPages('CURRENT')
+        elif export_pages == 'selected':
+            ms_opts.setExportPages('SELECTED_INDEX_FEATURES')
+
+        display = None
+        out = Path(out) if out else None
+
+        if antialiasing:
+            display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
+            display.setAntialiasing(antialiasing)
+
+        if type(format).__name__.endswith('Format'):
+            suffix = type(format).__name__[:3].lower()
+            format = cast(_MSFormats, format)
+
+        elif isinstance(format, str):
+            if format not in _MSFormatNames.__args__:
+                raise ValueError(f'MapSeries can only export to {_MSFormatNames.__args__}, not {format}')
+            # Some type forcing required here for the subset
+            suffix = format[:3].lower()
+            format = cast(_MSFormats, mp.CreateExportFormat(format))
+
+        else:
+            raise ValueError(f'Unknown format {type(format)} : {format}')
+
+        out_name = f'{self.name}.{suffix}'
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            outfl = tmp / out_name
+            format.filePath = str(outfl)
+            self.elem.export(
+                format,
+                mapseries_export_options=ms_opts,
+                display_options=display,
+            )
+            if not multi_file:
+                pages = ((outfl.name, outfl.read_bytes()),)
+            else:
+                pages = tuple((fl.name, fl.read_bytes()) for fl in tmp.glob('*.pdf'))
+
+        # Return the raw page data if an outfile is not specified
+        if not out:
+            return tuple(page[1] for page in pages)
+
+        paths = list[Path]()
+
+        # If out is a pdf and there is only one page, write to it
+        if len(pages) == 1:
+            fl_name, data = pages[0]
+            outfl = (
+                out
+                if out.suffix == '.pdf'
+                else out.parent / fl_name
+            )
+            out.write_bytes(data)
+            out.parent.mkdir(exist_ok=True, parents=True)
+            paths.append(outfl)
+            return tuple(paths)
+
+        # If there are multiple pages, write them into the parent folder of out
+        for fl_name, data in pages:
+            outfl = (
+                out.parent / fl_name
+                if out.suffix
+                else out / fl_name
+            )
+            outfl.parent.mkdir(exist_ok=True, parents=True)
+            outfl.write_bytes(data)
+            paths.append(outfl)
+
+        return tuple(paths)
+
+    def reload(self) -> None:
+        """Refresh/Reload the mapseries (refresh is shadowed by Element cache control)"""
+        self.elem.refresh()
+
     def __iter__(self) -> Iterator[MapSeries]:
         assert self.parent
         pages = self.elem.selectedIndexFeatures
@@ -1135,6 +1631,15 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                 yield self
         finally:
             self.elem.currentPageNumber = current
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+                f'current_page="{self.name or 'None'}", '
+                f'page_count={self.page_count}, '
+                f'parent={self.parent}'
+            ')'
+        )
 
 
 class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, MapFrame]): ...
@@ -1257,8 +1762,83 @@ class StyleItem(Element[mpt.StyleItem, None, Style]):
         return set(str(self.elem.tags).split(';'))
 
 
+class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]):
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
+
+    @property
+    def x(self) -> float:
+        return self.elem.elementPositionX
+
+    @x.setter
+    def x(self, x: float) -> None:
+        self.elem.elementPositionX = x
+
+    @property
+    def y(self) -> float:
+        return self.elem.elementPositionY
+
+    @y.setter
+    def y(self, y: float) -> None:
+        self.elem.elementPositionY = y
+
+    def set_name(self, name: str) -> None:
+        """Since `name` is used as the unique identifier for the Elements (longName)
+        setting the visible name is done with this method.
+        """
+        self.elem.name = name
+
+    def delete(self) -> None:
+        assert self.parent, f'{self} has no parent Layout to be deleted from'
+        self.parent.delete_element(self)
+
+    def move(self, x: float = 0.0, y: float = 0.0) -> None:
+        """Shift the element by the provided x/y deltas"""
+        self.x += x
+        self.y += y
+
+
+class MapSurroundElement(LayoutElement[mpt.MapSurroundElement, cim.CIMMapSurround]): ...
+
+
+class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame]): ...
+
+
+class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
+
+    def clone(self, name: str | None = None) -> Self:
+        new = type(self)(self.elem.clone(), self.parent)
+        new.name = name or new.name
+        return new
+
+
+class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]): ...
+
+
+class LegendElement(LayoutElement[mpt.LayoutElement, cim.CIMLegend]): ...
+
+
+class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]): ...
+
+
+class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
+
+    def clone(self, name: str | None = None) -> Self:
+        new = type(self)(self.elem.clone(), self.parent)
+        new.name = name or new.name
+        return new
+
+
 # Remove after testing
 if __name__ == '__main__':
     prj = Project(r"C:\Users\hwelch\Desktop\Louetta 8.20\Louetta 8.20.aprx")
     p1 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\1.aprx")
     p2 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\2.aprx")
+
+    lay = p1.layouts['9 - PlanView - PD'][0]
