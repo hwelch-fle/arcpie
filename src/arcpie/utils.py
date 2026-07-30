@@ -60,7 +60,7 @@ from arcpy.management import (
     GenerateSchemaReport,  # pyright: ignore[reportUnknownVariableType]
 )
 
-from .project.element import (
+from .project import (
     Layer,
     Map,
     Project,
