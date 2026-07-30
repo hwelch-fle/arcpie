@@ -1,3 +1,44 @@
+"""Python style interface for arcpy.mp submodule
+
+This module attempts to wrap the mp classes and functions in a way that provides a more OO
+approach to navigating and managing ArcGISProject objects and their associated elements.
+
+All list* methods are replaced with ElementList properties that allow indexing on
+longName/name/URI/regex name match.
+
+All elements when accessed from a Project root will have a parent attribute that allows
+traversal of the CIM/DOM
+
+Objects that returned <obj> | None have been mostly replaced with Exceptions.
+Anywhere that this has been done, a boolean property has been included to
+allow checking the property before accessing it. If you expect the property
+to exist, allow the Exception to be raised and handle that properly in your implementation.
+
+Overhead has been kept as low as possible. There is agressive cache usage, so manual invalidation
+using Element.refresh is required if you modify an element outside this framework.
+
+Some elements have no CIM properties in arcpy, but the aprx file actually contains their raw CIM definition.
+These elements allow you to access the CIM in read-only mode and will not allow you to set it.
+
+Example:
+    ```python
+    >>> with Project('my-project.aprx') as prj:
+    ...     for map in prj.maps['Plan*']:
+    ...         for lay in map.layers['*Route']:
+    ...             # when using `with Project() as ...`
+    ...             # Project.save is called on __exit__
+    ...             if lay.name == 'Proposed Route':
+    ...                 lay.visible = False
+    ...             print(f'{lay.name} (2024+): {len(lay)}')
+    ...             with lay.query_as('YEAR >= 2024'):
+    ...                 print(f'{lay.name} (2024+): {len(lay)}')
+    Proposed Route: 216
+    Proposed Route (2024+): 65
+    Final Route: 673
+    Final Route (2024+): 175
+    ```
+"""
+
 from __future__ import annotations
 
 import difflib
@@ -59,6 +100,34 @@ else:
     )()
 
 from arcpy.metadata import Metadata
+
+__all__ = (  # noqa: RUF022 (We want the MPElement union to match)
+    'Project',
+    'Map',
+    'Layer',
+    'Table',
+    'ElevationSurface',
+    'Layout',
+    'MapFrame',
+    'MapSeries',
+    'Bookmark',
+    'BookmarkMapSeries',
+    'Report',
+    'ElevationSource',
+    'StyleItem',
+    # LayoutElements
+    'MapSurroundElement',
+    'TableFrameElement',
+    'GraphicElement',
+    'GroupElement',
+    'LegendElement',
+    'PictureElement',
+    'TextElement',
+    # ReportSections
+    'ReportSection',
+    'ReportLayoutSection',
+)
+
 
 type MPElement = (
     mpt.ArcGISProject
