@@ -309,9 +309,10 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
     def __getitem__(self, key: re.Pattern[str], /) -> list[E]: ...
     def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | list[E]:
         if isinstance(key, (str, re.Pattern)):
-            if matches := [e for e in self if e.name == key or str(key) in e.name or e.uri == key]:
-                return matches
-            if matches := [e for e in self if re.search(key, e.name)]:
+            if matches := (
+                [e for e in self if e.name == key or e.uri == key or str(key) in e.name]
+                or [e for e in self if re.search(key, e.name)]
+            ):
                 return matches
             raise IndexError(f'No elements with name {key} found')
         return super().__getitem__(key)
@@ -765,9 +766,8 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             name: The name of the new GroupLayer
             parent: An optional parent group for the new layer
         """
-        if parent is not None:
-            if isinstance(parent, GroupLayer):
-                parent = parent.elem
+        if isinstance(parent, GroupLayer):
+            parent = parent.elem
         return GroupLayer(self.elem.createGroupLayer(name, parent), self)
 
     def clear_selection(self) -> None:
@@ -1658,7 +1658,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                mapseries_options: mpt.MapSeriesExportOptions | None = ...,
                custom_pages: str | None = ...,
                multi_file: bool = ...,
-               export_pages: Literal['all', 'current', 'custom', 'selected'] = ...,
+               export_pages: mpt.ExportPages = ...,
         ) -> tuple[bytes, ...]: ...
     @overload
     def export(self,
@@ -1669,7 +1669,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                mapseries_options: mpt.MapSeriesExportOptions | None = ...,
                custom_pages: str | None = ...,
                multi_file: bool = ...,
-               export_pages: Literal['all', 'current', 'custom', 'selected'] = ...,
+               export_pages: mpt.ExportPages = ...,
         ) -> tuple[Path, ...]: ...
     def export(self,
                format: _MSFormat | _MSFormatName,
@@ -1679,24 +1679,24 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                mapseries_options: mpt.MapSeriesExportOptions | None = None,
                custom_pages: str | None = None,
                multi_file: bool = False,
-               export_pages: Literal['all', 'current', 'custom', 'selected'] = 'all',
+               export_pages: mpt.ExportPages = 'ALL',
         ) -> tuple[Path, ...] | tuple[bytes, ...]:
 
         ms_opts = mapseries_options or mp.CreateExportOptions('MAPSERIES')
         ms_opts = cast(mpt.MapSeriesExportOptions, ms_opts)
 
-        if export_pages == 'custom' or custom_pages:
+        if export_pages == 'CUSTOM' or custom_pages:
             if not custom_pages:
                 raise ValueError("`export_pages` is set to 'custom', but no `custom_pages` argument given")
             ms_opts.customPages = custom_pages
             ms_opts.setExportPages('CUSTOM')
         elif multi_file:
             ms_opts.setExportFileOptions('MULTIPLE_FILES_PAGE_NAME')
-        elif export_pages == 'all':
+        elif export_pages == 'ALL':
             ms_opts.setExportPages('ALL')
-        elif export_pages == 'current':
+        elif export_pages == 'CURRENT':
             ms_opts.setExportPages('CURRENT')
-        elif export_pages == 'selected':
+        elif export_pages == 'SELECTED_INDEX_FEATURES':
             ms_opts.setExportPages('SELECTED_INDEX_FEATURES')
 
         display = None
