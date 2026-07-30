@@ -50,6 +50,7 @@ import tempfile
 from collections.abc import Callable, Iterable, Iterator
 from contextlib import contextmanager, suppress
 from copy import copy
+from datetime import datetime
 from pathlib import Path
 from types import TracebackType
 from typing import (
@@ -60,6 +61,7 @@ from typing import (
     Protocol,
     Self,
     SupportsIndex,
+    TypedDict,
     TypeIs,
     cast,
     overload,
@@ -70,7 +72,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 import arcpy._mp as mpt
 import arcpy.cim as cim
 import arcpy.mp as mp
-from arcpy import Point, Polygon, SpatialReference
+from arcpy import Point, Polygon, Polyline, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
 
@@ -82,6 +84,7 @@ except ImportError:
     root = str(Path(__file__).parent.parent.parent.resolve())
     sys.path.append(root)
 
+import arcpie.project.formats as fmts
 from arcpie import (
     database as db,
     featureclass as fc,
@@ -96,7 +99,7 @@ if TYPE_CHECKING:
 else:
     mpt = cim = type(
         '_mock', (object, ),
-        {'__getattr__': lambda s, n: None}
+        {'__getattr__': lambda s, n: object}
     )()
 
 from arcpy.metadata import Metadata
@@ -409,6 +412,28 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         return type(self)(super().copy())
 
 
+class ToolboxConf(TypedDict):
+    toolboxPath: Path | str
+    validate: bool
+
+
+class FolderConf(TypedDict):
+    alias: str
+    connectionString: Path | str
+    isHomeFolder: bool
+
+
+class ReportFieldConf(TypedDict):
+    fieldName: str
+    sortInfo: Literal['ASC', 'DESC', 'NONE']
+    groupField: bool
+
+
+class ReportStatConf(TypedDict):
+    fieldName: str
+    statistic: Literal['COUNT', 'MEAN', 'SUM', 'STD_DEV', 'MAX', 'MIN']
+
+
 class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     # Need to override Element.__init__ since ArcGISProject objects are special
@@ -421,6 +446,18 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.path})'
+
+    @property
+    def is_read_only(self) -> bool:
+        return self.elem.isReadOnly
+
+    @property
+    def date_saved(self) -> datetime:
+        return self.elem.dateSaved
+
+    @property
+    def version(self) -> str:
+        return self.elem.documentVersion
 
     # ArcGISProject CIM is not directly available and needs to be loaded from
     # the raw GISProject.json file in the aprx zip directory
@@ -439,6 +476,10 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     @property
     def home(self) -> Path:
         return Path(self.elem.homeFolder)
+
+    @home.setter
+    def home(self, path: Path | str) -> None:
+        self.elem.homeFolder = str(path)
 
     @property
     def maps(self) -> ElementList[Map]:
@@ -476,15 +517,58 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             )
         )
 
+    @styles.setter
+    def styles(self, styles: Iterable[str | Path | Style]) -> None:
+        self.elem.updateStyles([str(style) for style in styles])
+
     @property
-    def active_map(self) -> Map | None:
+    def toolboxes(self) -> list[ToolboxConf]:
+        return cast(list[ToolboxConf], self.elem.toolboxes)
+
+    @toolboxes.setter
+    def toolboxes(self, toolboxes: Iterable[ToolboxConf]):
+        self.elem.updateToolboxes(
+            [
+                {
+                    'toolboxPath': str(tb['toolboxPath']),
+                    'validate': tb['validate'],
+                }
+                for tb in toolboxes
+            ],
+            validate=True
+        )
+
+    @property
+    def folder_connections(self) -> list[FolderConf]:
+        return cast(list[FolderConf], self.elem.folderConnections)
+
+    @folder_connections.setter
+    def folder_connections(self, folders: Iterable[FolderConf]) -> None:
+        self.elem.updateFolderConnections(
+            [
+                {
+                    'alias': fldr['alias'],
+                    'connectionString': str(fldr['connectionString']),
+                    'isHomeFolder': fldr['isHomeFolder'],
+                }
+                for fldr in folders
+            ],
+            validate=True
+        )
+
+    @property
+    def active_map(self) -> Map:
         active = self.elem.activeMap
         if not active:
-            return None
+            raise AttributeError(f'{self} has no active map')
         return Map(active, self)
 
     @property
-    def active_view(self) -> MapView | Layout | Report | None:
+    def has_active_map(self) -> bool:
+        return bool(self.elem.activeMap)
+
+    @property
+    def active_view(self) -> MapView | Layout | Report:
         active = self.elem.activeView
         view_type = type(active).__name__
         if view_type == 'MapView':
@@ -494,6 +578,8 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         if view_type == 'Report':
             return Report(cast(mpt.Report, active), self)
 
+        raise AttributeError(f'{self} has no avtive view')
+
     @active_view.setter
     def active_view(self, view: MapView | mpt.MapView | Layout | mpt.Layout | Report | mpt.Report) -> None:
         if not self._is_current:
@@ -501,6 +587,10 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         if isinstance(view, Element):
             view = view.elem
         self.elem.activeView = view
+
+    @property
+    def has_active_view(self) -> bool:
+        return bool(self.elem.activeView)
 
     @property
     def databases(self) -> list[Dataset]:
@@ -516,6 +606,269 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     @property
     def default_database(self) -> Dataset:
         return db.Dataset(self.elem.defaultGeodatabase)
+
+    @default_database.setter
+    def default_database(self, db: Dataset | Path | str) -> None:
+        if not isinstance(db, Path | str):
+            if hasattr(db, 'conn'):
+                db = db.conn
+            else:
+                raise TypeError(f'{type(db)} is not a valid database, must be a Dataset, Path, or str')
+        self.elem.defaultGeodatabase = str(db)
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.elem.metadata
+
+    @metadata.setter
+    def metadata(self, metadata: Metadata) -> None:
+        self.elem.metadata = metadata
+
+    @property
+    def basemaps(self) -> list[str]:
+        return self.elem.listBasemaps()
+
+    @property
+    def color_ramps(self) -> list[mp.ColorRamp]:
+        return self.elem.listColorRamps()
+
+    def update_connection(self): ...
+
+    def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'MAPS_AND_LAYOUTS', wildcard: str | None = None) -> None:
+        if not self._is_current:
+            raise PermissionError(f'{self} was not initialized as `CURRENT` and has no views to close')
+        if view_type == 'ALL':
+            self.elem.closeViews('MAPS_AND_LAYOUTS', wildcard)
+            self.elem.closeViews('REPORTS', wildcard)
+            self.elem.closeViews('TABLES', wildcard)
+        else:
+            self.elem.closeViews(view_type, wildcard)
+
+    @overload
+    def copy_item(self, item: Map | mpt.Map, name: str | None = ...) -> Map: ...
+    @overload
+    def copy_item(self, item: Layout | mpt.Layout, name: str | None = ...) -> Layout: ...
+    @overload
+    def copy_item(self, item: Report | mpt.Report, name: str | None = ...) -> Report: ...
+    def copy_item(
+        self,
+        item: Map | mpt.Map | Layout | mpt.Layout | Report | mpt.Report,
+        name: str | None = None,
+    ) -> Map | Layout | Report:
+        if isinstance(item, Element):
+            item = item.elem
+        item_type = type(item).__name__
+        if item_type not in ('Map', 'Layout', 'Report'):
+            raise TypeError(f'{type(item)} cannot be copied!')
+        item = self.elem.copyItem(item, name)
+        if item_type == 'Map':
+            return Map(cast(mpt.Map, item), self)
+        elif item_type == 'Layout':
+            return Layout(cast(mpt.Layout, item), self)
+        elif item_type == 'Report':
+            return Report(cast(mpt.Report, item), self)
+        else:
+            raise Exception('Unreachable')
+
+    def create_layout(self, width: float, height: float, units: mpt.PageUnits, name: str | None) -> Layout:
+        return Layout(self.elem.createLayout(width, height, units, name), self)
+
+    def create_map(self, name: str | None = None, type: mpt.MapType = 'MAP') -> Map:
+        return Map(self.elem.createMap(name, type), self)
+
+    def create_report(
+        self,
+        units: mpt.PageUnits,
+        margin: Literal['NORMAL', 'NARROW', 'MODERATE', 'WIDE'],
+        source: Layer | mpt.Layer | Table | mpt.Table,
+        fields: Iterable[ReportFieldConf],
+        stats: Iterable[ReportStatConf],
+        name: str | None = None,
+        template: Literal['ATTR_LIST', 'ATTR_LIST_GROUP', 'BASIC_SUM', 'BASIC_SUM_GROUP', 'PAGE_PER_FEATURE'] = 'ATTR_LIST',
+        styling: Literal['BLACK_AND_WHITE', 'COOL_TONES', 'WARM_TONES', 'NO_STYLING'] = 'BLACK_AND_WHITE',
+    ) -> Report:
+        if isinstance(source, Element):
+            source = source.elem
+        rpt = self.elem.createReport(
+            {'units': units, 'margin': margin},
+            source,
+            list(fields),  # type: ignore (incorrect hint)
+            list(stats),  # type: ignore (incorrect hint)
+            name,
+            template,
+            styling
+        )
+        return Report(rpt, self)
+
+    def create_graphic_element(
+        self,
+        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        geometry: Point | Polyline | Polygon | HasCentroid,
+        style_item: StyleItem | mpt.StyleItem | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> GraphicElement:
+        if isinstance(container, Element):
+            container = container.elem
+        if isinstance(style_item, Element):
+            style_item = style_item.elem
+        if not isinstance(geometry, Point | Polyline | Polygon):
+            geometry = geometry.centroid
+        container_type = type(container).__name__
+        if container_type not in ('Layout', 'GroupElement'):
+            raise ValueError(
+                f'{container_type} cannot be used as container for GraphicElement. '
+                'Must be Layout or GroupElement'
+            )
+        ge = self.elem.createGraphicElement(container, geometry, style_item, name, lock_aspect_ratio)
+
+        if container_type == 'Layout':
+            return GraphicElement(ge, Layout(cast(mpt.Layout, container), self))
+        elif container_type == 'GroupElement':
+            # TODO: Allow Graphic Elements to be parented to GroupElements
+            return GraphicElement(ge, None)
+        # elif container_type == 'Layer':
+        #     # TODO: Allow Graphic Elements to be parented to Layers (Graphic Layers only)
+        #     return GraphicElement(ge, None)
+        else:
+            raise Exception('Unreachable')
+
+    def create_group_element(
+        self,
+        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        elements: list[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
+        name: str | None,
+    ) -> GroupElement:
+        if isinstance(container, Element):
+            container = container.elem
+        container_type = type(container).__name__
+        if container_type not in ('Layout', 'GroupElement'):
+            raise ValueError(
+                f'GroupElement cannot be created in {container_type}, '
+                'must be Layout or GroupElement'
+            )
+        if not elements:
+            raise ValueError('New GroupElement requires elements')
+        converted_elements = [
+            elem if not isinstance(elem, Element) else elem.elem
+            for elem in elements
+        ]
+
+        ge = self.elem.createGroupElement(container, converted_elements, name)
+        if container_type == 'GroupElement':
+            return GroupElement(ge, None)
+        elif container_type == 'Layout':
+            return GroupElement(ge, Layout(cast(mpt.Layout, container), self))
+        else:
+            raise Exception('Unreachable')
+
+    def create_picture_element(
+        self,
+        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        geometry: Point | Polyline | Polygon | HasCentroid,
+        image: Path | str | bytes,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> PictureElement:
+        """Note: if using raw bytes, this method expects the png format"""
+        if isinstance(container, Element):
+            container = container.elem
+
+        container_type = type(container).__name__
+        if container_type not in ('Layout', 'GroupElement'):
+            raise ValueError(
+                f'GroupElement cannot be created in {container_type}, '
+                'must be Layout or GroupElement'
+            )
+
+        if not isinstance(geometry, Point | Polyline | Polygon):
+            geometry = geometry.centroid
+
+        if isinstance(image, bytes):
+            with tempfile.TemporaryDirectory() as tmp:
+                fl = (Path(tmp) / (name or 'img')).with_suffix('.png')
+                fl.write_bytes(image)
+                pe = self.elem.createPictureElement(container, geometry, str(fl), name, lock_aspect_ratio)
+        else:
+            pe = self.elem.createPictureElement(container, geometry, str(image), name, lock_aspect_ratio)
+
+        if container_type == 'GroupElement':
+            return PictureElement(pe, None)
+        elif container_type == 'Layout':
+            return PictureElement(pe, Layout(cast(mpt.Layout, container), self))
+        else:
+            raise Exception('Unreachable')
+
+    def create_text_element(
+        self,
+        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        geometry: Point | Polyline | Polygon | HasCentroid,
+        text_type: mpt.TextType,
+        text: str,
+        size: float | None = None,
+        font: str | None = None,
+        style: str | None = None,
+        style_item: StyleItem | mpt.StyleItem | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> TextElement:
+        if isinstance(container, Element):
+            container = container.elem
+
+        container_type = type(container).__name__
+        if container_type not in ('Layout', 'GroupElement'):
+            raise ValueError(
+                f'GroupElement cannot be created in {container_type}, '
+                'must be Layout or GroupElement'
+            )
+
+        if not isinstance(geometry, Point | Polyline | Polygon):
+            geometry = geometry.centroid
+
+        if isinstance(style_item, Element):
+            style_item = style_item.elem
+
+        te = self.elem.createTextElement(container, geometry, text_type, text, size, font, style, style_item, name, lock_aspect_ratio)
+        if container_type == 'Layout':
+            return TextElement(te, Layout(cast(mpt.Layout, container), self))
+        elif container_type == 'GroupElement':
+            return TextElement(te, None)
+        else:
+            raise Exception('Unreachable')
+
+    def create_predefined_graphics_element(
+        self,
+        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        geometry: Point | Polyline | Polygon | HasCentroid,
+        shape_type: mpt.ShapeType,
+        style_item: StyleItem | mpt.StyleItem | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> GraphicElement:
+        if isinstance(container, Element):
+            container = container.elem
+
+        container_type = type(container).__name__
+        if container_type not in ('Layout', 'GroupElement'):
+            raise ValueError(
+                f'GroupElement cannot be created in {container_type}, '
+                'must be Layout or GroupElement'
+            )
+
+        if not isinstance(geometry, Point | Polyline | Polygon):
+            geometry = geometry.centroid
+
+        if isinstance(style_item, Element):
+            style_item = style_item.elem
+
+        ge = self.elem.createPredefinedGraphicElement(container, geometry, shape_type, style_item, name, lock_aspect_ratio)
+
+        if container_type == 'Layout':
+            return GraphicElement(ge, Layout(cast(mpt.Layout, container), self))
+        elif container_type == 'GroupElement':
+            return GraphicElement(ge, None)
+        else:
+            raise Exception('Unreachable')
 
     def save(self) -> None:
         """Save the project
@@ -546,18 +899,16 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             zf.extractall(to)
         return to
 
-    def delete(self, recursive: bool = False) -> None:
+    def delete(self, *, home_folder: bool = False) -> None:
         """Delete the project
 
         Args:
-            recursive: If set, recursively delete the homeFolder (default: `False`)
+            home_folder: If set, recursively delete the homeFolder (default: `False`)
         """
-        home_folder = self.elem.homeFolder
-        aprx = self.elem.filePath
-        if recursive:
-            shutil.rmtree(home_folder)
+        if home_folder:
+            shutil.rmtree(self.home)
         else:
-            Path(aprx).unlink()
+            self.path.unlink()
 
     def import_document(self, doc: Path | str, *, include_layout: bool = True, reuse_existing_maps: bool = True) -> Layout | Map | Report:
         """Import a document file into this project using `ArcGISProject.importDocument`.
@@ -900,20 +1251,20 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> bytes: ...
     @overload
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> Path: ...
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
@@ -934,6 +1285,9 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
         if antialiasing:
             display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
             display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
 
         if type(format).__name__.endswith('Format'):
             suffix = type(format).__name__[:3].lower()
@@ -1639,6 +1993,7 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
 
 # MapSeries export only allows a subset of ExportFormats
 type _MSFormat = mpt.PDFFormat | mpt.PNGFormat | mpt.JPEGFormat | mpt.TIFFFormat
+type _MSFormatAlt = fmts.PDF | fmts.PNG | fmts.JPEG | fmts.TIFF
 _MSFormatName = Literal['PDF', 'PNG', 'JPEG', 'TIFF']
 
 
@@ -1720,7 +2075,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: _MSFormat | _MSFormatName,
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
                *,
                out: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1731,7 +2086,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         ) -> tuple[bytes, ...]: ...
     @overload
     def export(self,
-               format: _MSFormat | _MSFormatName,
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
                *,
                out: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1741,7 +2096,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                export_pages: mpt.ExportPages = ...,
         ) -> tuple[Path, ...]: ...
     def export(self,
-               format: _MSFormat | _MSFormatName,
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
                *,
                out: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
@@ -1749,6 +2104,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                custom_pages: str | None = None,
                multi_file: bool = False,
                export_pages: mpt.ExportPages = 'ALL',
+               prefix: str | None = None,
         ) -> tuple[Path, ...] | tuple[bytes, ...]:
 
         ms_opts = mapseries_options or mp.CreateExportOptions('MAPSERIES')
@@ -1774,6 +2130,9 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         if antialiasing:
             display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
             display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
 
         if type(format).__name__.endswith('Format'):
             suffix = type(format).__name__[:3].lower()
@@ -1814,10 +2173,11 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         # If out is a pdf and there is only one page, write to it
         if len(pages) == 1:
             fl_name, data = pages[0]
+            fl_name = f'{prefix or ''}{fl_name}'
             outfl = (
                 out
                 if out.suffix == '.pdf'
-                else out.parent / fl_name
+                else (out / fl_name).with_suffix('.pdf')
             )
             out.write_bytes(data)
             out.parent.mkdir(exist_ok=True, parents=True)
@@ -1826,11 +2186,12 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
         # If there are multiple pages, write them into the parent folder of out
         for fl_name, data in pages:
-            outfl = (
-                out.parent / fl_name
-                if out.suffix
-                else out / fl_name
-            )
+            # multi_file will add a prefix name to the file
+            pfx, *fl_name = fl_name.split('_', maxsplit=1)
+            fl_name = fl_name[0] if fl_name else pfx
+            pfx = prefix or ''
+            fl_name = f'{pfx}{fl_name}'
+            outfl = out / fl_name
             outfl.parent.mkdir(exist_ok=True, parents=True)
             outfl.write_bytes(data)
             paths.append(outfl)
@@ -1842,8 +2203,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         self.elem.refresh()
 
     def __iter__(self) -> Iterator[MapSeries]:
-        assert self.parent
-        pages = self.elem.selectedIndexFeatures
+        pages = range(1, self.elem.pageCount + 1)
         current = self.elem.currentPageNumber
         try:
             for page in pages:
@@ -1927,6 +2287,7 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
 
 # Reports export only allows a subset of PDF exporting
 type _RPTFormat = mpt.PDFFormat
+type _RPTFormatAlt = fmts.PDF
 _RPTFormatName = Literal['PDF']
 
 
@@ -1976,7 +2337,7 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: _RPTFormat | _RPTFormatName,
+               format: _RPTFormat | _RPTFormatAlt | _RPTFormatName,
                *,
                out: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1988,7 +2349,7 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
         ) -> tuple[bytes, ...]: ...
     @overload
     def export(self,
-               format: _RPTFormat | _RPTFormatName,
+               format: _RPTFormat | _RPTFormatAlt | _RPTFormatName,
                *,
                out: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
@@ -1999,7 +2360,7 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
                export_pages: mpt.ReportExportPages = ...,
         ) -> tuple[Path, ...]: ...
     def export(self,
-               format: _RPTFormat | _RPTFormatName,
+               format: _RPTFormat | _RPTFormatAlt | _RPTFormatName,
                *,
                out: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
@@ -2032,6 +2393,9 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
         if antialiasing:
             display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
             display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
 
         if type(format).__name__.endswith('Format'):
             suffix = type(format).__name__[:3].lower()
@@ -2107,6 +2471,9 @@ class Style(Element[None, None, Project]):
 
     def __repr__(self):
         return f'{type(self).__name__}({self.fullname})'
+
+    def __str__(self) -> str:
+        return self.fullname
 
     @property
     def items(self) -> ElementList[StyleItem]:
