@@ -195,7 +195,8 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
         self.elem = elem
         self.__elemattrs = set(dir(elem))
         self.parent = parent
-        self.type = type(elem)
+        self.mp_type = type(elem)
+        self.mp_type_name = self.mp_type.__name__
         self.name = _get_name(elem)
         self.uri = _get_uri(elem)
         self.unique_name = f'{self.name}:{self.uri}'
@@ -1233,7 +1234,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             GraphicElement(cast(mpt.GraphicElement, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'GraphicElement'
+            if e.mp_type_name == 'GraphicElement'
         )
 
     @property
@@ -1241,7 +1242,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             GroupElement(cast(mpt.GroupElement, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'GroupElement'
+            if e.mp_type_name == 'GroupElement'
         )
 
     @property
@@ -1249,7 +1250,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             MapFrame(cast(mpt.MapFrame, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'MapFrame'
+            if e.mp_type_name == 'MapFrame'
         )
 
     @property
@@ -1257,7 +1258,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             MapSurroundElement(cast(mpt.MapSurroundElement, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'MapSurroundElement'
+            if e.mp_type_name == 'MapSurroundElement'
         )
 
     @property
@@ -1265,7 +1266,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             PictureElement(cast(mpt.PictureElement, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'PictureElement'
+            if e.mp_type_name == 'PictureElement'
         )
 
     @property
@@ -1273,7 +1274,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             TableFrameElement(cast(mpt.TableFrameElement, e.elem), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'TableFrameElement'
+            if e.mp_type_name == 'TableFrameElement'
         )
 
     @property
@@ -1281,7 +1282,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         return ElementList(
             TextElement(cast(mpt.TextElement, e), self)
             for e in self.elements
-            if type(e.elem).__name__ == 'TextElement'
+            if e.mp_type_name == 'TextElement'
         )
 
     @property
@@ -1876,7 +1877,7 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
         return ElementList(
             ReportSection(sec.elem, self)
             for sec in self.sections
-            if type(sec.elem).__name__ == 'ReportSection'
+            if sec.mp_type_name == 'ReportSection'
         )
 
     @property
@@ -1884,7 +1885,7 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
         return ElementList(
             ReportLayoutSection(sec.elem, self)
             for sec in self.sections
-            if type(sec.elem).__name__ == 'ReportLayoutSection'
+            if sec.mp_type_name == 'ReportLayoutSection'
         )
 
     @property
