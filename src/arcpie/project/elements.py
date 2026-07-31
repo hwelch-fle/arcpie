@@ -228,6 +228,9 @@ def _get_uri(elem: MPElement) -> str:
     return str(cim['uRI'])
 
 
+# Used when we need to consume a callable but none exists
+def _noop(*args: Any, **kwargs: Any) -> None: ...
+
 # Allow any class that has these attributes to be used in geometry operations
 @runtime_checkable
 class HasCentroid(Protocol):
@@ -350,6 +353,11 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
     def cim_dict(self) -> dict[str, Any]:
         return json.loads(json.dumps(self.cim or '{}', cls=CIMJsonEncoder))
 
+    @property
+    def short_name(self) -> str:
+        """A short name for the Element (.name) if one exists"""
+        return getattr(self.elem, 'name', self.name)
+
     def __getattr__(self, name: str):
         try:
             return super().__getattribute__(name)
@@ -453,14 +461,14 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         return type(self)(super().copy())
 
     @overload
-    def unwrap(self, *, expects: Literal[1] = 1, panic: Literal[True] = True) -> E: ...  # type: ignore
+    def unwrap(self, expects: Literal[1] = 1, /, *, panic: Literal[True] = True) -> E: ...  # type: ignore
     @overload
-    def unwrap(self, *, expects: Literal[1] = 1, panic: Literal[False] = False) -> E | KeyError: ...
+    def unwrap(self, expects: Literal[1] = 1, /, *, panic: Literal[False] = False) -> E | KeyError: ...
     @overload
-    def unwrap(self, *, expects: int = ..., panic: Literal[True] = True) -> Self: ...
+    def unwrap(self, expects: int = ..., /, *, panic: Literal[True] = True) -> Self: ...
     @overload
-    def unwrap(self, *, expects: int = ..., panic: Literal[False] = False) -> Self | KeyError: ...
-    def unwrap(self, *, expects: int = 1, panic: bool = True) -> Self | E | KeyError:
+    def unwrap(self, expects: int = ..., /, *, panic: Literal[False] = False) -> Self | KeyError: ...
+    def unwrap(self, expects: int = 1, /, *, panic: bool = True) -> Self | E | KeyError:
         """Unwrap the ElementList and check to see if it has the expected number of items
 
         Args:
@@ -1130,12 +1138,12 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
-    def reference(self) -> SpatialReference:
+    def spatial_reference(self) -> SpatialReference:
         # Get custom ref or return default WGS84/4326
         return self.elem.spatialReference or SpatialReference('GCS_WGS_1984')
 
-    @reference.setter
-    def reference(self, reference: SpatialReference) -> None:
+    @spatial_reference.setter
+    def spatial_reference(self, reference: SpatialReference) -> None:
         self.elem.spatialReference = reference
 
     @property
@@ -1165,8 +1173,11 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
                 Layer(lay, self)
                 for lay in self.elem.listLayers()
                 if not lay.isGroupLayer
-            )
-        )
+        ))
+
+    @property
+    def broken_layers(self) -> ElementList[Layer]:
+        return self.layers_by_type('broken')
 
     @property
     def tables(self) -> ElementList[Table]:
@@ -1179,12 +1190,12 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def group_layers(self) -> ElementList[GroupLayer]:
-        return self._cached('group_layers', lambda: ElementList(
-            GroupLayer(lay, self)
-            for lay in self.elem.listLayers()
-            if lay.isGroupLayer
-        )
-    )
+        return self._cached('group_layers',
+            lambda: ElementList(
+                GroupLayer(lay, self)
+                for lay in self.elem.listLayers()
+                if lay.isGroupLayer
+        ))
 
     @property
     def mapx(self) -> bytes:
@@ -1192,6 +1203,18 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             mapx = Path(tmp) / f'{self.name}.mapx'
             self.elem.exportToMAPX(str(mapx))
             return mapx.read_bytes()
+
+    def layers_by_type(self, *types: LayerType, invert: bool = False) -> ElementList[Layer]:
+        """Matched layers must be of all provided types (or none of provided types if inverted)"""
+        types_set = set(types)
+        return ElementList(
+            lay for lay in self.layers
+            if (
+                lay.types.issuperset(types_set)
+                if not invert
+                else not lay.types.issuperset(types_set)
+            )
+        )
 
     @overload
     def add_layer(self, layer: Layer | mpt.Layer,
@@ -1272,6 +1295,16 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         self.refresh('tables')
         return Table(elem, self)
 
+    def remove(self, child: Layer | mpt.Layer | Table | mpt.Table | Bookmark | mpt.Bookmark) -> None:
+        child = child.elem if isinstance(child, Element) else child
+        child_type = type(child).__name__
+        {
+            'Layer': self.elem.removeLayer,
+            'Table': self.elem.removeTable,
+            'Bookmark': self.elem.removeBookmark,
+        }.get(child_type, _noop)(child)  # type: ignore
+        self.refresh(child_type.lower() + 's')
+
     def create_group(self, name: str,
                      *,
                      parent: GroupLayer | mpt.Layer | None = None) -> GroupLayer:
@@ -1289,8 +1322,8 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         """Clear all selections in the Map."""
         self.elem.clearSelection()
 
-    # def update_connection(self, ) -> None:
-    #     self.elem.updateConnectionProperties(...)
+    def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
+        self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def clip_to(self, layer: Layer | mpt.Layer, selected: bool = False) -> None:
         """Clip all layers in the map to the footprint of the input layer
@@ -1412,6 +1445,10 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
 
     @property
+    def group_type(self) -> mpt.GroupType:
+        return self.elem.groupType
+
+    @property
     def layers(self) -> ElementList[Layer]:
         return self._cached('layers',
             lambda: ElementList(
@@ -1465,44 +1502,142 @@ class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
         return outdir
 
 
+# Alternate type names so layer types can be given as a set
+LayerType = Literal[
+    '3d',
+    'basemap',
+    'broken',
+    'feature',
+    'graphics',
+    'group',
+    'network-analyst',
+    'network-dataset',
+    'parcel-fabric',
+    'raster',
+    'scene',
+    'time-enabled',
+    'topology',
+    'web',
+    # Special Types
+    'annotation-layer',
+    'annotation-sublayer',
+    'dimension-layer',
+    'terrain-layer',
+    'raster-catalog-layer',
+]
+LayerTypes: tuple[LayerType, ...] = LayerType.__args__
+
+
 class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
+
+    @property
+    def types(self) -> set[LayerType]:
+        """Get a set of string identifiers for the Layer Type"""
+        types = set[LayerType]()
+        elem = self.elem
+        if getattr(elem, 'is3DLayer', False):
+            types.add('3d')
+        if getattr(elem, 'isBasemapLayer', False):
+            types.add('basemap')
+        if getattr(elem, 'isBroken', False):
+            types.add('broken')
+        if getattr(elem, 'isFeatureLayer', False):
+            types.add('feature')
+        if getattr(elem, 'isGraphicsLayer', False):
+            types.add('graphics')
+        if getattr(elem, 'isGroupLayer', False):
+            types.add('group')
+        if getattr(elem, 'isNetworkAnalystLayer', False):
+            types.add('network-analyst')
+        if getattr(elem, 'isNetworkDatasetLayer', False):
+            types.add('network-dataset')
+        if getattr(elem, 'isParcelFabricLayer', False):
+            types.add('parcel-fabric')
+        if getattr(elem, 'isRasterLayer', False):
+            types.add('raster')
+        if getattr(elem, 'isSceneLayer', False):
+            types.add('scene')
+        if getattr(elem, 'isTimeEnabled', False):
+            types.add('time-enabled')
+        if getattr(elem, 'isTopologyLayer', False):
+            types.add('topology')
+        if getattr(elem, 'isWebLayer', False):
+            types.add('web')
+
+        # Special Cases (TODO: Fill out more of these as encountered)
+        if not types:
+            try:
+                cim_type = self.cim_type
+                if cim_type == 'CIMAnnotationLayer':
+                    types.add('annotation-layer')
+                if cim_type == 'CIMAnnotationSubLayer':
+                    types.add('annotation-sublayer')
+                if cim_type == 'CIMDimensionLayer':
+                    types.add('dimension-layer')
+                if cim_type == 'CIMProfileTerrain':
+                    types.add('terrain-layer')
+                if cim_type == 'CIMRasterCatalogLayer':
+                    types.add('raster-catalog-layer')
+                if not types:
+                    raise TypeError(f'{self} has unknown layer type: {cim_type}')
+            except json.JSONDecodeError:
+                return {'broken', }
+        return types
+
+    @property
+    def is_geographic(self) -> bool:
+        ref = self.spatial_reference
+        return ref == ref.GCS
+
+    @property
+    def is_projected_on_fly(self) -> bool:
+        return (
+            (pnt := self.parent) is not None and self.has_feature_class
+            and (
+                self.feature_class.spatial_reference != pnt.spatial_reference
+            )
+        )
+
+    @property
+    def spatial_reference(self) -> SpatialReference:
+        if self.parent:
+            return self.parent.spatial_reference
+        elif self.has_feature_class:
+            return self.feature_class.spatial_reference
+        else:
+            # Assume default WGS84 reference
+            return SpatialReference(4326)
 
     @property
     def feature_class(self) -> fc.FeatureClass:
         """Get the associated FeatureClass object for the layer
 
-        Raises:
-            ConnectionError: If the layer has no FeatureClass (e.g. Raster/TileLayer)
+        validating connections is slow, so use `has_feature_class` if you need a guard
         """
-        # Access the fields to force an exception if the layer has no featureclass
-        try:
-            feature_class = fc.FeatureClass.from_layer(self.elem)
-        except (RuntimeError, AttributeError) as exc:
-            raise ConnectionError(f'{self.name} has no associated FeatureClass') from exc
-        return feature_class
+        return fc.FeatureClass.from_layer(self.elem)
 
     @property
     def has_feature_class(self) -> bool:
         """Check to see if the Layer has a valid FeatureClass association"""
-        try:
-            _ = self.feature_class
-            return True
-        except ConnectionError:
-            return False
+        return 'feature' in self.types and fc.FeatureClass.from_layer(self.elem).exists
 
     @property
-    def cim_dict(self) -> dict[str, Any]:
-        cim_dict = super().cim_dict
+    def relative_cim_dict(self) -> dict[str, Any]:
+        """A copy of the CIM data with dataConnections made relative to the project"""
+        cim_dict = self.cim_dict
         # Convert absolute paths to relative databases into relative paths
-        # This allows sharing layers bw projects with the same structure
+        # This allows sharing layers b/w projects with the same structure
         if (
             (ft := cim_dict.get('featureTable'))
-            and (conn := ft.get('dataConnection'))
-            and (ws_conn := conn.get('workspaceConnectionString'))
-            and (fc := self.feature_class)
+            and (conn := cast(dict[str, Any], ft.get('dataConnection')))
+            and (ws_conn := str(conn.get('workspaceConnectionString')))
+            and conn.get('workspaceFactory') == 'FileGDB'
+            and (feature_class := self.feature_class)
         ):
-            cur_path = Path(ws_conn.replace('DATABASE=', ''))
-            database = Path(fc.workspace)
+            if not ws_conn.startswith('DATABASE='):
+                return self.cim_dict
+            cur_path = Path(ws_conn[9:])
+            database = Path(feature_class.path).parent
             if cur_path.is_absolute() and cur_path.is_relative_to(database.parent):
                 conn['workspaceConnectionString'] = f'DATABASE={cur_path.relative_to(database.parent)}'
         return cim_dict
@@ -1513,6 +1648,15 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         lyrx['type'] = 'CIMLayerDocument'
         lyrx['layers'] = [self.uri]
         lyrx['layerDefinitions'] = [self.cim_dict]
+        return lyrx
+
+    @property
+    def relative_lyrx(self) -> dict[str, Any]:
+        """A copy of the lyrx with relative pathing for dataConnections"""
+        lyrx = dict[str, Any]()
+        lyrx['type'] = 'CIMLayerDocument'
+        lyrx['layers'] = [self.uri]
+        lyrx['layerDefinitions'] = [self.relative_cim_dict]
         return lyrx
 
     @property
@@ -1536,6 +1680,28 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
     @property
     def selection(self) -> set[int]:
         return set(self.feature_class['OID@'])
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.elem.metadata
+
+    @metadata.setter
+    def metadata(self, metadata: Metadata) -> None:
+        self.elem.metadata = metadata
+
+    @property
+    def connection_properties(self) -> dict[str, Any]:
+        return self.elem.connectionProperties
+
+    @property
+    def elvation(self) -> mpt.LayerElevation:
+        if self.elem.supports('ELEVATION'):
+            return self.elem.elevation
+        raise AttributeError(f'{self} does not support elevation')
+
+    def delete(self) -> None:
+        if self.parent:
+            self.parent.remove(self)
 
     @contextmanager
     def query_as(self, query: str | None):
@@ -1592,13 +1758,13 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
     def select_all(self) -> Self:
         return self.select(method='ALL')
 
-    def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
+    def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2, relative: bool = True) -> Path:
         outdir = Path(outdir)
         name = name or self.name
         outdir = outdir / name
         outdir = outdir.with_suffix('.lyrx')
         outdir.parent.mkdir(exist_ok=True, parents=True)
-        outdir.write_text(json.dumps(self.lyrx, indent=indent))
+        outdir.write_text(json.dumps(self.relative_lyrx if relative else self.lyrx, indent=indent))
         return outdir
 
     def export_csv(self, outdir: Path | str,
@@ -1746,7 +1912,33 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         return outfile
 
 
-class ElevationSurface(Element[mpt.ElevationSurface, cim.CIMLayerElevationSurface, Map]): ...
+class ElevationSurface(Element[mpt.ElevationSurface, cim.CIMLayerElevationSurface, Map]):
+
+    @property
+    def map(self) -> Map:
+        if not self.parent:
+            raise AttributeError(f'{self} has no associated Map')
+        return self.parent
+
+    @property
+    def has_map(self) -> bool:
+        return self.parent is not None
+
+    @property
+    def vertical_exaggeration(self) -> float:
+        return self.elem.verticalExaggeration
+
+    @vertical_exaggeration.setter
+    def vertical_exaggeration(self, ve: float) -> None:
+        self.elem.verticalExaggeration = ve
+
+    @property
+    def elevation_sources(self) -> ElementList[ElevationSource]:
+        return self._cached('elevation_sources',
+            lambda: ElementList(
+                ElevationSource(es, self.map.parent if self.has_map else None)
+                for es in self.elem.listElevationSources()
+        ))
 
 
 class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
@@ -2330,7 +2522,39 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         )
 
 
-class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, MapFrame]): ...
+class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, Map]):
+
+    @property
+    def description(self) -> str:
+        return self.elem.description
+
+    @description.setter
+    def description(self, description: str) -> None:
+        self.elem.description = description
+
+    @property
+    def map(self) -> Map:
+        if not self.has_map:
+            raise AttributeError(f'{self} has no associated Map')
+        if self.parent:
+            return self.parent
+        else:
+            assert self.elem.map
+            return Map(self.elem.map, None)
+
+    @property
+    def has_map(self) -> bool:
+        return (self.parent or self.elem.map) is not None
+
+    @property
+    def has_thumbnail(self) -> bool:
+        return self.elem.hasThumbnail
+
+    def update_thumbnail(self) -> None:
+        self.elem.updateThumbnail()
+
+    def set_name(self, name: str) -> None:
+        self.elem.name = name
 
 
 class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries, Layout]):
@@ -2358,7 +2582,7 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
         if not self.has_current_bookmark:
             raise AttributeError(f'{self} has no current Bookmark')
         assert self.elem.currentBookmark
-        return Bookmark(self.elem.currentBookmark, self.map_frame)
+        return Bookmark(self.elem.currentBookmark, self.map_frame.map)
 
     @property
     def has_current_bookmark(self) -> bool:
@@ -2368,7 +2592,7 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
     def bookmarks(self) -> ElementList[Bookmark]:
         return self._cached('bookmarks',
             lambda: ElementList(
-                Bookmark(b, self.map_frame)
+                Bookmark(b, self.map_frame.map)
                 for b in self.elem.bookmarks
             )
         )
@@ -2391,6 +2615,10 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
     @current_page_number.setter
     def current_page_number(self, number: int) -> None:
         self.elem.currentPageNumber = number
+
+    def reload(self) -> None:
+        """Reload the BookmarkMapseries. Alias of `refresh` since `refresh` is used for cache."""
+        self.elem.refresh()
 
 
 # Reports export only allows a subset of PDF exporting
@@ -2711,12 +2939,56 @@ class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLa
 class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]):
 
     @property
+    def group(self) -> GroupElement | None:
+        if self.elem.parentGroupElement:
+            return GroupElement(self.elem.parentGroupElement, self.parent)
+
+    @property
+    def type(self) -> mpt.ElementType:
+        return cast(mpt.ElementType, self.elem.type)
+
+    @property
     def visible(self) -> bool:
         return self.elem.visible
 
     @visible.setter
     def visible(self, visible: bool) -> None:
         self.elem.visible = visible
+
+    @property
+    def height(self) -> float:
+        return self.elem.elementHeight
+
+    @height.setter
+    def height(self, height: float) -> None:
+        self.elem.elementHeight = height
+
+    @property
+    def width(self) -> float:
+        return self.elem.elementWidth
+
+    @width.setter
+    def width(self, width: float) -> None:
+        self.elem.elementWidth = width
+
+    @property
+    def anchor(self) -> mpt.Anchor:
+        return self.elem.anchor
+
+    @anchor.setter
+    def anchor(self, anchor: mpt.Anchor) -> None:
+        self.elem.setAnchor(anchor)
+
+    @property
+    def rotation(self) -> float:
+        if not isinstance(self, TableFrameElement):
+            return self.elem.elementRotation  # type: ignore
+        return 0.0
+
+    @rotation.setter
+    def rotation(self, rotation: float) -> None:
+        if not isinstance(self, TableFrameElement):
+            self.elem.elementRotation = rotation  # type: ignore
 
     @property
     def x(self) -> float:
@@ -2733,6 +3005,14 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
     @y.setter
     def y(self, y: float) -> None:
         self.elem.elementPositionY = y
+
+    @property
+    def locked(self) -> bool:
+        return self.elem.locked
+
+    @locked.setter
+    def locked(self, locked: bool) -> None:
+        self.elem.locked = locked
 
     def set_name(self, name: str) -> None:
         """Since `name` is used as the unique identifier for the Elements (longName)
@@ -2758,13 +3038,90 @@ class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame])
 
 class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
 
+    def apply_style(self, style_item: StyleItem | mpt.StyleItem) -> None:
+        if isinstance(style_item, Element):
+            style_item = style_item.elem
+        self.elem.applyStyleItem(style_item)
+
     def clone(self, name: str | None = None) -> Self:
         new = type(self)(self.elem.clone(), self.parent)
-        new.name = name or new.name
+        new.set_name(name or new.name)
         return new
 
 
-class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]): ...
+class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
+
+    @property
+    def elements(self) -> ElementList[LayoutElement[Any, Any]]:
+        return self._cached('elements',
+            lambda: ElementList(
+                LayoutElement[Any, Any](elem, self.parent)
+                for elem in self.elem.elements
+        ))
+
+    @property
+    def graphic_elements(self) -> ElementList[GraphicElement]:
+        return ElementList(
+            GraphicElement(cast(mpt.GraphicElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'GRAPHIC_ELEMENT'
+        )
+
+    @property
+    def group_elements(self) -> ElementList[GroupElement]:
+        return ElementList(
+            GroupElement(cast(mpt.GroupElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'GROUP_ELEMENT'
+        )
+
+    @property
+    def legend_elements(self) -> ElementList[LegendElement]:
+        return ElementList(
+            LegendElement(cast(mpt.LegendElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'LEGEND_ELEMENT'
+        )
+
+    @property
+    def map_frames(self) -> ElementList[MapFrame]:
+        return ElementList(
+            MapFrame(cast(mpt.MapFrame, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'MAPFRAME_ELEMENT'
+        )
+
+    @property
+    def map_surround_elements(self) -> ElementList[MapSurroundElement]:
+        return ElementList(
+            MapSurroundElement(cast(mpt.MapSurroundElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'MAPSURROUND_ELEMENT'
+        )
+
+    @property
+    def picture_elements(self) -> ElementList[PictureElement]:
+        return ElementList(
+            PictureElement(cast(mpt.PictureElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'PICTURE_ELEMENT'
+        )
+
+    @property
+    def table_frame_elements(self) -> ElementList[TableFrameElement]:
+        return ElementList(
+            TableFrameElement(cast(mpt.TableFrameElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'TABLEFRAME_ELEMENT'
+        )
+
+    @property
+    def text_elements(self) -> ElementList[TextElement]:
+        return ElementList(
+            TextElement(cast(mpt.TextElement, elem), self.parent)
+            for elem in self.elements
+            if elem.type == 'TEXT_ELEMENT'
+        )
 
 
 class LegendElement(LayoutElement[mpt.LayoutElement, cim.CIMLegend]): ...
@@ -2777,14 +3134,15 @@ class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
 
     def clone(self, name: str | None = None) -> Self:
         new = type(self)(self.elem.clone(), self.parent)
-        new.name = name or new.name
+        new.set_name(name or new.name)
         return new
 
 
 # Remove after testing
 if __name__ == '__main__':
     prj = Project(r"C:\Users\hwelch\Desktop\Louetta 8.20\Louetta 8.20.aprx")
-    p1 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\1.aprx")
-    p2 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\2.aprx")
+    # p1 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\1.aprx")
+    # p2 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\2.aprx")
 
-    lay = p1.layouts['9 - PlanView - PD'][0]
+    dm = prj.maps['Design Map$'].unwrap()
+    span = dm.layers['Span$'].unwrap()
