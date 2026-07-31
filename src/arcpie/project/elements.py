@@ -726,7 +726,8 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def color_ramps(self) -> list[mp.ColorRamp]:
         return self.elem.listColorRamps()
 
-    def update_connection(self): ...
+    def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False):
+        self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'MAPS_AND_LAYOUTS', wildcard: str | None = None) -> None:
         if not self._is_current:
@@ -1515,6 +1516,16 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         return lyrx
 
     @property
+    def datasource(self) -> str:
+        return self.elem.dataSource
+
+    @datasource.setter
+    def datasource(self, source: str | fc.FeatureClass) -> None:
+        if isinstance(source, fc.FeatureClass):
+            source = source.path
+        self.update_connection(source)
+
+    @property
     def definition_query(self):
         return self.elem.definitionQuery
 
@@ -1537,6 +1548,9 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
 
     def __len__(self) -> int:
         return len(self.feature_class)
+
+    def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
+        self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def select(self,
                *,
