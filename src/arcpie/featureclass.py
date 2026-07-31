@@ -19,6 +19,7 @@ from typing import (
     Literal,
     Self,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -496,6 +497,22 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         return self.search_cursor(*self.fields)._dtype  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def is_web(self) -> bool:
+        """Determine if the FeatureClass is pointing at a web FeatureServer"""
+        return self.path.startswith('http') and 'FeatureServer' in self.path.split('/')
+
+    @property
+    def exists(self) -> bool:
+        # Opening a Cursor on a FeatureServer is slow. Just assume weblayers exist
+        if self.is_web:
+            return True
+        try:
+            _ = self.search_cursor('OID@').fields
+            return True
+        except Exception:
+            return False
+
+    @property
     def py_types(self) -> dict[str, type]:
         """Get a mapping of fieldnames to python types for the Table"""
         return convert_dtypes(self.np_dtypes)
@@ -933,7 +950,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             fc.clause = self.clause
         return fc
 
-    def exists(self) -> bool:
+    def _exists(self) -> bool:
         """Check if the Table or FeatureClass actually exists (check for deletion or initialization with bad path)"""
         return Exists(str(self))
 
@@ -1255,11 +1272,11 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `Table or FeatureClass[Polygon]('path')`"""
-        return f"{self.__class__.__name__}('{self.__fspath__()}')"
+        return f"{type(self).__name__}({self})"
 
     def __str__(self) -> str:
         """Return the `Table` or `FeatureClass` path for use with other arcpy methods"""
-        return self.__fspath__()
+        return self.__fspath__() if self.is_web else self.path
 
     def __eq__(self, other: Any) -> bool:
         """Determine if the datasource of two featureclass objects is the same"""
@@ -1711,7 +1728,21 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         for shape in self.shapes:
             return type(shape)
         else:
-            return Geometry  # type: ignore
+            # Fallback to describe if quick shape access fails (no features)
+            s_type_name = self.describe.shapeType.lower()
+            if s_type_name == 'polygon':
+                s_type = Polygon
+            elif s_type_name == 'polyline':
+                s_type = Polyline
+            elif s_type_name == 'point':
+                s_type = PointGeometry
+            elif s_type_name == 'multipoint':
+                s_type = Multipoint
+            elif s_type_name == 'multipatch':
+                s_type = Multipatch
+            else:
+                s_type = Geometry
+        return cast(type[GeoType], s_type)
 
     @property
     def describe(self) -> dt.FeatureClass:  # pyright: ignore[reportIncompatibleMethodOverride]
