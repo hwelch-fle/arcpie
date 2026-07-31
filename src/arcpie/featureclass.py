@@ -2134,30 +2134,49 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """
-        fc = cls(layer.dataSource)
+        try:
+            fc = cls(layer.dataSource)
+            fc._layer = layer
+        except Exception as e:
+            cim_def = layer.getDefinition('V3')
+            conn: object = cast(object, cim_def.featureTable.dataConnection)  # type: ignore
+            f_ds = getattr(conn, 'featureDataset', '')
+            f_name = getattr(conn, 'dataset', '')
+            db = getattr(conn, 'workspaceConnectionString', '')
+            if not f_name:
+                raise e
+            dataSource = Path(db) / f_ds / f_name
+            fc = cls(dataSource)
+            fc._layer = layer
 
-        selected_ids: set[int] | None = (
-            layer.getSelectionSet() or None
-            if not ignore_selection
-            else None
-        )
-        definition_query: str | None = (
-            layer.definitionQuery or None
-            if not ignore_def_query
-            else None
-        )
-        selection: str | None = (
-            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
-            if selected_ids
-            else None
-        )
+        try:
+            selected_ids: set[int] | None = (
+                layer.getSelectionSet() or None
+                if not ignore_selection
+                else None
+            )
+            definition_query: str | None = (
+                layer.definitionQuery or None
+                if not ignore_def_query
+                else None
+            )
+            selection: str | None = (
+                f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
+                if selected_ids
+                else None
+            )
+        except AttributeError:
+            # Layer is technically invalid, but we want to allow
+            # creation anyways (user can validate later with `exists`)
+            definition_query = None
+            selected_ids = None
+            selection = None
 
         if (query_components := list(filter(None, [definition_query, selection]))):
             where_clause = ' AND '.join(query_components)
             fc.search_options = SearchOptions(where_clause=where_clause)
             fc.update_options = UpdateOptions(where_clause=where_clause)
 
-        fc.layer = layer
         return fc
 
     def copy(self) -> FeatureClass[GeoType, Schema]:
