@@ -374,23 +374,30 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
         return diff
 
 
+class UnwrapError(KeyError):
+    def __init__(self, expects: int, have: int):
+        super().__init__(f'expected {expects}: have {have}')
+        self.expects = expects
+        self.have = have
+
+
 class ElementList[E: Element[Any, Any, Any]](list[E]):
     """Simple list wrapper that allows accessing elements from a list by name/uRI."""
 
     @overload
     def __getitem__(self, i: SupportsIndex, /) -> E: ...
     @overload
-    def __getitem__(self, s: slice, /) -> list[E]: ...
+    def __getitem__(self, s: slice, /) -> Self: ...
     @overload
-    def __getitem__(self, key: str, /) -> list[E]: ...
+    def __getitem__(self, key: str, /) -> Self: ...
     @overload
-    def __getitem__(self, key: re.Pattern[str], /) -> list[E]: ...
-    def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | list[E]:
+    def __getitem__(self, key: re.Pattern[str], /) -> Self: ...
+    def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | Self:
         if isinstance(key, (str, re.Pattern)):
-            matches = []
+            matches = type(self)()
             # Attempt direct name/uri/short name match
             if isinstance(key, str):
-                matches = [
+                matches = type(self)(
                     elem for elem in self
                     if key in
                         (
@@ -401,20 +408,22 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
                             # shortName
                             elem.name.split('\\')[-1],
                         )
-                ]
+                )
             # Fallback to checking re.Pattern or a "pattern like" string
             if not matches and (
                 isinstance(key, re.Pattern)
                 or any(op in key for op in ('*', '.', '^', '?', '$', '|'))
             ):
                 pat = re.compile(key)
-                matches = [
+                matches = type(self)(
                     elem for elem in self
                     if pat.search(elem.name)
-                ]
+                )
             if not matches:
                 raise IndexError(f'No elements with name {key} found')
             return matches
+        if isinstance(key, slice):
+            return type(self)(super().__getitem__(key))
         return super().__getitem__(key)
 
     def __contains__(self, key: Any) -> bool:
@@ -424,9 +433,9 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         except IndexError:
             return False
 
-    def filter(self, cond: Callable[[E], bool]) -> list[E]:
+    def filter(self, cond: Callable[[E], bool]) -> Self:
         """Filter elements in the list using the provided function"""
-        return [e for e in self if cond(e)]
+        return type(self)(e for e in self if cond(e))
 
     def get[D](self, key: str, default: D = None, /) -> list[E] | D:
         """Only works when indexing the list with a string name"""
@@ -438,6 +447,59 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
 
     def copy(self) -> ElementList[E]:
         return type(self)(super().copy())
+
+    @overload
+    def unwrap(self, *, expects: Literal[1] = 1, panic: Literal[True] = True) -> E: ...  # type: ignore
+    @overload
+    def unwrap(self, *, expects: Literal[1] = 1, panic: Literal[False] = False) -> E | KeyError: ...
+    @overload
+    def unwrap(self, *, expects: int = ..., panic: Literal[True] = True) -> Self: ...
+    @overload
+    def unwrap(self, *, expects: int = ..., panic: Literal[False] = False) -> Self | KeyError: ...
+    def unwrap(self, *, expects: int = 1, panic: bool = True) -> Self | E | KeyError:
+        """Unwrap the ElementList and check to see if it has the expected number of items
+
+        Args:
+            expects: The number of elements you expect to have (default: `1`)
+                if the number of expected elements is 1, a single element is requrned.
+            panic: If set to `False`, the Exception is returned instead of raised (default: `True`)
+
+        Returns:
+            Element: if `expects` is 1
+            Self: if `expects` is > 1 and `expects` == length
+            UnwrapError: (KeyError subclass) if `expects` != length and `panic` is `False`
+
+        Raises:
+            UnwrapError: (KeyError subclass) `expects` != length and `panic` is `True`
+
+        Example:
+            ```python
+            >>> prj = Project(...)
+            >>> mp = prj.maps['My Map'].unwrap()
+            >>> mp
+            Map(My Map)
+            >>> mp = prj.maps['Duplicate Map'].unwrap()
+            Traceback (most recent call last):
+                File ...
+            UnwrapError: 'expected 1: have 2'
+            >>> mp = prj.maps['Duplicate Map'].unwrap(panic=False)
+            >>> mp
+            UnwrapError('expected 1: have 2')
+            >>> mp = prj.maps['Duplicate Map'].unwrap(expects=2)
+            >>> mp
+            [Map(Duplicate Map), Map(Duplicate Map)]
+            ```
+        """
+        if len(self) == expects:
+            if expects == 1:
+                return self[0]
+            else:
+                return self
+        exc = UnwrapError(expects, len(self))
+        if not panic:
+            return exc
+        else:
+            raise exc
 
 
 class ToolboxConf(TypedDict):
