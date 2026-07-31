@@ -381,12 +381,34 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
     def __getitem__(self, key: re.Pattern[str], /) -> list[E]: ...
     def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | list[E]:
         if isinstance(key, (str, re.Pattern)):
-            if matches := (
-                [e for e in self if e.name == key or e.uri == key or str(key) in e.name]
-                or [e for e in self if re.search(key, e.name)]
+            matches = []
+            # Attempt direct name/uri/short name match
+            if isinstance(key, str):
+                matches = [
+                    elem for elem in self
+                    if key in
+                        (
+                            # longName ?
+                            elem.name,
+                            # CIM path
+                            elem.uri,
+                            # shortName
+                            elem.name.split('\\')[-1],
+                        )
+                ]
+            # Fallback to checking re.Pattern or a "pattern like" string
+            if not matches and (
+                isinstance(key, re.Pattern)
+                or any(op in key for op in ('*', '.', '^', '?', '$', '|'))
             ):
-                return matches
-            raise IndexError(f'No elements with name {key} found')
+                pat = re.compile(key)
+                matches = [
+                    elem for elem in self
+                    if pat.search(elem.name)
+                ]
+            if not matches:
+                raise IndexError(f'No elements with name {key} found')
+            return matches
         return super().__getitem__(key)
 
     def __contains__(self, key: Any) -> bool:
