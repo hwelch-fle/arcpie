@@ -132,6 +132,12 @@ __all__ = (  # noqa: RUF022 (We want the MPElement union to match)
 )
 
 
+# QOL str/repr patches for SpatialReference
+# Seeing WKID and Name are more useful than memory address
+SpatialReference.__str__ = lambda self: self.name
+SpatialReference.__repr__ = lambda self: f'{type(self).__name__}({self.factoryCode})'
+
+
 type MPElement = (
     mpt.ArcGISProject
     | mpt.Map
