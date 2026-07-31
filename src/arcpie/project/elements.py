@@ -329,6 +329,10 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
             self.cache.clear()
 
     @property
+    def cim_type(self) -> str:
+        return type(self.cim).__name__
+
+    @property
     def cim(self) -> CIMDef:
         elem = self.elem
         if _cimless(elem):
