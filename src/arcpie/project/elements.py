@@ -56,13 +56,16 @@ from types import TracebackType
 from typing import (
     TYPE_CHECKING,
     Any,
+    ClassVar,
     Literal,
+    NamedTuple,
     Never,
     Protocol,
     Self,
     SupportsIndex,
     TypedDict,
     TypeIs,
+    Unpack,
     cast,
     overload,
     runtime_checkable,
@@ -70,9 +73,10 @@ from typing import (
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import arcpy._mp as mpt
+import arcpy.charts as cht
 import arcpy.cim as cim
 import arcpy.mp as mp
-from arcpy import Point, Polygon, Polyline, SpatialReference
+from arcpy import Extent, Point, Polygon, Polyline, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
 
@@ -102,34 +106,10 @@ else:
         {'__getattr__': lambda s, n: object}
     )()
 
+from arcpy._symbology import Symbology
 from arcpy.metadata import Metadata
 
-__all__ = (  # noqa: RUF022 (We want the MPElement union to match)
-    'Project',
-    'Map',
-    'Layer',
-    'Table',
-    'ElevationSurface',
-    'Layout',
-    'MapFrame',
-    'MapSeries',
-    'Bookmark',
-    'BookmarkMapSeries',
-    'Report',
-    'ElevationSource',
-    'StyleItem',
-    # LayoutElements
-    'MapSurroundElement',
-    'TableFrameElement',
-    'GraphicElement',
-    'GroupElement',
-    'LegendElement',
-    'PictureElement',
-    'TextElement',
-    # ReportSections
-    'ReportSection',
-    'ReportLayoutSection',
-)
+__all__ = ('Project',)
 
 
 # QOL str/repr patches for SpatialReference
@@ -153,6 +133,7 @@ type MPElement = (
     | mpt.Report
     | mpt.ElevationSource
     | mpt.StyleItem
+    | mpt.LabelClass
     # LayoutElements
     | mpt.MapSurroundElement
     | mpt.TableFrameElement
@@ -166,6 +147,77 @@ type MPElement = (
     | mpt.ReportLayoutSection
     | None
 )
+
+type Chart = (
+    cht.Bar
+    | cht.Box
+    | cht.CalendarHeat
+    | cht.Combo
+    | cht.DataClock
+    | cht.Histogram
+    | cht.Line
+    | cht.MatrixHeat
+    | cht.Pie
+    | cht.QQPlot
+    | cht.Scatter
+    | cht.ScatterMatrix
+)
+ChartType = Literal[
+    'Bar',
+    'Box',
+    'CalendarHeat',
+    'Combo',
+    'DataClock',
+    'Histogram',
+    'Line',
+    'MatrixHeat',
+    'Pie',
+    'QQPlot',
+    'Scatter',
+    'ScatterMatrix',
+]
+ChartTypes: tuple[ChartType, ...] = ChartType.__args__
+
+
+class ChartMap(TypedDict):
+    Bar: list[cht.Bar]
+    Box: list[cht.Box]
+    CalendarHeat: list[cht.CalendarHeat]
+    Combo: list[cht.Combo]
+    DataClock: list[cht.DataClock]
+    Histogram: list[cht.Histogram]
+    Line: list[cht.Line]
+    MatrixHeat: list[cht.MatrixHeat]
+    Pie: list[cht.Pie]
+    QQPlot: list[cht.QQPlot]
+    Scatter: list[cht.Scatter]
+    ScatterMatrix: list[cht.ScatterMatrix]
+
+
+type MapLike = Map | mpt.Map
+type MapViewLike = MapView | mpt.MapView
+type LayerLike = Layer | mpt.Layer
+type GroupLayerLike = GroupLayer | mpt.Layer
+type TableLike = Table | mpt.Table
+type ElevationSurfaceLike = ElevationSurface | mpt.ElevationSurface
+type LayoutLike = Layout | mpt.Layout
+type MapFrameLike = MapFrame | mpt.MapFrame
+type MapSeriesLike = MapSeries | mpt.MapSeries
+type BookmarkLike = Bookmark | mpt.Bookmark
+type BookmarkMapSeriesLike = BookmarkMapSeries | mpt.BookmarkMapSeries
+type ReportLike = Report | mpt.Report
+type ElevationSourceLike = ElevationSource | mpt.ElevationSource
+type StyleItemLike = StyleItem | mpt.StyleItem
+type LabelClassLike = LabelClass | mpt.LabelClass
+type MapSurroundElementLike = MapSurroundElement | mpt.MapSurroundElement
+type TableFrameElementLike = TableFrameElement | mpt.TableFrameElement
+type GraphicElementLike = GraphicElement | mpt.GraphicElement
+type GroupElementLike = GroupElement | mpt.GroupElement
+type LegendElementLike = LegendElement | mpt.LegendElement
+type PictureElementLike = PictureElement | mpt.PictureElement
+type TextElementLike = TextElement | mpt.TextElement
+type ReportSectionLike = ReportSection | mpt.ReportSection
+type ReportLayoutSectionLike = ReportLayoutSection | mpt.ReportLayoutSection
 
 
 def _get_props(elem: MPElement, *attrs: str) -> dict[str, Any]:
@@ -257,8 +309,7 @@ type _NoCIM = (
 
 
 def _cimless(obj: Any) -> TypeIs[_NoCIM]:
-    return type(obj).__name__ in frozenset(
-        {
+    return type(obj).__name__ in frozenset({
             'ArcGISProject',
             'MapView',
             'ElevationSurface',
@@ -271,18 +322,30 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
 
 
 # Element takes Base arcpy.mp element, cim definition (from `getDefinition`) and parent type
-class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None]:
+class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
     def __init__(self, elem: MPElem, parent: Parent | None = None) -> None:
         self.elem = elem
         self.__elemattrs = set(dir(elem))
         self.parent = parent
+        self.children = ElementList[Element[Any, Any, Any]]()
         self.mp_type = type(elem)
         self.mp_type_name = self.mp_type.__name__
-        self.name = _get_name(elem)
         self.uri = _get_uri(elem)
         self.unique_name = f'{self.name}:{self.uri}'
         self.cache = dict[str, Any]()
         self._cache_enabled = True
+        if parent is not None:
+            parent.children.append(self)
+            self._cache_enabled = parent.cache_enabled
+
+    @property
+    def name(self):
+        return _get_name(self.elem)
+
+    @name.setter
+    def name(self, name: str) -> None:
+        if hasattr(self.elem, 'name'):
+            self.elem.name = name  # type: ignore
 
     def _cached[T](self, attr: str, default: Callable[[], T] | None = None) -> T:
         if default and not self._cache_enabled:
@@ -303,9 +366,16 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
         """
         if not props:
             self.cache.clear()
+            self.children.clear()
             return
+        orphans = set[Element[Any, Any, Self]]()
         for prop in props:
-            self.cache.pop(prop, None)
+            for orphan in self.cache.pop(prop, []):
+                orphans.add(orphan)
+        self.children = ElementList(
+            chld for chld in self.children
+            if chld not in orphans
+        )
 
     @property
     def cache_enabled(self) -> bool:
@@ -327,6 +397,8 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
     def cache_enabled(self, cache_enabled: bool) -> None:
         """Enable or disable cache for this Element (default: enabled)"""
         self._cache_enabled = cache_enabled
+        for child in self.children:
+            child.cache_enabled = cache_enabled
         if not cache_enabled:
             # Invalidate the cache when it is explicitly disabled
             self.cache.clear()
@@ -367,7 +439,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element[Any, Any] | None = None
             raise
 
     def __repr__(self) -> str:
-        return f'{type(self).__name__}({self.name if not self.name.startswith('ID:0x') else self.parent})'
+        return f'{type(self).__name__}({self.short_name if not self.name.startswith('ID:0x') else self.parent})'
 
     def __eq__(self, other: Any) -> bool:
         return super().__eq__(other) or (isinstance(other, type(self)) and self.elem == other.elem)
@@ -439,11 +511,7 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         return super().__getitem__(key)
 
     def __contains__(self, key: Any) -> bool:
-        try:
-            self[key]
-            return True
-        except IndexError:
-            return False
+        return super().__contains__(key) or self.get(key) is not None
 
     def filter(self, cond: Callable[[E], bool]) -> Self:
         """Filter elements in the list using the provided function"""
@@ -536,18 +604,79 @@ class ReportStatConf(TypedDict):
     statistic: Literal['COUNT', 'MEAN', 'SUM', 'STD_DEV', 'MAX', 'MIN']
 
 
+class _ClosedProject:
+    """Replaces Project.elem when Project.close is called"""
+    def __init__(self, path: str) -> None:
+        self.isReadOnly = True
+        self.filePath = path
+
+    def __getattr__(self, name: str) -> Any:
+        raise PermissionError(f'{self.filePath} is closed')
+
+
 class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
+    """ArcGISProject wrapper
+
+    [ESRI Documentation](https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/arcgisproject-class.html)
+
+    A wrapper for the `mp.ArcGISProject` class that converts all child elements to wrapped elements.
+    All methods of base object can be accessed using `project.elem` or directly called if they have
+    no implemented wrapper version.
+
+    Example:
+        ```python
+        >>> prj = Project(...)
+        >>> prj.maps
+        [Map(Map 1), Map(Map 2)]
+        >>> with prj:
+        ...     prj.maps['Map 1'].unwrap().set_name('My Map')
+        >>> prj.reopen()
+        >>> prj.maps
+        [Map(My Map), Map(Map 2)]
+        ```
+    """
 
     # Need to override Element.__init__ since ArcGISProject objects are special
-    def __init__(self, aprx: Path | str | None) -> None:
-        super().__init__(
-            mp.ArcGISProject(str(aprx) if aprx else 'CURRENT'), None
-        )
-        self._is_current = aprx is not None
+    def __init__(self, aprx: Path | str | Literal['CURRENT'] | None = None, *, cached: bool = True) -> None:
+        self.__aprx = aprx or 'CURRENT'
+        self.open()  # Assigns elem
+        self.elem: mp.ArcGISProject
+        super().__init__(self.elem, None)
+        self.cache_enabled = cached
+        self.__is_open = True
         self.name = self.path.name
+
+    def open(self) -> None:
+        if self.is_current:
+            return
+        prj = mp.ArcGISProject(str(self.__aprx))
+        self.__is_open = True
+        self.elem = prj
+
+    def close(self) -> None:
+        if self.is_current or not self.is_open:
+            return
+        self.elem = _ClosedProject(str(self.path))  # type: ignore
+        self.refresh()
+        self.children.clear()
+        self.__is_open = False
+
+    def reopen(self) -> None:
+        if self.is_current:
+            return
+        self.close()
+        self.open()
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.path})'
+
+    @property
+    def is_open(self) -> bool:
+        return self.__is_open
+
+    @property
+    def is_current(self) -> bool:
+        return self.__aprx == 'CURRENT'
 
     @property
     def is_read_only(self) -> bool:
@@ -683,8 +812,8 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         raise AttributeError(f'{self} has no avtive view')
 
     @active_view.setter
-    def active_view(self, view: MapView | mpt.MapView | Layout | mpt.Layout | Report | mpt.Report) -> None:
-        if not self._is_current:
+    def active_view(self, view: MapViewLike | LayoutLike | ReportLike) -> None:
+        if not self.is_current:
             raise AttributeError('Can only set the view on an actve project initialized with "CURRENT"')
         if isinstance(view, Element):
             view = view.elem
@@ -738,7 +867,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'MAPS_AND_LAYOUTS', wildcard: str | None = None) -> None:
-        if not self._is_current:
+        if not self.__is_current:
             raise PermissionError(f'{self} was not initialized as `CURRENT` and has no views to close')
         if view_type == 'ALL':
             self.elem.closeViews('MAPS_AND_LAYOUTS', wildcard)
@@ -748,14 +877,14 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             self.elem.closeViews(view_type, wildcard)
 
     @overload
-    def copy_item(self, item: Map | mpt.Map, name: str | None = ...) -> Map: ...
+    def copy_item(self, item: MapLike, name: str | None = ...) -> Map: ...
     @overload
-    def copy_item(self, item: Layout | mpt.Layout, name: str | None = ...) -> Layout: ...
+    def copy_item(self, item: LayoutLike, name: str | None = ...) -> Layout: ...
     @overload
-    def copy_item(self, item: Report | mpt.Report, name: str | None = ...) -> Report: ...
+    def copy_item(self, item: ReportLike, name: str | None = ...) -> Report: ...
     def copy_item(
         self,
-        item: Map | mpt.Map | Layout | mpt.Layout | Report | mpt.Report,
+        item: MapLike | LayoutLike | ReportLike,
         name: str | None = None,
     ) -> Map | Layout | Report:
         if isinstance(item, Element):
@@ -783,7 +912,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         self,
         units: mpt.PageUnits,
         margin: Literal['NORMAL', 'NARROW', 'MODERATE', 'WIDE'],
-        source: Layer | mpt.Layer | Table | mpt.Table,
+        source: LayerLike | TableLike,
         fields: Iterable[ReportFieldConf],
         stats: Iterable[ReportStatConf],
         name: str | None = None,
@@ -805,9 +934,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def create_graphic_element(
         self,
-        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        container: LayoutLike | GroupElementLike,
         geometry: Point | Polyline | Polygon | HasCentroid,
-        style_item: StyleItem | mpt.StyleItem | None = None,
+        style_item: StyleItemLike | None = None,
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> GraphicElement:
@@ -838,8 +967,8 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def create_group_element(
         self,
-        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
-        elements: list[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
+        container: LayoutLike | GroupElementLike,
+        elements: Iterable[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
         name: str | None,
     ) -> GroupElement:
         if isinstance(container, Element):
@@ -867,7 +996,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def create_picture_element(
         self,
-        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        container: LayoutLike | GroupElementLike,
         geometry: Point | Polyline | Polygon | HasCentroid,
         image: Path | str | bytes,
         name: str | None = None,
@@ -904,14 +1033,14 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def create_text_element(
         self,
-        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        container: LayoutLike | GroupElementLike,
         geometry: Point | Polyline | Polygon | HasCentroid,
         text_type: mpt.TextType,
         text: str,
         size: float | None = None,
         font: str | None = None,
         style: str | None = None,
-        style_item: StyleItem | mpt.StyleItem | None = None,
+        style_item: StyleItemLike | None = None,
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> TextElement:
@@ -941,10 +1070,10 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     def create_predefined_graphics_element(
         self,
-        container: Layout | mpt.Layout | GroupElement | mpt.GroupElement,
+        container: LayoutLike | GroupElementLike,
         geometry: Point | Polyline | Polygon | HasCentroid,
         shape_type: mpt.ShapeType,
-        style_item: StyleItem | mpt.StyleItem | None = None,
+        style_item: StyleItemLike | None = None,
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> GraphicElement:
@@ -979,7 +1108,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         Raises:
             ``PermissionError`` if the file is ReadOnly
         """
-        if self.elem.isReadOnly:
+        if self.is_read_only:
             raise PermissionError(f'{self.name} is read only!')
         self.elem.save()
 
@@ -1080,7 +1209,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         return imported
 
     def __enter__(self) -> Self:
-        if self.elem.isReadOnly:
+        if not self.is_open:
+            self.open()
+        if self.is_read_only:
             raise PermissionError(f'{self} is read only')
         return self
 
@@ -1091,9 +1222,11 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         tb: TracebackType | None,
     ) -> bool | None:
         if exc:
+            self.close()
             raise exc
         else:
             self.save()
+            self.close()
 
     @classmethod
     def from_directory(cls, directory: Path | str, *, outfile: Path | str) -> Project:
@@ -1138,6 +1271,10 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
+    def map_type(self) -> mpt.MapType:
+        return self.elem.mapType
+
+    @property
     def spatial_reference(self) -> SpatialReference:
         # Get custom ref or return default WGS84/4326
         return self.elem.spatialReference or SpatialReference('GCS_WGS_1984')
@@ -1167,17 +1304,31 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         return self.elem.mapUnits
 
     @property
+    def all_layers(self) -> ElementList[Layer]:
+        return self._cached('all_layers',
+            lambda: ElementList(
+                Layer(lay, self)
+                for lay in self.elem.listLayers()
+        ))
+
+    @property
     def layers(self) -> ElementList[Layer]:
         return self._cached('layers',
             lambda: ElementList(
                 Layer(lay, self)
                 for lay in self.elem.listLayers()
-                if not lay.isGroupLayer
+                if lay.supports('ISGROUPLAYER') and not lay.isGroupLayer
+                if lay.supports('ISBROKEN') and not lay.isBroken
         ))
 
     @property
     def broken_layers(self) -> ElementList[Layer]:
-        return self.layers_by_type('broken')
+        return self._cached('broken_layers',
+            lambda: ElementList(
+                Layer(lay, self)
+                for lay in self.elem.listLayers()
+                if lay.supports('ISBROKEN') and lay.isBroken
+        ))
 
     @property
     def tables(self) -> ElementList[Table]:
@@ -1194,7 +1345,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             lambda: ElementList(
                 GroupLayer(lay, self)
                 for lay in self.elem.listLayers()
-                if lay.isGroupLayer
+                if lay.supports('ISGROUPLAYER') and lay.isGroupLayer
         ))
 
     @property
@@ -1204,11 +1355,65 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             self.elem.exportToMAPX(str(mapx))
             return mapx.read_bytes()
 
+    @property
+    def bkmx(self) -> bytes:
+        with tempfile.TemporaryDirectory(suffix=self.name) as tmp:
+            bkmx = Path(tmp) / f'{self.name}.bkmx'
+            self.elem.exportBookmarks(str(bkmx))
+            return bkmx.read_bytes()
+
+    @property
+    def metadata(self) -> Metadata:
+        return self.elem.metadata
+
+    @metadata.setter
+    def metadata(self, metadata: Metadata) -> None:
+        self.elem.metadata = metadata
+
+    @property
+    def excluded_from_clipping(self) -> ElementList[Layer]:
+        return ElementList(Layer(lay, self) for lay in self.elem.excludedLayersFromClipping)
+
+    @excluded_from_clipping.setter
+    def excluded_from_clipping(self, excluded_from_clipping: Iterable[LayerLike]) -> None:
+        self.elem.excludedLayersFromClipping = [
+            lay.elem if isinstance(lay, Layer) else lay
+            for lay in excluded_from_clipping
+        ]
+
+    @property
+    def transformations(self) -> dict[str, Any]:
+        return self.elem.transformations
+
+    @transformations.setter
+    def transformations(self, transformations: dict[str, Any]) -> None:
+        self.elem.updateTransformations(transformations)
+
+    @property
+    def color_model(self) -> mpt.ColorModel:
+        return self.elem.colorModel
+
+    @color_model.setter
+    def color_model(self, color_model: mpt.ColorModel) -> None:
+        self.elem.setColorModel(color_model)
+
+    def add_basemap(self, basemap: str | LayerLike) -> None:
+        if isinstance(basemap, str):
+            if not self.parent:
+                raise ValueError('Adding basemaps by name only supported on Maps with a parent project')
+            if self.parent and basemap in self.parent.basemaps:
+                return self.elem.addBasemap(basemap)
+            else:
+                raise ValueError(f'{basemap} is not in {self.parent.basemaps}')
+        if isinstance(basemap, Element):
+            basemap = basemap.elem
+        self.add_layer(basemap, position='BOTTOM')
+
     def layers_by_type(self, *types: LayerType, invert: bool = False) -> ElementList[Layer]:
         """Matched layers must be of all provided types (or none of provided types if inverted)"""
         types_set = set(types)
         return ElementList(
-            lay for lay in self.layers
+            lay for lay in self.all_layers
             if (
                 lay.types.issuperset(types_set)
                 if not invert
@@ -1217,25 +1422,25 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         )
 
     @overload
-    def add_layer(self, layer: Layer | mpt.Layer,
+    def add_layer(self, layer: LayerLike,
                   *,
-                  before: Layer | mpt.Layer | None = ...,
-                  after: Layer | mpt.Layer | None = ...,
+                  before: LayerLike | None = ...,
+                  after: LayerLike | None = ...,
                   position: mpt.AddPosition = ...,
-                  group: GroupLayer | mpt.Layer | None = ...) -> Layer: ...
+                  group: GroupLayerLike | None = ...) -> Layer: ...
     @overload
     def add_layer(self, layer: GroupLayer,
                   *,
-                  before: Layer | mpt.Layer | None = ...,
-                  after: Layer | mpt.Layer | None = ...,
+                  before: LayerLike | None = ...,
+                  after: LayerLike | None = ...,
                   position: mpt.AddPosition = ...,
-                  group: GroupLayer | mpt.Layer | None = ...) -> GroupLayer: ...
-    def add_layer(self, layer: Layer | GroupLayer | mpt.Layer,
+                  group: GroupLayerLike | None = ...) -> GroupLayer: ...
+    def add_layer(self, layer: LayerLike | GroupLayerLike,
                   *,
-                  before: Layer | mpt.Layer | None = None,
-                  after: Layer | mpt.Layer | None = None,
+                  before: LayerLike | None = None,
+                  after: LayerLike | None = None,
                   position: mpt.AddPosition = 'AUTO_ARRANGE',
-                  group: GroupLayer | mpt.Layer | None = None) -> Layer | GroupLayer:
+                  group: GroupLayerLike | None = None) -> Layer | GroupLayer:
         """Add a layer/table object to the map at the provided position.
 
         Args:
@@ -1278,9 +1483,14 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             self.refresh('group_layers')
             return GroupLayer(elem, self)
 
-    def add_table(self, table: Table | mpt.Table,
+    def move_layer(self, layer: LayerLike, reference: LayerLike, position: mpt.MovePosition = 'BEFORE') -> None:
+        layer = layer.elem if isinstance(layer, Element) else layer
+        reference = reference.elem if isinstance(reference, Element) else reference
+        self.elem.moveLayer(reference, layer, position)
+
+    def add_table(self, table: TableLike,
                   *,
-                  group: GroupLayer | mpt.Layer | None = None) -> Table:
+                  group: GroupLayerLike | None = None) -> Table:
         if isinstance(table, Table):
             table = table.elem
         if isinstance(group, GroupLayer):
@@ -1295,7 +1505,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         self.refresh('tables')
         return Table(elem, self)
 
-    def remove(self, child: Layer | mpt.Layer | Table | mpt.Table | Bookmark | mpt.Bookmark) -> None:
+    def remove(self, child: LayerLike | TableLike | BookmarkLike) -> None:
         child = child.elem if isinstance(child, Element) else child
         child_type = type(child).__name__
         {
@@ -1307,7 +1517,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     def create_group(self, name: str,
                      *,
-                     parent: GroupLayer | mpt.Layer | None = None) -> GroupLayer:
+                     parent: GroupLayerLike | None = None) -> GroupLayer:
         """Create a new GroupLayer in the Map.
 
         Args:
@@ -1318,14 +1528,22 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             parent = parent.elem
         return GroupLayer(self.elem.createGroupLayer(name, parent), self)
 
+    def create_graphics_layer(self, name: str) -> Layer:
+        return Layer(self.elem.createGraphicsLayer(name), self)
+
     def clear_selection(self) -> None:
         """Clear all selections in the Map."""
         self.elem.clearSelection()
 
+    def copy_bookmark(self, bookmark: BookmarkLike, name: str | None = None) -> Bookmark:
+        bookmark = bookmark.elem if isinstance(bookmark, Element) else bookmark
+        return Bookmark(self.elem.copyBookmark(bookmark, name), self)
+
     def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
         self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
+        self.refresh()
 
-    def clip_to(self, layer: Layer | mpt.Layer, selected: bool = False) -> None:
+    def clip_to(self, layer: LayerLike, selected: bool = False) -> None:
         """Clip all layers in the map to the footprint of the input layer
 
         Args:
@@ -1346,18 +1564,35 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         """
         elem = self.elem.addDataFromPath(str(path), web_service_type=service_type, custom_parameters=params or None)
         if isinstance(elem, mp.Layer):
+            self.refresh('layers')
             return Layer(elem, self)
         if isinstance(elem, mp.Table):
+            self.refresh('tables')
             return Table(elem, self)
 
         # Unreachable ? (at least not documented as reachable...)
         raise ValueError(f'Something went wrong got {type(elem)} but expected Layer or Table')
 
     def export_mapx(self, outfile: Path | str) -> Path:
-        outfile = Path(outfile)
+        outfile = Path(outfile).with_suffix('.mapx')
         with outfile.open('wb') as mapx:
             mapx.write(self.mapx)
         return outfile
+
+    def export_bkmx(self, outfile: Path | str) -> Path:
+        outfile = Path(outfile).with_suffix('.bkmx')
+        with outfile.open('wb') as bkmx:
+            bkmx.write(self.bkmx)
+        return outfile
+
+    def import_bkmx(self, bkmx: Path | str | bytes) -> None:
+        if isinstance(bkmx, bytes):
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp = (Path(tmp) / '_bookmarks').with_suffix('.bkmx')
+                tmp.write_bytes(bkmx)
+                self.elem.importBookmarks(str(tmp))
+        else:
+            self.elem.importBookmarks(str(bkmx))
 
     def filter(self, pred: Callable[[Layer], bool]) -> ElementList[Layer]:
         return ElementList(lay for lay in self.layers if pred(lay))
@@ -1441,6 +1676,36 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
         else:
             return data
 
+    def create_bookmark(self, name: str | None = None, description: str | None = None) -> Bookmark:
+        return Bookmark(self.elem.createBookmark(name, description), self.map)
+
+    def layer_extent(self, layer: LayerLike, selected: bool = True, symbolized: bool = True) -> Extent:
+        layer = layer.elem if isinstance(layer, Element) else layer
+        return self.elem.getLayerExtent(layer, selected, symbolized)
+
+    def pan_to(self, extent: LayerLike | Polygon | Extent) -> None:
+        if isinstance(extent, Extent):
+            extent = extent
+        elif isinstance(extent, Polygon):
+            extent = extent.extent
+        else:
+            extent = self.layer_extent(extent)
+        self.elem.panToExtent(extent)
+
+    def zoom_all(self, selected: bool = True, symbolized: bool = True) -> None:
+        self.elem.zoomToAllLayers(selected, symbolized)
+
+    def zoom_to(self, elem: LayerLike | BookmarkLike) -> None:
+        if isinstance(elem, Element):
+            elem = elem.elem
+
+        elem_type = type(elem).__name__
+        if elem_type == 'Bookmark':
+            self.elem.zoomToBookmark(cast(mpt.Bookmark, elem))
+        if elem_type == 'Layer':
+            elem = cast(mpt.Layer, elem)
+            self.camera.setExtent(self.layer_extent(elem))
+
 
 class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
 
@@ -1485,7 +1750,7 @@ class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
         lyrx['tableDefinitions'] = [tab.cim_dict for tab in self.tables]
         return lyrx
 
-    def add_layer(self, layer: Layer | mpt.Layer, position: mpt.AddPosition = 'AUTO_ARRANGE') -> Layer:
+    def add_layer(self, layer: LayerLike, position: mpt.AddPosition = 'AUTO_ARRANGE') -> Layer:
         if not self.parent:
             raise ValueError(f'{self} is unbound and cannot add new layers')
         if isinstance(layer, Layer):
@@ -1527,8 +1792,144 @@ LayerType = Literal[
 ]
 LayerTypes: tuple[LayerType, ...] = LayerType.__args__
 
+LayerProperty = Literal[
+    'brightness',
+    'connectionProperties',
+    'contrast',
+    'dataSource',
+    'definitionQuery',
+    'elevation',
+    'is3DLayer',
+    'isBasemapLayer',
+    'isBroken',
+    'isFeatureLayer',
+    'isGraphicsLayer',
+    'isGroupLayer',
+    'isNetworkAnalystLayer',
+    'isNetworkDatasetLayer',
+    'isParcelFabricLayer',
+    'isRasterLayer',
+    'isSceneLayer',
+    'isTimeEnabled',
+    'isWebLayer',
+    'longName',
+    'maxThreshold',
+    'metadata',
+    'minThreshold',
+    'name',
+    'showLabels',
+    'symbology',
+    'transparency',
+    'time',
+    'URI',
+    'visible',
+]
+LayerProps = frozenset[LayerProperty](LayerProperty.__args__)
+_PropMap: dict[str, LayerProperty] = {p.lower(): p for p in LayerProps}
+
+
+class LayerConnectionConf(TypedDict):
+    dataset: str
+    workspace_factory: str
+    connection_info: dict[str, str | bool]
+
+
+# Note: If a property is requested, but not supported
+# it will be sentinel `Layer.NotSupported`
+class AllLayerProps(TypedDict):
+    brightness: int
+    connectionProperties: LayerConnectionConf
+    contrast: int
+    dataSource: str
+    definitionQuery: str
+    elevation: mpt.LayerElevation
+    is3DLayer: bool
+    isBasemapLayer: bool
+    isBroken: bool
+    isFeatureLayer: bool
+    isGraphicsLayer: bool
+    isGroupLayer: bool
+    isNetworkAnalystLayer: bool
+    isNetworkDatasetLayer: bool
+    isParcelFabricLayer: bool
+    isRasterLayer: bool
+    isSceneLayer: bool
+    isTimeEnabled: bool
+    isWebLayer: bool
+    longName: str
+    maxThreshold: float
+    metadata: Metadata
+    minThreshold: float
+    name: str
+    showLabels: bool
+    symbology: Symbology
+    transparency: int
+    time: mpt.LayerTime
+    URI: str
+    visible: bool
+
+
+# Alternate Props that set all keys to NotRequired
+class SomeLayerProps(TypedDict, total=False):
+    brightness: int
+    connectionProperties: LayerConnectionConf
+    contrast: int
+    dataSource: str
+    definitionQuery: str
+    elevation: mpt.LayerElevation
+    is3DLayer: bool
+    isBasemapLayer: bool
+    isBroken: bool
+    isFeatureLayer: bool
+    isGraphicsLayer: bool
+    isGroupLayer: bool
+    isNetworkAnalystLayer: bool
+    isNetworkDatasetLayer: bool
+    isParcelFabricLayer: bool
+    isRasterLayer: bool
+    isSceneLayer: bool
+    isTimeEnabled: bool
+    isWebLayer: bool
+    longName: str
+    maxThreshold: float
+    metadata: Metadata
+    minThreshold: float
+    name: str
+    showLabels: bool
+    symbology: Symbology
+    transparency: int
+    time: mpt.LayerTime
+    URI: str
+    visible: bool
+
+
+class DefinitionQuery(TypedDict):
+    name: str
+    sql: str
+    isActive: bool
+
+
+class _PropNotSupported:
+    def __repr__(self) -> str:
+        return 'Property Not Supported'
+
+
+NotSupported = _PropNotSupported()
+
+
+class PageQuery(NamedTuple):
+    fieldName: str
+    match: bool
+
 
 class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
+
+    # A different sentinel might be needed here
+    NotSupported = NotSupported
+    """A sentinel for signaling that a layer property is not available for the given layer
+    Use with identity checks:
+    >>> if lay.props['brightness'] is Layer.NotSupported: ... # handle
+    """
 
     @property
     def types(self) -> set[LayerType]:
@@ -1583,6 +1984,101 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
             except json.JSONDecodeError:
                 return {'broken', }
         return types
+
+    # Since layer properties cannot be determined until runtime
+    # we need to wrap property access. Any overrides should use this
+    # interface to allow silent ignoring of unsupported property reads/writes
+
+    @property
+    def supported(self) -> frozenset[str]:
+        props = set(LayerProps)
+        if not self.elem.supports('NAME'):
+            # Broken web group children will crash Arc
+            # if you inspect time support (or the time attribute)
+            # name is also not supported on these so this is a pretty
+            # safe bet
+            props.remove('time')
+        return self._cached('supported',
+            lambda: frozenset({
+                prop for prop in props
+                if self.elem.supports(cast(mpt.LayerProperty, prop.upper()))
+            }))
+
+    @property
+    def unsupported(self) -> frozenset[str]:
+        return frozenset({
+            prop for prop in LayerProps
+            if prop not in self.supported
+        })
+
+    @property
+    def props(self) -> AllLayerProps:
+        """Get all properties of the layer with unsupported properties being set to `Layer.NotSupported`"""
+        return cast(AllLayerProps, self.get_props(*LayerProps))
+
+    @props.setter
+    def props(self, props: SomeLayerProps) -> None:
+        self.set_props(*props)
+
+    def get_props(self, *props: LayerProperty) -> SomeLayerProps:
+        """Get requested layer properties.
+
+        Note:
+            `*props` is case insensitive (underscores are replaced with empty strings)
+            (e.g. `dataSource` == `DATASOURCE` == `datasource` == `data_source`).
+            The returned dictionary will use the supplied case.
+            (e.g. `layer.get_props('DATASOURCE')` -> `{'DATASOURCE': ...}`)
+            if a property is not supported, `Layer.NotSupported` is set as the value.
+            (e.g `layer.get_props('brightness') -> {'brightness': Layer.NotSupported}`)
+        Raises:
+            ValueError: If a property is not a layer property
+        """
+        p_map = _PropMap
+        invalid = [
+            p_map[p] for p in
+            {p.lower().replace('_', '') for p in props}.difference(p_map.keys())
+        ]
+        if invalid:
+            raise ValueError(
+                f'{invalid} are not valid layer properties: {list(LayerProps)}'
+            )
+        props = props or cast(tuple[LayerProperty], tuple(self.supported))
+        caseless_props = [p.lower().replace('_', '') for p in props]
+        return cast(SomeLayerProps, {
+            prop: (
+                getattr(self.elem, prop_name)
+                if prop_name in self.supported
+                else type(self).NotSupported
+            )
+            for prop, c_prop in zip(props, caseless_props, strict=True)
+            if (prop_name := p_map.get(c_prop))
+        })
+
+    def get_prop(self, prop: LayerProperty) -> Any:
+        """Get a single property or `Layer.NotSupported`"""
+        if prop not in LayerProps:
+            return type(self).NotSupported
+        return getattr(self.elem, prop, type(self).NotSupported)
+
+    def set_props(self, **props: Unpack[SomeLayerProps]) -> None:
+        p_map = _PropMap
+        for prop, val in props.items():
+            prop = p_map.get(prop.lower())
+            if prop in self.supported:
+                setattr(self.elem, prop, val)
+
+    def set_prop(self, prop: LayerProperty, val: Any) -> None:
+        if self.get_prop(prop) is type(self).NotSupported:
+            return
+        setattr(self.elem, prop, val)
+
+    @property
+    def page_query(self) -> PageQuery:
+        return cast(PageQuery, self.elem.pageQuery)
+
+    @page_query.setter
+    def page_query(self, pq: PageQuery | tuple[str, bool] | None) -> None:
+        self.elem.setPageQuery(*pq or ('None', True))
 
     @property
     def is_geographic(self) -> bool:
@@ -1660,44 +2156,81 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         return lyrx
 
     @property
-    def datasource(self) -> str:
-        return self.elem.dataSource
+    def visible(self) -> bool:
+        return self.get_prop('visible')
 
-    @datasource.setter
-    def datasource(self, source: str | fc.FeatureClass) -> None:
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        if self.visible is type(self).NotSupported:
+            return
+        self.elem.visible = visible
+
+    @property
+    def data_source(self) -> str:
+        return self.get_prop('dataSource')
+
+    @data_source.setter
+    def data_source(self, source: str | fc.FeatureClass) -> None:
+        if self.data_source is type(self).NotSupported:
+            return
         if isinstance(source, fc.FeatureClass):
             source = source.path
         self.update_connection(source)
 
     @property
+    def definition_queries(self) -> list[DefinitionQuery]:
+        if self.definition_query is type(self).NotSupported:
+            return []
+        return cast(list[DefinitionQuery], self.elem.listDefinitionQueries())
+
+    @definition_queries.setter
+    def definition_queries(self, queries: Iterable[DefinitionQuery]) -> None:
+        if self.definition_query is type(self).NotSupported:
+            return
+        queries = list(queries)
+        if total_active := sum(1 for q in queries if q.get('isActive')) > 1:
+            raise ValueError(f'{total_active} queries are set to active (max: 1)')
+        self.elem.updateDefinitionQueries(cast(list[dict[str, str | bool]], queries))
+
+    @property
     def definition_query(self):
-        return self.elem.definitionQuery
+        return self.get_prop('definitionQuery')
 
     @definition_query.setter
     def definition_query(self, query: str | None) -> None:
-        self.elem.definitionQuery = query or ''
+        self.set_props(definitionQuery=query or '')
 
     @property
     def selection(self) -> set[int]:
         return set(self.feature_class['OID@'])
 
-    @property
-    def metadata(self) -> Metadata:
-        return self.elem.metadata
-
-    @metadata.setter
-    def metadata(self, metadata: Metadata) -> None:
-        self.elem.metadata = metadata
+    @selection.setter
+    def selection(self, selection: Iterable[int]) -> None:
+        self.elem.setSelectionSet(list(set(selection)))
 
     @property
-    def connection_properties(self) -> dict[str, Any]:
-        return self.elem.connectionProperties
+    def symbology(self) -> Symbology:
+        return self.get_prop('symbology')
+
+    @symbology.setter
+    def symbology(self, symbology: Symbology) -> None:
+        self.set_props(symbology=symbology)
 
     @property
-    def elvation(self) -> mpt.LayerElevation:
-        if self.elem.supports('ELEVATION'):
-            return self.elem.elevation
-        raise AttributeError(f'{self} does not support elevation')
+    def cim_symbology(self) -> cim.CIMSymbolizers.CIMRenderer:
+        if self.symbology is type(self).NotSupported:  # type: ignore
+            return type(self).NotSupported  # type: ignore
+        return cast(cim.CIMSymbolizers.CIMRenderer, self.elem.getSymbologyDefinition('V3'))
+
+    @cim_symbology.setter
+    def cim_symbology(self, cim_symbology: cim.CIMSymbolizers.CIMRenderer) -> None:
+        if self.symbology is type(self).NotSupported:  # type: ignore
+            return
+        self.elem.setSymbologyDefinition(cast(str, cim_symbology))
+
+    @property
+    def cim_symbology_type(self) -> type[cim.CIMSymbolizers.CIMRenderer]:
+        return type(self.cim_symbology)
 
     def delete(self) -> None:
         if self.parent:
@@ -1714,6 +2247,9 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
 
     def __len__(self) -> int:
         return len(self.feature_class)
+
+    def __hash__(self) -> int:
+        return id(self)
 
     def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
         self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
@@ -1787,6 +2323,95 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
             fl.writelines(sep.join(line) for line in table[tuple(fields)])
         return outfile
 
+    @property
+    def label_classes(self) -> ElementList[LabelClass]:
+        return self._cached('label_classes',
+            lambda: ElementList(
+                LabelClass(lc, self)
+                for lc in
+                (
+                    self.elem.listLabelClasses()
+                    if 'showLabels' in self.supported
+                    else []
+                )
+        ))
+
+    def create_label_class(self, name: str, expression: str, query: str, language: mpt.LabelClassLanguage = 'ARCADE') -> LabelClass:
+        if 'showLabels' in self.supported:
+            lc = LabelClass(self.elem.createLabelClass(name, expression, query, language), self)
+            self.refresh('label_classes')
+            return lc
+        return type(self).NotSupported  # type: ignore
+
+    @property
+    def charts(self) -> tuple[Chart, ...]:
+        try:
+            return self._cached('charts',
+                lambda: tuple(self.elem.listCharts())
+            )
+        except AttributeError:
+            return ()
+
+    @property
+    def chart_map(self) -> ChartMap:
+        return cast(ChartMap, {
+            chart_type: [c for c in self.charts if type(c).__name__ == chart_type]
+            for chart_type in ChartTypes
+        })
+
+    def clone_properties(self, from_layer: LayerLike, properties: mpt.LayerPasteProperties = 'ALL'):
+        from_layer = from_layer.elem if isinstance(from_layer, Element) else from_layer
+        self.elem.pasteProperties(from_layer, properties)
+
+    def update_from_json(self, data: str | dict[str, Any]) -> None:
+        if isinstance(data, dict):
+            data = json.dumps(data)
+        self.elem.updateLayerFromJSON(data)
+
+
+class LabelClass(Element[mpt.LabelClass, cim.CIMLabelClass, Layer]):
+    lang_codes: ClassVar[dict[str, mpt.LabelClassLanguage]] = {
+            'VBScript': 'VBSCRIPT',
+            'JScript': 'JSCRIPT',
+            'Python': 'PYTHON',
+            'Arcade': 'ARCADE',
+        }
+
+    @property
+    def expression(self) -> str:
+        return self.elem.expression
+
+    @expression.setter
+    def expression(self, expression: str) -> None:
+        self.elem.expression = expression
+
+    @property
+    def query(self) -> str:
+        return self.elem.SQLQuery
+
+    @query.setter
+    def query(self, query: str | None) -> None:
+        self.elem.SQLQuery = query or ''
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
+
+    @property
+    def language(self) -> mpt.LabelClassLanguage:
+        lang: str = cast(str, self.cim.expressionEngine)
+        return type(self).lang_codes.get(lang, 'ARCADE')
+
+    @language.setter
+    def language(self, language: mpt.LabelClassLanguage):
+        definition = self.cim
+        definition.expressionEngine = cast(cim.LabelExpressionEngine, language)
+        self.cim = definition
+
 
 class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
 
@@ -1820,6 +2445,17 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         return lyrx
 
     @property
+    def definition_queries(self) -> list[DefinitionQuery]:
+        return cast(list[DefinitionQuery], self.elem.listDefinitionQueries())
+
+    @definition_queries.setter
+    def definition_queries(self, queries: Iterable[DefinitionQuery]) -> None:
+        queries = list(queries)
+        if total_active := sum(1 for q in queries if q.get('isActive')) > 1:
+            raise ValueError(f'{total_active} queries are set to active (max: 1)')
+        self.elem.updateDefinitionQueries(cast(list[dict[str, str | bool]], queries))
+
+    @property
     def definition_query(self):
         return self.elem.definitionQuery
 
@@ -1828,8 +2464,35 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         self.elem.definitionQuery = query or ''
 
     @property
+    def charts(self) -> tuple[Chart, ...]:
+        return self._cached('charts',
+            lambda: tuple(self.elem.listCharts())
+        )
+
+    @property
+    def chart_map(self) -> ChartMap:
+        return cast(ChartMap, {
+            chart_type: [c for c in self.charts if type(c).__name__ == chart_type]
+            for chart_type in ChartTypes
+        })
+
+    @property
+    def data_source(self) -> str:
+        return self.elem.dataSource
+
+    @data_source.setter
+    def data_source(self, source: str | fc.FeatureClass) -> None:
+        if isinstance(source, fc.FeatureClass):
+            source = source.path
+        self.update_connection(source)
+
+    @property
     def selection(self) -> set[int]:
         return set(self.table['OID@'])
+
+    @selection.setter
+    def selection(self, selection: Iterable[int]) -> None:
+        self.elem.setSelectionSet(list(set(selection)))
 
     @contextmanager
     def query_as(self, query: str | None):
@@ -1842,6 +2505,9 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
 
     def __len__(self) -> int:
         return len(self.table)
+
+    def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
+        self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def select(self,
                *,
@@ -1910,6 +2576,13 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
             fl.write(newline)
             fl.writelines(sep.join(line) for line in table[tuple(fields)])
         return outfile
+
+    def clone_properties(self, from_table: TableLike, properties: mpt.TablePasteProperties = 'ALL'):
+        from_table = from_table.elem if isinstance(from_table, Element) else from_table
+        self.elem.pasteProperties(from_table, properties)
+
+    def open_view(self, show_selected: bool = False) -> None:
+        self.elem.openTableView(show_selected)
 
 
 class ElevationSurface(Element[mpt.ElevationSurface, cim.CIMLayerElevationSurface, Map]):
@@ -2074,8 +2747,8 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
 
     def create_mapseries(
         self,
-        frame: MapFrame | mpt.MapFrame,
-        layer: Layer | mpt.Layer,
+        frame: MapFrameLike,
+        layer: LayerLike,
         name_field: str,
         sort_field: str | None = None,
     ) -> MapSeries:
@@ -2087,7 +2760,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
 
     def create_bookmark_mapseries(
         self,
-        frame: MapFrame | mpt.MapFrame,
+        frame: MapFrameLike,
         bookmarks: Iterable[Bookmark] | Iterable[mpt.Bookmark] | None = None,
     ) -> BookmarkMapSeries:
         if isinstance(frame, MapFrame):
@@ -2101,7 +2774,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
     def create_map_frame(
         self,
         geometry: Polygon | Point | HasCentroid,
-        map: Map | mpt.Map | None = None,
+        map: MapLike | None = None,
         name: str | None = None,
     ) -> MapFrame:
         if not isinstance(geometry, Polygon | Point):
@@ -2119,8 +2792,8 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         self,
         geometry: Polygon | Point | HasCentroid,
         surround_type: mpt.MapSurroundType,
-        frame: MapFrame | mpt.MapFrame | None = None,
-        style: StyleItem | mpt.StyleItem | None = None,
+        frame: MapFrameLike | None = None,
+        style: StyleItemLike | None = None,
     ) -> MapSurroundElement:
         if not isinstance(geometry, Polygon | Point):
             if not isinstance(cast(Any, geometry), HasCentroid):
@@ -2138,10 +2811,10 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
     def create_table_frame_element(
         self,
         geometry: Point | Polygon | HasCentroid,
-        frame: MapFrame | mpt.MapFrame | None = None,
-        table: Layer | mpt.Layer | Table | mpt.Table | None = None,
+        frame: MapFrameLike | None = None,
+        table: LayerLike | TableLike | None = None,
         fields: Iterable[str] | None = None,
-        style: StyleItem | mpt.StyleItem | None = None,
+        style: StyleItemLike | None = None,
         name: str | None = None
     ) -> TableFrameElement:
         if not isinstance(geometry, Polygon | Point):
@@ -2208,6 +2881,9 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
             antialiasing=antialiasing,
         )
 
+    def open_view(self):
+        self.elem.openView()
+
 
 class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
 
@@ -2218,6 +2894,11 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
         if map and layout:
             return Map(map, layout.parent)
         raise ValueError(f'MapFrame {self.name} has no associated Map')
+
+    @property
+    def parent_group(self) -> GroupElement | None:
+        if pg := self.elem.parentGroupElement:
+            return GroupElement(pg, self.parent)
 
     @property
     def has_map(self) -> bool:
@@ -2256,6 +2937,67 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
     def visible(self, visible: bool) -> None:
         self.elem.visible = visible
 
+    @property
+    def locked(self) -> bool:
+        return self.elem.locked
+
+    @locked.setter
+    def locked(self, locked: bool) -> None:
+        self.elem.locked = locked
+
+    @property
+    def x(self) -> float:
+        return self.elem.elementPositionX
+
+    @x.setter
+    def x(self, x: float) -> None:
+        self.elem.elementPositionX = x
+
+    @property
+    def y(self) -> float:
+        return self.elem.elementPositionY
+
+    @y.setter
+    def y(self, y: float) -> None:
+        self.elem.elementPositionY = y
+
+    @property
+    def width(self) -> float:
+        return self.elem.elementWidth
+
+    @width.setter
+    def width(self, width: float) -> None:
+        self.elem.elementWidth = width
+
+    @property
+    def height(self) -> float:
+        return self.elem.elementHeight
+
+    @height.setter
+    def height(self, height: float) -> None:
+        self.elem.elementHeight = height
+
+    @property
+    def rotation(self) -> float:
+        return self.elem.elementRotation
+
+    @rotation.setter
+    def rotation(self, rotation: float) -> None:
+        self.elem.elementRotation = rotation
+
+    def add_grid(self, style: StyleItemLike):
+        style = style.elem if isinstance(style, Element) else style
+        self.elem.addGrid(style)
+
+    def remove_grids(self, grid: str | None = None) -> None:
+        self.elem.removeGrids(grid)
+
+    def convert_grid(self, grid: str, out_gdb: Path | str, new_name: str | None = None):
+        self.elem.convertGridToFeatures(grid, str(out_gdb), new_name)
+
+    def create_bookmark(self, name: str | None = None, description: str | None = None) -> Bookmark:
+        return Bookmark(self.elem.createBookmark(name, description), self.map)
+
     @overload
     def export(self,  # type: ignore (No Overlap?)
                format: mp.Format | mpt.ExportFormat,
@@ -2289,6 +3031,18 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
             outfile=outfile,
             antialiasing=antialiasing,
         )
+
+    def layer_extent(self, layer: LayerLike, selected: bool = True, symbolized: bool = True) -> Extent:
+        return MapView.layer_extent(cast(MapView, self), layer, selected, symbolized)
+
+    def pan_to(self, extent: LayerLike | Polygon | Extent) -> None:
+        return MapView.pan_to(cast(MapView, self), extent)
+
+    def zoom_all(self, selected: bool = True, symbolized: bool = True) -> None:
+        self.elem.zoomToAllLayers(selected, symbolized)
+
+    def zoom_to(self, elem: LayerLike | BookmarkLike) -> None:
+        return MapView.zoom_to(cast(MapView, self), elem)
 
 
 # MapSeries export only allows a subset of ExportFormats
@@ -2348,7 +3102,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         return str(self.current_page_name)
 
     @name.setter  # name of a mapseries is determined by current page
-    def name(self, name: Never) -> Never: ...
+    def name(self, name: Never) -> Never: ...  # type: ignore
 
     @property
     def page_count(self) -> int:
@@ -2552,9 +3306,6 @@ class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, Map]):
 
     def update_thumbnail(self) -> None:
         self.elem.updateThumbnail()
-
-    def set_name(self, name: str) -> None:
-        self.elem.name = name
 
 
 class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries, Layout]):
@@ -2776,6 +3527,9 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
         paths.append(outfl)
         return tuple(paths)
 
+    def open_view(self) -> None:
+        self.elem.openView()
+
 
 class ElevationSource(Element[mpt.ElevationSource, None, Project]):
 
@@ -2906,7 +3660,35 @@ class ReportElement[MPElem: mpt.ReportSection | mpt.ReportLayoutSection, CIM](El
         self.elem.visible = visible
 
 
+class ReportSectionField(TypedDict):
+    fieldName: str
+    sortOrder: Literal['ASC', 'DESC', 'NONE']
+    groupField: bool
+
+
+StatisticType = Literal['COUNT', 'MEAN', 'MEDIAN', 'SUM', 'STD_DEV', 'MAX', 'MIN']
+
+
+class ReportStatistic(TypedDict):
+    fieldName: str
+    statistic: StatisticType
+
+
+class ReferenceDataSource(TypedDict):
+    dataset: str
+    workspace_factory: str
+    connection_info: str
+
+
 class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
+
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
 
     @property
     def statistics(self) -> list[dict[str, Any]]:
@@ -2920,6 +3702,32 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
     def definition_query(self, query: str | None) -> None:
         self.elem.definitionQuery = query or ''
 
+    @property
+    def fields(self) -> list[ReportSectionField]:
+        return cast(list[ReportSectionField], self.elem.fields)
+
+    @fields.setter
+    def fields(self, fields: Iterable[ReportSectionField]) -> None:
+        self.elem.fields = list(cast(list[dict[str, str | bool]], fields))
+
+    @property
+    def source(self) -> ReferenceDataSource:
+        return cast(ReferenceDataSource, self.elem.referenceDataSource)
+
+    def set_source(self, source: LayerLike | TableLike | fc.FeatureClass | fc.Table | Path | str):
+        if isinstance(source, Element):
+            source = source.elem
+        else:
+            source = str(source)
+        self.elem.setReferenceDataSource(source)
+
+    def set_report_source(self, source: LayerLike | TableLike | fc.FeatureClass | fc.Table | Path | str, name: str | None = None, rel_class: str | None = None):
+        if isinstance(source, Element):
+            source = source.elem
+        else:
+            source = str(source)
+        self.elem.setRelatedReportSource(source, name, rel_class)
+
     @contextmanager
     def query_as(self, query: str | None):
         cur = self.definition_query
@@ -2929,11 +3737,16 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
         finally:
             self.definition_query = cur
 
-    def set_name(self, name: str) -> None:
-        self.elem.name = name
 
+class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLayoutPageSection]):
 
-class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLayoutPageSection]): ...
+    @property
+    def visible(self) -> bool:
+        return self.elem.visible
+
+    @visible.setter
+    def visible(self, visible: bool) -> None:
+        self.elem.visible = visible
 
 
 class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]):
@@ -3014,11 +3827,11 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
     def locked(self, locked: bool) -> None:
         self.elem.locked = locked
 
-    def set_name(self, name: str) -> None:
-        """Since `name` is used as the unique identifier for the Elements (longName)
-        setting the visible name is done with this method.
-        """
-        self.elem.name = name
+    # def set_name(self, name: str) -> None:
+    #     """Since `name` is used as the unique identifier for the Elements (longName)
+    #     setting the visible name is done with this method.
+    #     """
+    #     self.elem.name = name
 
     def delete(self) -> None:
         assert self.parent, f'{self} has no parent Layout to be deleted from'
@@ -3038,7 +3851,7 @@ class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame])
 
 class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
 
-    def apply_style(self, style_item: StyleItem | mpt.StyleItem) -> None:
+    def apply_style(self, style_item: StyleItemLike) -> None:
         if isinstance(style_item, Element):
             style_item = style_item.elem
         self.elem.applyStyleItem(style_item)
@@ -3136,13 +3949,3 @@ class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
         new = type(self)(self.elem.clone(), self.parent)
         new.set_name(name or new.name)
         return new
-
-
-# Remove after testing
-if __name__ == '__main__':
-    prj = Project(r"C:\Users\hwelch\Desktop\Louetta 8.20\Louetta 8.20.aprx")
-    # p1 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\1.aprx")
-    # p2 = Project(r"C:\Users\hwelch\Desktop\Louetta 8.21\2.aprx")
-
-    dm = prj.maps['Design Map$'].unwrap()
-    span = dm.layers['Span$'].unwrap()
