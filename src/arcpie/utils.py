@@ -60,7 +60,7 @@ from arcpy.management import (
     GenerateSchemaReport,  # pyright: ignore[reportUnknownVariableType]
 )
 
-from .project import (
+from .project.elements import (
     Layer,
     Map,
     Project,
@@ -255,7 +255,7 @@ def export_project_maps(project: Project, out_dir: Path | str, *, indent: int = 
 
 
 def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTable]) -> dict[str, Any]:
-    base_map = source_map.mapx
+    base_map = source_map.mapx_dict
 
     # Remove existing definitions
     base_map.pop('layerDefinition', None)
@@ -541,7 +541,7 @@ def shortest_path(
         target = target.projectAs(network[0].spatialReference).centroid
     target_pt = (round(target.X, precision), round(target.Y, precision))
 
-    G = Graph(
+    G = Graph(  # type: ignore
         [
             (
                 (round(line.firstPoint.X, precision), round(line.firstPoint.Y, precision)),
@@ -549,13 +549,13 @@ def shortest_path(
                 {'shape': line, 'length': line.length}
             )
             for line in network
-        ]
+        ]  # type: ignore
     )
     try:
         if all_paths:
-            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
         else:
-            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
     except (NodeNotFound, NetworkXNoPath):
         return None
 

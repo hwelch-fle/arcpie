@@ -26,7 +26,7 @@ from arcpy import (
 
 from arcpie.parameters import Parameter, Parameters
 from arcpie.parameters.custom import *  # noqa: F403
-from arcpie.project import Map, Project
+from arcpie.project.elements import Map, Project
 from arcpie.types import ParameterDatatype
 from arcpie.utils import print
 
