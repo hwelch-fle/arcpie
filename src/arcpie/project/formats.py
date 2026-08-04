@@ -2,7 +2,7 @@ from abc import abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, TypedDict, Unpack, cast
 
 from arcpy import (
     _mp as mpt,
@@ -43,7 +43,7 @@ class FormatOpts(TypedDict, total=False):
 
 
 @dataclass
-class Format[Formatter: mpt.ExportFormat = Any, Opts: Mapping[str, Any] = FormatOpts]:
+class Format[Formatter: mpt.ExportFormat = Any, Opts: Mapping[str, Any] = Any]:
     """Base Format class that contains all shared props and allows for isinstance checking for a ``Format`` object"""
     clipToElements: bool = False
     filePath: Path | str = ''
@@ -69,8 +69,7 @@ class Format[Formatter: mpt.ExportFormat = Any, Opts: Mapping[str, Any] = Format
         fmt = mp.CreateExportFormat(type(self).__name__)  # type: ignore
         for attr, val in self.__dict__.items():
             if attr == 'filePath':
-                val = str(val)
-                setattr(fmt, attr, val)
+                setattr(fmt, attr, str(val))
             elif attr == 'imageCompression':
                 fmt.setImageCompression(val)  # type: ignore
             elif attr == 'layersAndAttributes':
@@ -282,6 +281,24 @@ class PDFOpts(FormatOpts, total=False):
     title: str
 
 
+class _OldPDFSetting(TypedDict, total=False):
+    resolution: int
+    image_quality: mpt.ImageQuality
+    compress_vector_graphics: bool
+    image_compression: mpt.ImageCompression
+    embed_fonts: bool
+    layers_attributes: mpt.LayerAttributes
+    georef_info: bool
+    jpeg_compression_quality: int
+    clip_to_elements: bool
+    output_as_image: bool
+    embed_color_profile: bool
+    pdf_accessibility: bool
+    keep_layout_background: bool
+    convert_markers: bool
+    simulate_overprint: bool
+
+
 @dataclass
 class PDF(Format[mpt.PDFFormat, PDFOpts]):
     """The ``PDFFormat`` object represents a collection of Portable Document Format (PDF)
@@ -317,6 +334,30 @@ class PDF(Format[mpt.PDFFormat, PDFOpts]):
         mapping = mapping or {}
         mapping.update(opts)
         return super()._update(mapping)
+
+    @classmethod
+    def convert(cls, setting: _OldPDFSetting) -> PDFOpts:
+        arg_map = {
+            'resolution': 'resolution',
+            'image_quality': 'imageQuality',
+            'compress_vector_graphics': 'compressVectorGraphics',
+            'image_compression': 'imageCompression',
+            'embed_fonts': 'embedFonts',
+            'layers_attributes': 'layersAndAttributes',
+            'georef_info': 'georefInfo',
+            'jpeg_compression_quality': 'imageCompressionQuality',
+            'clip_to_elements': 'clipToElements',
+            'output_as_image': 'outputAsImage',
+            'embed_color_profile': 'embedColorProfile',
+            'pdf_accessibility': 'includeAccessibilityTags',
+            'keep_layout_background': 'removeLayoutBackground',
+            'convert_markers': 'convertMarkers',
+            'simulate_overprint': 'simulateOverprint',
+        }
+        opts = cast(PDFOpts, {arg_map[key]: setting[key] for key in setting})
+        if 'removeLayoutBackground' in opts:
+            opts['removeLayoutBackground'] = not opts['removeLayoutBackground']
+        return opts
 
 
 class PNGOpts(FormatOpts, total=False):
