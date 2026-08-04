@@ -10,6 +10,7 @@ from collections.abc import (
 from functools import cached_property
 from io import BytesIO
 from pathlib import Path
+from secrets import randbelow
 from tempfile import NamedTemporaryFile
 from typing import (
     TYPE_CHECKING,
@@ -324,7 +325,7 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         else:
             PDFFormat = MapSeriesExportOptions = object
 
-        with NamedTemporaryFile() as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}') as tmp:
             default = MapseriesPDFDefault.copy()
             default.update(settings)
             settings = default
@@ -382,7 +383,7 @@ class MapSeries(MappingWrapper[_MapSeries, CIMMapSeries], _MapSeries):
         default = MapseriesPDFDefault.copy()
         default.update(settings)
         settings = default
-        with NamedTemporaryFile() as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}') as tmp:
             pdf = self.exportToPDF(tmp.name, **settings)
             with Path(pdf).open('rb') as fl:
                 return BytesIO(fl.read())
@@ -446,7 +447,7 @@ class Map(MappingWrapper[_Map, CIMMapDocument], _Map):
 
     @property
     def mapx(self) -> dict[str, Any]:
-        with NamedTemporaryFile(suffix='.mapx') as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}.mapx') as tmp:
             self.exportToMAPX(tmp.name)
             return json.loads(Path(tmp.name).read_text(encoding='utf-8'))
 
@@ -557,7 +558,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
         Returns:
             (dict[str, Any]): A dictionary representation of the pagx json
         """
-        with NamedTemporaryFile() as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}') as tmp:
             self.exportToPAGX(tmp.name)
             return json.loads(Path(f'{tmp.name}.pagx').read_text(encoding='utf-8'))
 
@@ -568,7 +569,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
         else:
             PDFFormat = object
 
-        with NamedTemporaryFile() as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}') as tmp:
             pdf: PDFFormat = CreateExportFormat('PDF', tmp.name)  # type: ignore
             settings = PDFDefault.copy()
             for arg in settings:
@@ -613,7 +614,7 @@ class Layout(MappingWrapper[_Layout, CIMLayout], _Layout):
                 pdf = Path('pdf_path').write_bytes(lyt.to_pdf())
             ```
         """
-        with NamedTemporaryFile() as tmp:
+        with NamedTemporaryFile(suffix=f'_{randbelow(1000000)}') as tmp:
             settings = PDFDefault.copy()
             for arg in settings:
                 if val := settings.get(arg):

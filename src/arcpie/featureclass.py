@@ -764,7 +764,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_record(self, record: Schema, ignore_errors: bool = False) -> int | None:
+    def insert_record(self, record: Schema | dict[str, Any], ignore_errors: bool = False) -> int | None:
         """Insert a single record into the table
 
         Args:
@@ -789,7 +789,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                 if not ignore_errors:
                     raise ValueError(f'Malformed Row: {record}') from e
 
-    def insert_records(self, records: Iterable[Schema], ignore_errors: bool = False) -> Iterator[int]:
+    def insert_records(self, records: Iterable[Schema | dict[str, Any]], ignore_errors: bool = False) -> Iterator[int]:
         """Provide an iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert

@@ -431,6 +431,8 @@ def split_lines_at_points(lines: Polyline | Sequence[Polyline] | Iterator[Polyli
         prev_measure = 0.0
         measures = sorted(line.measureOnLine(p) for p in int_points)
         for measure in [*measures, line.length]:
+            # Some issues with duplicate points, possibly floating point error?
+            measure = round(measure, 15)
             if prev_measure == measure:
                 continue
             yield line.segmentAlongLine(prev_measure, measure).projectAs(line.spatialReference)
@@ -541,7 +543,7 @@ def shortest_path(
         target = target.projectAs(network[0].spatialReference).centroid
     target_pt = (round(target.X, precision), round(target.Y, precision))
 
-    G = Graph(
+    G = Graph(  # type: ignore
         [
             (
                 (round(line.firstPoint.X, precision), round(line.firstPoint.Y, precision)),
@@ -549,13 +551,13 @@ def shortest_path(
                 {'shape': line, 'length': line.length}
             )
             for line in network
-        ]
+        ]  # type: ignore
     )
     try:
         if all_paths:
-            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
         else:
-            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
     except (NodeNotFound, NetworkXNoPath):
         return None
 
