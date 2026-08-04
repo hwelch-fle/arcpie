@@ -325,7 +325,7 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
 class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
     def __init__(self, elem: MPElem, parent: Parent | None = None) -> None:
         self.elem = elem
-        self.__elemattrs = set(dir(elem))
+        self._elemattrs = set(dir(elem))
         self.parent = parent
         self.children = ElementList[Element[Any, Any, Any]]()
         self.mp_type = type(elem)
@@ -434,7 +434,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
         try:
             return super().__getattribute__(name)
         except AttributeError:
-            if name in self.__elemattrs:
+            if name in self._elemattrs:
                 return getattr(self.elem, name)
             raise
 
@@ -638,28 +638,38 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     # Need to override Element.__init__ since ArcGISProject objects are special
     def __init__(self, aprx: Path | str | Literal['CURRENT'] | None = None, *, cached: bool = True) -> None:
-        self.__aprx = aprx or 'CURRENT'
-        self.open()  # Assigns elem
+        self._aprx = aprx or 'CURRENT'
+        self._is_open = False
+        self.elem = None  # type: ignore
+        self.open()
+        assert self.elem is not None, f'Unable to open {aprx}'
         self.elem: mp.ArcGISProject
         super().__init__(self.elem, None)
         self.cache_enabled = cached
-        self.__is_open = True
+        self._is_open = True
         self.name = self.path.name
 
+    # Backwards compat (deprecate eventually)
+    @property
+    def aprx(self) -> mp.ArcGISProject:
+        return self.elem
+
     def open(self) -> None:
-        if self.is_current:
+        # Don't re-initialize a CURRENT project
+        if self.is_current and self._is_open:
             return
-        prj = mp.ArcGISProject(str(self.__aprx))
-        self.__is_open = True
+        prj = mp.ArcGISProject(str(self._aprx))
+        self._is_open = True
         self.elem = prj
 
     def close(self) -> None:
+        # Can't close a CURRENT project
         if self.is_current or not self.is_open:
             return
         self.elem = _ClosedProject(str(self.path))  # type: ignore
         self.refresh()
         self.children.clear()
-        self.__is_open = False
+        self._is_open = False
 
     def reopen(self) -> None:
         if self.is_current:
@@ -672,11 +682,11 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def is_open(self) -> bool:
-        return self.__is_open
+        return self._is_open
 
     @property
     def is_current(self) -> bool:
-        return self.__aprx == 'CURRENT'
+        return self._aprx == 'CURRENT'
 
     @property
     def is_read_only(self) -> bool:
@@ -1356,11 +1366,19 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             return mapx.read_bytes()
 
     @property
+    def mapx_dict(self) -> dict[str, Any]:
+        return json.loads(self.mapx)
+
+    @property
     def bkmx(self) -> bytes:
         with tempfile.TemporaryDirectory(suffix=self.name) as tmp:
             bkmx = Path(tmp) / f'{self.name}.bkmx'
             self.elem.exportBookmarks(str(bkmx))
             return bkmx.read_bytes()
+
+    @property
+    def bkmx_dict(self) -> dict[str, Any]:
+        return json.loads(self.bkmx)
 
     @property
     def metadata(self) -> Metadata:
@@ -2849,37 +2867,70 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> bytes: ...
     @overload
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> Path: ...
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
         ) -> Path | bytes:
-        """Export the Layout. (wrapper for `MapView.export`)
+        """Export the MapView.
 
         Args:
             format: A Format object or a string format (string option will use defaults)
             outfile: An optional output file location to use (will override format filePath)
             antialiasing: Antialiasing options for the output file
+
+        Returns:
+            Path: If outfile is set
+            bytes: If outfile is unset
         """
-        return MapView.export(
-            cast(MapView, self),
-            format=format,
-            outfile=outfile,
-            antialiasing=antialiasing,
-        )
+        display = None
+        outfile = Path(outfile) if outfile else None
+        if antialiasing:
+            display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
+            display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
+
+        if type(format).__name__.endswith('Format'):
+            suffix = type(format).__name__.replace('Format', '').lower()
+            format = cast(mpt.ExportFormat, format)
+
+        elif isinstance(format, str):
+            suffix = format.lower()
+            format = mp.CreateExportFormat(format)
+
+        else:
+            raise ValueError(f'Unknown format {type(format)} : {format}')
+
+        if suffix == 'jpeg':
+            suffix = 'jpg'
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            out = tmp / f'{self.name}.{suffix}'
+            format.filePath = str(out)
+            self.elem.export(format, display_options=display)
+            data = out.read_bytes()
+        if outfile:
+            outfile.parent.mkdir(exist_ok=True, parents=True)
+            outfile.with_suffix(suffix).write_bytes(data)
+            return outfile
+        else:
+            return data
 
     def open_view(self):
         self.elem.openView()
@@ -3000,20 +3051,20 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
 
     @overload
     def export(self,  # type: ignore (No Overlap?)
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: None = None,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> bytes: ...
     @overload
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str = ...,
                antialiasing: mpt.Antialiasing | None = ...,
         ) -> Path: ...
     def export(self,
-               format: mp.Format | mpt.ExportFormat,
+               format: mp.Format | mpt.ExportFormat | fmts.Format,
                *,
                outfile: Path | str | None = None,
                antialiasing: mpt.Antialiasing | None = None,
@@ -3025,24 +3076,76 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
             outfile: An optional output file location to use (will override format filePath)
             antialiasing: Antialiasing options for the output file
         """
-        return MapView.export(
-            cast(MapView, self),
-            format=format,
-            outfile=outfile,
-            antialiasing=antialiasing,
-        )
+        """Export the MapView.
+
+        Args:
+            format: A Format object or a string format (string option will use defaults)
+            outfile: An optional output file location to use (will override format filePath)
+            antialiasing: Antialiasing options for the output file
+
+        Returns:
+            Path: If outfile is set
+            bytes: If outfile is unset
+        """
+        display = None
+        outfile = Path(outfile) if outfile else None
+        if antialiasing:
+            display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
+            display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
+
+        if type(format).__name__.endswith('Format'):
+            suffix = type(format).__name__[:3].lower()
+            format = cast(mpt.ExportFormat, format)
+
+        elif isinstance(format, str):
+            suffix = format[:3].lower()
+            format = mp.CreateExportFormat(format)
+
+        else:
+            raise ValueError(f'Unknown format {type(format)} : {format}')
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            out = tmp / f'{self.name}.{suffix}'
+            format.filePath = str(out)
+            self.elem.export(format, display_options=display)
+            data = out.read_bytes()
+        if outfile:
+            outfile.parent.mkdir(exist_ok=True, parents=True)
+            outfile.with_suffix(suffix).write_bytes(data)
+            return outfile
+        else:
+            return data
 
     def layer_extent(self, layer: LayerLike, selected: bool = True, symbolized: bool = True) -> Extent:
-        return MapView.layer_extent(cast(MapView, self), layer, selected, symbolized)
+        layer = layer.elem if isinstance(layer, Element) else layer
+        return self.elem.getLayerExtent(layer, selected, symbolized)
 
     def pan_to(self, extent: LayerLike | Polygon | Extent) -> None:
-        return MapView.pan_to(cast(MapView, self), extent)
+        if isinstance(extent, Extent):
+            extent = extent
+        elif isinstance(extent, Polygon):
+            extent = extent.extent
+        else:
+            extent = self.layer_extent(extent)
+        self.elem.panToExtent(extent)
 
     def zoom_all(self, selected: bool = True, symbolized: bool = True) -> None:
         self.elem.zoomToAllLayers(selected, symbolized)
 
     def zoom_to(self, elem: LayerLike | BookmarkLike) -> None:
-        return MapView.zoom_to(cast(MapView, self), elem)
+        if isinstance(elem, Element):
+            elem = elem.elem
+
+        elem_type = type(elem).__name__
+        if elem_type == 'Bookmark':
+            self.elem.zoomToBookmark(cast(mpt.Bookmark, elem))
+        if elem_type == 'Layer':
+            elem = cast(mpt.Layer, elem)
+            self.camera.setExtent(self.layer_extent(elem))
 
 
 # MapSeries export only allows a subset of ExportFormats
@@ -3082,20 +3185,24 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         return self.elem.pageNameField.name
 
     @property
-    def current_page_name(self) -> int | str:
+    def current_page_name(self) -> str:
         try:
-            return self.elem.currentPageName
+            return str(self.elem.currentPageName)
         except Exception:
             # <=3.6 compat
-            return cast(int | str, self.page_row[self.page_name_field])
+            return str(self.page_row[self.page_name_field])
 
     @property
     def current_page_number(self) -> int | str:
         return self.elem.currentPageNumber
 
     @property
-    def page_numbers(self) -> list[int]:
-        return self.elem.selectedIndexFeatures
+    def page_numbers(self) -> list[str]:
+        return [str(p.current_page_number) for p in self]
+
+    @property
+    def page_names(self) -> list[str]:
+        return [str(p.current_page_name) for p in self]
 
     @property
     def name(self) -> str:
@@ -3109,7 +3216,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         return self.elem.pageCount
 
     @property
-    def features(self) -> dict[int, dict[str, Any]]:
+    def features(self) -> dict[str, dict[str, Any]]:
         return self._cached('features',
             lambda: {
                 page: layout.page_row
@@ -3265,6 +3372,9 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                 yield self
         finally:
             self.elem.currentPageNumber = current
+
+    def __len__(self) -> int:
+        return self.page_count
 
     def __repr__(self) -> str:
         return (
