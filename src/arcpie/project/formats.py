@@ -301,10 +301,10 @@ class PDF(Format[mpt.PDFFormat, PDFOpts]):
     imageCompression: mpt.ImageCompression = 'ADAPTIVE'
     imageCompressionQuality: int = 80
     imageQuality: mpt.ImageQuality = 'BEST'
-    includeAccessibilityTags: bool = False
+    includeAccessibilityTags: bool = True
     includeNonVisibleMapLayers: bool = False
-    keywords: str | None = None
-    languageCode: str | None = None
+    keywords: str = ''
+    languageCode: str = ''
     layersAndAttributes: mpt.LayerAttributes = 'LAYERS_ONLY'
     outputAsImage: bool = False
     rasterAsSingleTile: bool = False
