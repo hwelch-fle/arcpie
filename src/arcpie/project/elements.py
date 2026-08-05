@@ -878,7 +878,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
     def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'MAPS_AND_LAYOUTS', wildcard: str | None = None) -> None:
-        if not self.__is_current:
+        if not self.is_current:
             raise PermissionError(f'{self} was not initialized as `CURRENT` and has no views to close')
         if view_type == 'ALL':
             self.elem.closeViews('MAPS_AND_LAYOUTS', wildcard)
@@ -2117,9 +2117,9 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
     @property
     def is_projected_on_fly(self) -> bool:
         return (
-            (pnt := self.parent) is not None and self.has_feature_class
+            (parent := self.parent) is not None and self.has_feature_class
             and (
-                self.feature_class.spatial_reference != pnt.spatial_reference
+                self.feature_class.spatial_reference != parent.spatial_reference
             )
         )
 
