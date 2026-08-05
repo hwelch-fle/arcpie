@@ -430,13 +430,14 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
         """A short name for the Element (.name) if one exists"""
         return getattr(self.elem, 'name', self.name)
 
-    def __getattr__(self, name: str):
-        try:
-            return super().__getattribute__(name)
-        except AttributeError:
-            if name in self._elemattrs:
-                return getattr(self.elem, name)
-            raise
+    if not TYPE_CHECKING:  # Allow runtime access to base attrs
+        def __getattr__(self, name: str):
+            try:
+                return super().__getattribute__(name)
+            except AttributeError:
+                if name in self._elemattrs:
+                    return getattr(self.elem, name)
+                raise
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self.short_name if not self.name.startswith('ID:0x') else self.parent})'
