@@ -3759,6 +3759,10 @@ class StyleItem(Element[mpt.StyleItem, None, Style]):
     def tags(self) -> set[str]:
         return set(str(self.elem.tags).split(';'))
 
+    @property
+    def key(self) -> str:
+        return self.elem.key
+
 
 class ReportElement[MPElem: mpt.ReportSection | mpt.ReportLayoutSection, CIM](Element[MPElem, CIM, Report]):
 
