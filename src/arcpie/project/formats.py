@@ -270,8 +270,8 @@ class PDFOpts(FormatOpts, total=False):
     imageQuality: mpt.ImageQuality
     includeAccessibilityTags: bool
     includeNonVisibleMapLayers: bool
-    keywords: str | None
-    languageCode: str | None
+    keywords: str
+    languageCode: str
     layersAndAttributes: mpt.LayerAttributes
     outputAsImage: bool
     rasterAsSingleTile: bool
