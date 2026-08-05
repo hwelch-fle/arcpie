@@ -3194,6 +3194,14 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
             return str(self.page_row[self.page_name_field])
 
     @property
+    def page_map(self) -> dict[str, str]:
+        return dict(zip((str(i) for i in self.page_range), self.page_names, strict=False))
+
+    @property
+    def page_range(self) -> range:
+        return range(1, self.page_count + 1)
+
+    @property
     def current_page_number(self) -> int | str:
         return self.elem.currentPageNumber
 
@@ -3203,7 +3211,9 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
     @property
     def page_names(self) -> list[str]:
-        return [str(p.current_page_name) for p in self]
+        return self._cached('page_names',
+            lambda: [str(p.current_page_name) for p in self]
+        )
 
     @property
     def name(self) -> str:
@@ -3245,6 +3255,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                custom_pages: str | None = ...,
                multi_file: bool = ...,
                export_pages: mpt.ExportPages = ...,
+               print_count: bool = ...,
         ) -> tuple[bytes, ...]: ...
     @overload
     def export(self,
@@ -3256,6 +3267,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                custom_pages: str | None = ...,
                multi_file: bool = ...,
                export_pages: mpt.ExportPages = ...,
+               print_count: bool = ...,
         ) -> tuple[Path, ...]: ...
     def export(self,
                format: _MSFormat | _MSFormatAlt | _MSFormatName,
@@ -3267,18 +3279,18 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
                multi_file: bool = False,
                export_pages: mpt.ExportPages = 'ALL',
                prefix: str | None = None,
+               print_count: bool = False,
         ) -> tuple[Path, ...] | tuple[bytes, ...]:
-
         ms_opts = mapseries_options or mp.CreateExportOptions('MAPSERIES')
         ms_opts = cast(mpt.MapSeriesExportOptions, ms_opts)
-
+        ms_opts.showExportCount = print_count
         if export_pages == 'CUSTOM' or custom_pages:
             if not custom_pages:
                 raise ValueError("`export_pages` is set to 'custom', but no `custom_pages` argument given")
             ms_opts.customPages = custom_pages
             ms_opts.setExportPages('CUSTOM')
         elif multi_file:
-            ms_opts.setExportFileOptions('MULTIPLE_FILES_PAGE_NAME')
+            ms_opts.setExportFileOptions('MULTIPLE_FILES_PAGE_NUMBER')
         elif export_pages == 'ALL':
             ms_opts.setExportPages('ALL')
         elif export_pages == 'CURRENT':
@@ -3310,24 +3322,24 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         else:
             raise ValueError(f'Unknown format {type(format)} : {format}')
 
-        out_name = f'{self.name}.{suffix}'
-
+        out_name = f'MSPage.{suffix}' if multi_file else f'{self.name}.{suffix}'
+        page_names = self.page_names if multi_file else []
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             outfl = tmp / out_name
             format.filePath = str(outfl)
-            self.elem.export(
-                format,
-                mapseries_export_options=ms_opts,
-                display_options=display,
-            )
-            if not multi_file:
-                pages = ((outfl.name, outfl.read_bytes()),)
-            else:
-                pages = tuple((fl.name, fl.read_bytes()) for fl in tmp.glob('*.pdf'))
+            self.elem.export(format, mapseries_export_options=ms_opts, display_options=display)
+            pages = tuple(
+                (name, fl.read_bytes())
+                for name, fl in zip(
+                    page_names,
+                    sorted(tmp.glob(f'*.{suffix}'), key=lambda f: f.stat().st_birthtime_ns),
+                    strict=True
+                )
+            ) if multi_file else ((out_name, outfl.read_bytes()),)
 
         # Return the raw page data if an outfile is not specified
-        if not out:
+        if out is None:
             return tuple(page[1] for page in pages)
 
         paths = list[Path]()
@@ -3338,8 +3350,8 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
             fl_name = f'{prefix or ''}{fl_name}'
             outfl = (
                 out
-                if out.suffix == '.pdf'
-                else (out / fl_name).with_suffix('.pdf')
+                if out.suffix == f'.{suffix}'
+                else (out / fl_name).with_suffix(f'.{suffix}')
             )
             out.write_bytes(data)
             out.parent.mkdir(exist_ok=True, parents=True)
@@ -3354,6 +3366,10 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
             pfx = prefix or ''
             fl_name = f'{pfx}{fl_name}'
             outfl = out / fl_name
+            duplicates = 0
+            while outfl.exists():
+                outfl = outfl.with_stem(f'{outfl.stem}({duplicates + 1})')
+                duplicates += 1
             outfl.parent.mkdir(exist_ok=True, parents=True)
             outfl.write_bytes(data)
             paths.append(outfl)
