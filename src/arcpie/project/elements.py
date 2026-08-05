@@ -3973,7 +3973,7 @@ class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
 
     def clone(self, name: str | None = None) -> Self:
         new = type(self)(self.elem.clone(), self.parent)
-        new.set_name(name or new.name)
+        new.name = name or new.name
         return new
 
 
@@ -4062,5 +4062,5 @@ class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
 
     def clone(self, name: str | None = None) -> Self:
         new = type(self)(self.elem.clone(), self.parent)
-        new.set_name(name or new.name)
+        new.name = name or new.name
         return new
