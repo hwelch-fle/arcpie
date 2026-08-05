@@ -1726,7 +1726,15 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
             self.camera.setExtent(self.layer_extent(elem))
 
 
-class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
+class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, "Map | GroupLayer"]):
+
+    @property
+    def spatial_reference(self) -> SpatialReference:
+        if not self.parent:
+            raise AttributeError(f'{self} has no associated map, and no spatial reference')
+        if isinstance(self.parent, GroupLayer):
+            return self.parent.spatial_reference
+        return self.parent.spatial_reference
 
     @property
     def group_type(self) -> mpt.GroupType:
@@ -1770,11 +1778,13 @@ class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, Map]):
         return lyrx
 
     def add_layer(self, layer: LayerLike, position: mpt.AddPosition = 'AUTO_ARRANGE') -> Layer:
-        if not self.parent:
+        parent = self.parent
+        layer = layer.elem if isinstance(layer, Element) else layer
+        while not isinstance(parent, Map | None):
+            parent = parent.parent
+        if parent is None:
             raise ValueError(f'{self} is unbound and cannot add new layers')
-        if isinstance(layer, Layer):
-            layer = layer.elem
-        return self.parent.add_layer(layer, position=position, group=self)
+        return parent.add_layer(layer, position=position, group=self)
 
     def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
         outdir = Path(outdir)
@@ -2252,8 +2262,12 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         return type(self.cim_symbology)
 
     def delete(self) -> None:
-        if self.parent:
-            self.parent.remove(self)
+        parent = self.parent
+        while not isinstance(parent, Map | None):
+            parent = parent.parent
+        if parent is None:
+            raise AttributeError(f'{self} has no associated map and no spatial reference')
+        parent.remove(self)
 
     @contextmanager
     def query_as(self, query: str | None):
