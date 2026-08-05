@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Protocol,
     SupportsIndex,
+    cast,
     overload,
 )
 
@@ -770,10 +771,11 @@ def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterato
         PointGeometries for all points in the line
     """
     section = slice(0 if start else 1, None if end else -1)
+    ref = line.spatialReference
     yield from (
-        PointGeometry(point, line.spatialReference)
+        PointGeometry(point, ref)
         for part in line
-        for point in list[Point](part)[section]  # type: ignore
+        for point in cast(list[Point], list(part))[section]
     )
 
 
@@ -1388,11 +1390,9 @@ class PolylineEditor:
 
     def extend(self, points: Iterable[Point | PointGeometry]) -> None:
         """Extend the last part of the polyline with the points"""
-        points = list(self.part_editors[-1])
-
-        points.extend(self._cast_point(p) for p in points)
+        self_points = list(self.part_editors[-1])
+        self_points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
-
         parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
