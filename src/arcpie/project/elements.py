@@ -1954,6 +1954,7 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 
     @property
     def camera(self) -> mp.Camera:
+        """Get the camera of the MapView"""
         return self.elem.camera
 
     @camera.setter
@@ -1962,6 +1963,7 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 
     @property
     def map(self) -> Map:
+        """Get the Map that the MapView is associated with (parent is actually Project)"""
         return Map(self.elem.map, self.parent)
 
     @overload
@@ -2029,13 +2031,31 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
             return data
 
     def create_bookmark(self, name: str | None = None, description: str | None = None) -> Bookmark:
+        """Create a new Bookmark from the current MapView
+
+        Args:
+            name: An optional name of the Bookmark. (default: `Bookmark{n}`)
+            description: An optional description for the Bookmark.
+        """
         return Bookmark(self.elem.createBookmark(name, description), self.map)
 
     def layer_extent(self, layer: LayerLike, selected: bool = True, symbolized: bool = True) -> Extent:
+        """Get the Extent for a Layer in the MapView.
+
+        Args:
+            layer: The layer to get an Extent for.
+            selected: Get the extent for only the selected features in the View.
+            symbolized: Consider symbology when getting the Extent.
+        """
         layer = layer.elem if isinstance(layer, Element) else layer
         return self.elem.getLayerExtent(layer, selected, symbolized)
 
     def pan_to(self, extent: LayerLike | Polygon | Extent) -> None:
+        """Pan the MapView to an Extent/Layer/Polygon.
+
+        Args:
+            extent: A Layer, Polygon, or Extent to pan to.
+        """
         if isinstance(extent, Extent):
             extent = extent
         elif isinstance(extent, Polygon):
@@ -2045,16 +2065,30 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
         self.elem.panToExtent(extent)
 
     def zoom_all(self, selected: bool = True, symbolized: bool = True) -> None:
+        """Zoom the MapView to all layers.
+
+        Args:
+            selected: Zoom to only the selected features.
+            symbolized: Consider symbology when zooming.
+        """
         self.elem.zoomToAllLayers(selected, symbolized)
 
-    def zoom_to(self, elem: LayerLike | BookmarkLike) -> None:
-        if isinstance(elem, Element):
+    def zoom_to(self, elem: LayerLike | BookmarkLike | Extent | HasExtent) -> None:
+        """Zoom the MapView to a Layer or Bookmark.
+
+        Args:
+            elem: The Layer or Bookmark to zoom to.
+        """
+        if isinstance(elem, HasExtent):
+            self.camera.setExtent(elem.extent)
+            return
+        elif isinstance(elem, Element):
             elem = elem.elem
 
         elem_type = type(elem).__name__
         if elem_type == 'Bookmark':
             self.elem.zoomToBookmark(cast(mpt.Bookmark, elem))
-        if elem_type == 'Layer':
+        elif elem_type == 'Layer':
             elem = cast(mpt.Layer, elem)
             self.camera.setExtent(self.layer_extent(elem))
 
