@@ -1171,23 +1171,26 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             Layout | Map | Report: The imported object
         """
         doc = Path(doc)
+        if doc.suffix not in ('.pagx', '.mapx', '.rptx', '.mxd'):
+            raise ValueError(f'Document type {doc.suffix} cannot be imported (.pagx, .mapx, .rptx, .mxd)')
+
         imported: Any = self.elem.importDocument(
             str(doc),
             include_layout=include_layout,
             reuse_existing_maps=reuse_existing_maps,
         )
-        match imported:
-            case mp.Map():
-                self.refresh('maps')
-                return Map(imported, parent=self)
-            case mp.Layout():
-                self.refresh('layouts')
-                return Layout(imported, parent=self)
-            case mp.Report():
-                self.refresh('reports')
-                return Report(imported, parent=self)
-            case _:
-                raise ValueError(f'Document type {doc.suffix} cannot be imported')
+        imported_type_name = type(imported).__name__
+        if imported_type_name == 'Map':
+            self.refresh('maps')
+            return Map(imported, parent=self)
+        if imported_type_name == 'Layout':
+            self.refresh('layouts')
+            return Layout(imported, parent=self)
+        if imported_type_name == 'Report':
+            self.refresh('reports')
+            return Report(imported, parent=self)
+        else:
+            raise Exception('Unreachable')
 
     def import_pagx(self, pagx: Path | str, *, reuse_existing_maps: bool = False) -> Layout:
         """Import a `.pagx` file. (see: `Project.import_document`)"""
