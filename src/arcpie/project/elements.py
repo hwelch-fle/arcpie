@@ -1350,23 +1350,46 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         else:
             self.path.unlink()
 
-    def import_document(self, doc: Path | str, *, include_layout: bool = True, reuse_existing_maps: bool = True) -> Layout | Map | Report:
+    def import_document(self, doc: Path | str | bytes,
+                        *,
+                        include_layout: bool = True,
+                        reuse_existing_maps: bool = True,
+                        log: bool = True,
+                        extension: str | None = None,
+        ) -> Layout | Map | Report:
         """Import a document file into this project using `ArcGISProject.importDocument`.
 
         Args:
-            doc: The path to the document (`.pagx`, `.mapx`, `.rptx`, `.mxd`, ...[see `importDocument`])
-            include_layout: Include layouts with `.mapx` files
-            reuse_existing_maps: Reuse existing maps with `.pagx` files
+            doc: The path to the document. (`.pagx`, `.mapx`, `.rptx`, `.mxd`, ...[see `importDocument`])
+            include_layout: Include layouts with `.mapx` files.
+            reuse_existing_maps: Reuse existing maps with `.pagx` files.
+            log: Log the import in the ImportLog. (default: `True`)
+            extension: If using bytes as the source document, supply the file extension (no dot)
         """
-        doc = Path(doc)
-        if doc.suffix not in ('.pagx', '.mapx', '.rptx', '.mxd'):
-            raise ValueError(f'Document type {doc.suffix} cannot be imported (.pagx, .mapx, .rptx, .mxd)')
+        if isinstance(doc, bytes):
+            if not extension:
+                raise ValueError('Cannot import bytes data without specified extension')
+            with tempfile.TemporaryDirectory() as tmp:
+                tmp = (Path(tmp) / '_map').with_suffix(f'.{extension}')
+                tmp.write_bytes(doc)
+                imported: Any = self.elem.importDocument(
+                    str(doc),
+                    include_layout=include_layout,
+                    reuse_existing_maps=reuse_existing_maps,
+                    log_files=log,
+                )
+        else:
+            doc = Path(doc)
+            if doc.suffix not in ('.pagx', '.mapx', '.rptx', '.mxd'):
+                raise ValueError(
+                    f'Document type {doc.suffix} cannot be imported (.pagx, .mapx, .rptx, .mxd)'
+                )
 
-        imported: Any = self.elem.importDocument(
-            str(doc),
-            include_layout=include_layout,
-            reuse_existing_maps=reuse_existing_maps,
-        )
+            imported: Any = self.elem.importDocument(
+                str(doc),
+                include_layout=include_layout,
+                reuse_existing_maps=reuse_existing_maps,
+            )
         imported_type_name = type(imported).__name__
         if imported_type_name == 'Map':
             self.refresh('maps')
@@ -1380,39 +1403,43 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         else:
             raise Exception('Unreachable')
 
-    def import_pagx(self, pagx: Path | str, *, reuse_existing_maps: bool = False) -> Layout:
+    def import_pagx(self, pagx: Path | str | bytes, *, reuse_existing_maps: bool = False) -> Layout:
         """Import a `.pagx` file. (see: `Project.import_document`)"""
-        pagx = Path(pagx)
-        if pagx.suffix != '.pagx':
-            raise ValueError(f'Expected .pagx file, got {pagx.suffix}')
-        imported = self.import_document(pagx, reuse_existing_maps=reuse_existing_maps)
+        if not isinstance(pagx, bytes):
+            pagx = Path(pagx)
+            if pagx.suffix != '.pagx':
+                raise ValueError(f'Expected .pagx file, got {pagx.suffix}')
+        imported = self.import_document(pagx, reuse_existing_maps=reuse_existing_maps, extension='pagx')
         assert isinstance(imported, Layout)
         return imported
 
-    def import_mapx(self, mapx: Path | str) -> Map:
+    def import_mapx(self, mapx: Path | str | bytes) -> Map:
         """Import a `.mapx` file. (see: `Project.import_document`)"""
-        mapx = Path(mapx)
-        if mapx.suffix != '.mapx':
-            raise ValueError(f'Expected .mapx file, got {mapx.suffix}')
-        imported = self.import_document(mapx)
+        if not isinstance(mapx, bytes):
+            mapx = Path(mapx)
+            if mapx.suffix != '.mapx':
+                raise ValueError(f'Expected .mapx file, got {mapx.suffix}')
+        imported = self.import_document(mapx, extension='mapx')
         assert isinstance(imported, Map)
         return imported
 
-    def import_mxd(self, mxd: Path | str, *, include_layout: bool = True) -> Map:
+    def import_mxd(self, mxd: Path | str | bytes, *, include_layout: bool = True) -> Map:
         """Import a `.mxd` file. (see: `Project.import_document`)"""
-        mxd = Path(mxd)
-        if mxd.suffix != '.mxd':
-            raise ValueError(f'Expected .mxd file, got {mxd.suffix}')
-        imported = self.import_document(mxd, include_layout=include_layout)
+        if not isinstance(mxd, bytes):
+            mxd = Path(mxd)
+            if mxd.suffix != '.mxd':
+                raise ValueError(f'Expected .mxd file, got {mxd.suffix}')
+        imported = self.import_document(mxd, include_layout=include_layout, extension='mxd')
         assert isinstance(imported, Map)
         return imported
 
-    def import_rptx(self, rptx: Path | str) -> Report:
+    def import_rptx(self, rptx: Path | str | bytes) -> Report:
         """Import a `.rptx` file. (see: `Project.import_document`)"""
-        rptx = Path(rptx)
-        if rptx.suffix != '.rptx':
-            raise ValueError(f'Expected .rptx file, got {rptx.suffix}')
-        imported = self.import_document(rptx)
+        if not isinstance(rptx, bytes):
+            rptx = Path(rptx)
+            if rptx.suffix != '.rptx':
+                raise ValueError(f'Expected .rptx file, got {rptx.suffix}')
+        imported = self.import_document(rptx, extension='rptx')
         assert isinstance(imported, Report)
         return imported
 
