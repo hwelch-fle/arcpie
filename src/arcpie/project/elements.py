@@ -47,7 +47,7 @@ import os
 import re
 import shutil
 import tempfile
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager, suppress
 from copy import copy
 from datetime import datetime
@@ -497,7 +497,7 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
     def __getitem__(self, key: str, /) -> Self: ...
     @overload
     def __getitem__(self, key: re.Pattern[str], /) -> Self: ...
-    def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> E | Self:
+    def __getitem__(self, key: SupportsIndex | slice | str | re.Pattern[str]) -> Self | E:
         if isinstance(key, (str, re.Pattern)):
             matches = type(self)()
             # Attempt direct name/uri/short name match
@@ -537,6 +537,13 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
     def filter(self, cond: Callable[[E], bool]) -> Self:
         """Filter elements in the list using the provided function"""
         return type(self)(e for e in self if cond(e))
+
+    @overload
+    def __add__(self, value: Sequence[E], /) -> Self: ...
+    @overload
+    def __add__[S: Element[Any, Any, Any]](self, value: Sequence[S], /) -> ElementList[S | E]: ...
+    def __add__[S: Element[Any, Any, Any]](self, value: Sequence[E] | Sequence[S], /) -> ElementList[S | E] | ElementList[E]:  # type: ignore (we don't want non-Elements)
+        return ElementList(super().__add__(list(value)))
 
     @overload
     def get[D](self, i: SupportsIndex, /, default: D = ...) -> E | D: ...
