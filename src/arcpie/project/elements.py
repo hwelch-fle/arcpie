@@ -1802,6 +1802,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             return GroupLayer(elem, self)
 
     def move_layer(self, layer: LayerLike, reference: LayerLike, position: mpt.MovePosition = 'BEFORE') -> None:
+        """Move a layer to a position (`BEFORE`/`AFTER`) relative to the reference Layer."""
         layer = layer.elem if isinstance(layer, Element) else layer
         reference = reference.elem if isinstance(reference, Element) else reference
         self.elem.moveLayer(reference, layer, position)
@@ -1809,6 +1810,12 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
     def add_table(self, table: TableLike,
                   *,
                   group: GroupLayerLike | None = None) -> Table:
+        """Add a Table to the Map.
+
+        Args:
+            table: The table to add.
+            group: An optional GroupLayer to add the Table to.
+        """
         if isinstance(table, Table):
             table = table.elem
         if isinstance(group, GroupLayer):
@@ -1824,6 +1831,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         return Table(elem, self)
 
     def remove(self, child: LayerLike | TableLike | BookmarkLike) -> None:
+        """Remove a Map Element. (Layer/Table/Bookmark)"""
         child = child.elem if isinstance(child, Element) else child
         child_type = type(child).__name__
         {
@@ -1839,14 +1847,15 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         """Create a new GroupLayer in the Map.
 
         Args:
-            name: The name of the new GroupLayer
-            parent: An optional parent group for the new layer
+            name: The name of the new GroupLayer.
+            parent: An optional parent group for the new layer.
         """
         if isinstance(parent, GroupLayer):
             parent = parent.elem
         return GroupLayer(self.elem.createGroupLayer(name, parent), self)
 
     def create_graphics_layer(self, name: str) -> Layer:
+        """Create a GraphicsLayer in the Map with the provided name"""
         return Layer(self.elem.createGraphicsLayer(name), self)
 
     def clear_selection(self) -> None:
@@ -1854,19 +1863,29 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         self.elem.clearSelection()
 
     def copy_bookmark(self, bookmark: BookmarkLike, name: str | None = None) -> Bookmark:
+        """Make a copy of the Bookmark with an optional new name."""
         bookmark = bookmark.elem if isinstance(bookmark, Element) else bookmark
         return Bookmark(self.elem.copyBookmark(bookmark, name), self)
 
-    def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
-        self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
+    def update_connection(self, new: Path | str, current: Path | str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False) -> None:
+        """Update data connections in the Map.
+
+        Args:
+            new: The new connection path.
+            current: The current connection path.
+            auto_update: Update all existing joins and relates.
+            validate: Only complete the connection change if the new path is valid.
+            ignore_case: Ignore case in queries.
+        """
+        self.elem.updateConnectionProperties(str(current), str(new), auto_update, validate, ignore_case)
         self.refresh()
 
     def clip_to(self, layer: LayerLike, selected: bool = False) -> None:
         """Clip all layers in the map to the footprint of the input layer
 
         Args:
-            layer: The Layer to clip to
-            selected: Clip only to the selected features (default: `False`)
+            layer: The Layer to clip to.
+            selected: Clip only to the selected features. (default: `False`)
         """
         if isinstance(layer, Layer):
             layer = layer.elem
@@ -1892,18 +1911,21 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         raise ValueError(f'Something went wrong got {type(elem)} but expected Layer or Table')
 
     def export_mapx(self, outfile: Path | str) -> Path:
+        """Export the Map's `mapx` representation to a file."""
         outfile = Path(outfile).with_suffix('.mapx')
         with outfile.open('wb') as mapx:
             mapx.write(self.mapx)
         return outfile
 
     def export_bkmx(self, outfile: Path | str) -> Path:
+        """Export the Map's `bkmx` data to a file."""
         outfile = Path(outfile).with_suffix('.bkmx')
         with outfile.open('wb') as bkmx:
             bkmx.write(self.bkmx)
         return outfile
 
     def import_bkmx(self, bkmx: Path | str | bytes) -> None:
+        """Import Bookmarks from a `bkmx` file."""
         if isinstance(bkmx, bytes):
             with tempfile.TemporaryDirectory() as tmp:
                 tmp = (Path(tmp) / '_bookmarks').with_suffix('.bkmx')
@@ -1912,8 +1934,20 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         else:
             self.elem.importBookmarks(str(bkmx))
 
-    def filter(self, pred: Callable[[Layer], bool]) -> ElementList[Layer]:
-        return ElementList(lay for lay in self.layers if pred(lay))
+    def filter(self, pred: Callable[[Layer | Table | GroupLayer], bool]) -> ElementList[Layer | Table | GroupLayer]:
+        return self.layers.filter(pred) + self.tables.filter(pred) + self.group_layers.filter(pred)
+
+    def filter_layers(self, pred: Callable[[Layer], bool]) -> ElementList[Layer]:
+        """Filter Layers using a predicate function."""
+        return self.layers.filter(pred)
+
+    def filter_tables(self, pred: Callable[[Table], bool]) -> ElementList[Table]:
+        """Filter Tables using a predicate function."""
+        return self.tables.filter(pred)
+
+    def filter_groups(self, pred: Callable[[GroupLayer], bool]) -> ElementList[GroupLayer]:
+        """Filter Layers using a predicate function."""
+        return self.group_layers.filter(pred)
 
 
 class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
