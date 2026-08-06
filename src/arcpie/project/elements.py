@@ -2364,7 +2364,7 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         # Special Cases (TODO: Fill out more of these as encountered)
         if not types:
             try:
-                cim_type = self.cim_type
+                cim_type = self.cim_type_name
                 if cim_type == 'CIMAnnotationLayer':
                     types.add('annotation-layer')
                 if cim_type == 'CIMAnnotationSubLayer':
@@ -4065,15 +4065,22 @@ class ElevationSource(Element[mpt.ElevationSource, None, Project]):
 class Style(Element[None, None, Project]):
 
     def __init__(self, name: str, parent: Project):
-        super().__init__(None, parent)
         if name.endswith('.stylx'):
             self.fullname = name
-            self.name = name.rsplit('\\', maxsplit=1)[-1].removesuffix('.stylx')
+            self._name = name.rsplit('\\', maxsplit=1)[-1].removesuffix('.stylx')
         else:
-            self.fullname = self.name = name
+            self.fullname = self._name = name
+        super().__init__(None, parent)
         self.parent = parent
         self.elem = None
         self.cache = dict[str, list[StyleItem]]()
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, name: Never) -> Never: ...  # type: ignore (Cannot set Style name)
 
     def __repr__(self):
         return f'{type(self).__name__}({self.fullname})'
@@ -4363,17 +4370,24 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
         self.y += y
 
 
-class MapSurroundElement(LayoutElement[mpt.MapSurroundElement, cim.CIMMapSurround]): ...
+class MapSurroundElement(LayoutElement[mpt.MapSurroundElement, cim.CIMMapSurround]):
+
+    def apply_style(self, style_item: StyleItemLike) -> None:
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        self.elem.applyStyleItem(style_item)
 
 
-class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame]): ...
+class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame]):
+
+    def apply_style(self, style_item: StyleItemLike) -> None:
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        self.elem.applyStyleItem(style_item)
 
 
 class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
 
     def apply_style(self, style_item: StyleItemLike) -> None:
-        if isinstance(style_item, Element):
-            style_item = style_item.elem
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
         self.elem.applyStyleItem(style_item)
 
     def clone(self, name: str | None = None) -> Self:
@@ -4464,6 +4478,10 @@ class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]): 
 
 
 class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
+
+    def apply_style(self, style_item: StyleItemLike) -> None:
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        self.elem.applyStyleItem(style_item)
 
     def clone(self, name: str | None = None) -> Self:
         new = type(self)(self.elem.clone(), self.parent)
