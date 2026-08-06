@@ -1341,11 +1341,9 @@ class PolylineEditor:
     def pop(self, index: SupportsIndex = -1, /) -> PointGeometry:
         """Remove a point from a polyline at the specified index (default: -1)"""
         part_idx, local_idx = self._part_at_index(index)
-
         parts = list(self.parts)
         new_part = list(self.part_editors[part_idx])
         pt = new_part.pop(local_idx)
-
         parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
         return pt
@@ -1361,11 +1359,9 @@ class PolylineEditor:
         """
         point = self._cast_point(point)
         part_idx, local_idx = self._part_at_index(index)
-
         parts = list(self.parts)
         new_part = list(self.part_editors[part_idx])
         new_part.insert(local_idx, point)
-
         parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
 
@@ -1379,10 +1375,8 @@ class PolylineEditor:
     def append(self, point: Point | PointGeometry) -> None:
         """Append a point to the last part of the Polyline"""
         points = list(self.part_editors[-1])
-
         points.append(self._cast_point(point))
         parts = self.parts[:-1]
-
         parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
@@ -1391,7 +1385,7 @@ class PolylineEditor:
         self_points = list(self.part_editors[-1])
         self_points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
-        parts.append(self.from_points(points, self.ref))
+        parts.append(self.from_points(self_points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def reverse(self) -> None:
