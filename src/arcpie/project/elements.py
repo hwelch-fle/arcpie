@@ -340,6 +340,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
 
     @property
     def name(self):
+        """The name of the element (either `longName`, `name`, `URI`, or `ID:{hex(id(elem)}`)"""
         return _get_name(self.elem)
 
     @name.setter
@@ -348,6 +349,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
             self.elem.name = name  # type: ignore
 
     def _cached[T](self, attr: str, default: Callable[[], T] | None = None) -> T:
+        """Return a shallow copy of the value stored in the cache (or set the cache)."""
         if default and not self._cache_enabled:
             return default()
         if item := self.cache.get(attr):
@@ -404,11 +406,18 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
             self.cache.clear()
 
     @property
-    def cim_type(self) -> str:
-        return type(self.cim).__name__
+    def cim_type(self) -> type[CIMDef]:
+        """The CIM object returned by `getDefinition('V3')`"""
+        return type(self.cim)
+
+    @property
+    def cim_type_name(self) -> str:
+        """The name of the CIM object returned by `getDefinition('V3')`"""
+        return self.cim_type.__name__
 
     @property
     def cim(self) -> CIMDef:
+        """The CIM object for the Element"""
         elem = self.elem
         if _cimless(elem):
             raise AttributeError(f'{type(self).__name__} has no implemented CIM getter')
@@ -423,11 +432,12 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
 
     @property
     def cim_dict(self) -> dict[str, Any]:
+        """The Element CIM definition as a Python dictionary"""
         return json.loads(json.dumps(self.cim or '{}', cls=CIMJsonEncoder))
 
     @property
     def short_name(self) -> str:
-        """A short name for the Element (.name) if one exists"""
+        """A short name for the Element (`elem.name`) if one exists otherwise the same as `self.name`"""
         return getattr(self.elem, 'name', self.name)
 
     if not TYPE_CHECKING:  # Allow runtime access to base attrs
@@ -443,11 +453,20 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
         return f'{type(self).__name__}({self.short_name if not self.name.startswith('ID:0x') else self.parent})'
 
     def __eq__(self, other: Any) -> bool:
-        return super().__eq__(other) or (isinstance(other, type(self)) and self.elem == other.elem)
+        return (isinstance(other, type(self)) and self.elem == other.elem) or super().__eq__(other)
+
+    def __hash__(self) -> int:
+        return hash(self.elem._arc_object)  # type: ignore
 
     @classmethod
     def diff(cls, a: Self, b: Self, *, outfile: Path | str | None = None) -> str:
-        """Generate a diff of two Layers using `cim_dict` and `difflib.unified_diff`"""
+        """Generate a diff of two Layers using `cim_dict` and `difflib.unified_diff`
+
+        Args:
+            a: The A Element of the diff
+            b: The B Element of the diff
+            outfile: An optional `.diff` file to write the diff to
+        """
         diff = '\n'.join(difflib.unified_diff(
             json.dumps(a.cim_dict, indent=2).split('\n'),
             json.dumps(b.cim_dict, indent=2).split('\n'),
