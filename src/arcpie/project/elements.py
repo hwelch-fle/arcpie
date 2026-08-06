@@ -648,7 +648,13 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         super().__init__(self.elem, None)
         self.cache_enabled = cached
         self._is_open = True
-        self.name = self.path.name
+
+    @property
+    def name(self) -> str:
+        return self.path.name
+
+    @name.setter
+    def name(self, name: Never) -> Never: ...  # type: ignore
 
     # Backwards compat (deprecate eventually)
     @property
