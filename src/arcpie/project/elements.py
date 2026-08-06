@@ -585,7 +585,7 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
 
 class ToolboxConf(TypedDict):
     toolboxPath: Path | str
-    validate: bool
+    isDefaultToolbox: bool
 
 
 class FolderConf(TypedDict):
