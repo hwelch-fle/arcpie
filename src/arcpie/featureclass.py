@@ -781,7 +781,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_record(self, record: Schema, ignore_errors: bool = False) -> int | None:
+    def insert_record(self, record: Schema | dict[str, Any], ignore_errors: bool = False) -> int | None:
         """Insert a single record into the table
 
         Args:
@@ -806,7 +806,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                 if not ignore_errors:
                     raise ValueError(f'Malformed Row: {record}') from e
 
-    def insert_records(self, records: Iterable[Schema], ignore_errors: bool = False) -> Iterator[int]:
+    def insert_records(self, records: Iterable[Schema | dict[str, Any]], ignore_errors: bool = False) -> Iterator[int]:
         """Provide an iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -1474,28 +1474,12 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         Raises: ValueError
         """
         # Use the wrapped Layer from arcpie.project so workspace can be inferred
-        from .project import Layer as _Layer  # noqa: PLC0415
-        layer = _Layer(layer)
+        from .project.elements import Layer as _Layer  # noqa: PLC0415
         # Try to update datasource using updateConnectionProperties
         try:
-            layer.updateConnectionProperties(layer.feature_class.workspace, self.workspace)
-            return
-        except Exception:
-            ...
-
-        # Fallback to direct CIM update (updateConnectionProperties is buggy)
-        # TODO: Integrate cimple.cim here for typing
-        try:
-            definition = layer.cim
-            dc = definition.featureTable.dataConnection  # type: ignore
-            dc.workspaceConnectionString = f'DATABASE={self.workspace}'
-            dc.dataset = self.name
-            # Remove missing FeatureDataset subpaths
-            if dc.featureDataset and dc.featureDataset not in Path(self.path).parts:  # type: ignore
-                dc.featureDataset = None
-            layer.setDefinition(definition)  # type: ignore
+            _Layer(layer).data_source = str(self)
         except Exception as e:
-            raise ValueError('Unable to bind to layer') from e
+            raise ValueError(f'Unable to bind {self} to {layer}') from e
 
     def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP'] = 'AUTO_ARRANGE') -> None:
         """Add the featureclass to a map

@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Protocol,
     SupportsIndex,
+    cast,
     overload,
 )
 
@@ -227,7 +228,7 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int = 4, sor
                 continue
             if skip_empty and not lyrx:
                 continue
-            out_file = (map_dir / layer.longName).with_suffix('.lyrx')
+            out_file = (map_dir / layer.name).with_suffix('.lyrx')
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_text(json.dumps(lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
 
@@ -267,11 +268,11 @@ def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTabl
     map_def.pop('standaloneTables', None)
 
     if layers:
-        map_def['layers'] = [lay.URI for lay in layers]
+        map_def['layers'] = [lay.uri for lay in layers]
         base_map['layerDefinitions'] = [lay.cim_dict for lay in layers]
 
     if tables:
-        map_def['standaloneTables'] = [t.URI for t in tables]
+        map_def['standaloneTables'] = [t.uri for t in tables]
         base_map['tableDefinitions'] = [t.cim_dict for t in tables]
 
     return base_map
@@ -768,10 +769,11 @@ def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterato
         PointGeometries for all points in the line
     """
     section = slice(0 if start else 1, None if end else -1)
+    ref = line.spatialReference
     yield from (
-        PointGeometry(point, line.spatialReference)
+        PointGeometry(point, ref)
         for part in line
-        for point in list[Point](part)[section]  # type: ignore
+        for point in cast(list[Point], list(part))[section]
     )
 
 

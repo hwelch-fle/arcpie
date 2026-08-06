@@ -33,8 +33,8 @@ if TYPE_CHECKING:
     )
 else:
     ArcFieldType = str
-    SpatialRelationship = None
-    SearchOrder = None
+    SpatialRelationship = object
+    SearchOrder = object
 
 GeneralToken = Literal[
     'ANNO@',
@@ -181,13 +181,13 @@ class SearchOptions(TypedDict, total=False):
         [('cleese', 777), ('idle', 222), ('gilliam', 111), ...]
         ```
     """
-    where_clause: str
-    spatial_reference: str | int | SpatialReference
+    where_clause: str | None
+    spatial_reference: str | int | SpatialReference | None
     explode_to_points: bool
     sql_clause: SQLClause
     datum_transformation: str
-    spatial_filter: GeometryType | Extent
-    spatial_relationship: SpatialRelationship
+    spatial_filter: GeometryType | Extent | None
+    spatial_relationship: SpatialRelationship | None
     search_order: SearchOrder
 
 
