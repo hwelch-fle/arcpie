@@ -651,17 +651,21 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def name(self) -> str:
+        """The final path component of the Project file including the .aprx suffix"""
         return self.path.name
 
     @name.setter
-    def name(self, name: Never) -> Never: ...  # type: ignore
+    def name(self, name: Never) -> Never:  # type: ignore
+        """Project name cannot be set"""
 
     # Backwards compat (deprecate eventually)
     @property
     def aprx(self) -> mp.ArcGISProject:
+        """Alias for `elem`"""
         return self.elem
 
     def open(self) -> None:
+        """Open the project if it is not open (stores an `ArcGISProject` instance in `elem`)"""
         # Don't re-initialize a CURRENT project
         if self.is_current and self._is_open:
             return
@@ -670,6 +674,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         self.elem = prj
 
     def close(self) -> None:
+        """Close the Project if is is open (cannot close `CURRENT` project)"""
         # Can't close a CURRENT project
         if self.is_current or not self.is_open:
             return
@@ -679,6 +684,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         self._is_open = False
 
     def reopen(self) -> None:
+        """Close and re-open a Project"""
         if self.is_current:
             return
         self.close()
@@ -701,28 +707,36 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def date_saved(self) -> datetime:
+        """The datetime the project was last saved"""
         return self.elem.dateSaved
 
     @property
     def version(self) -> str:
+        """A string representation of the ArcGIS Pro version the project was created/saved in
+        ``MAJOR.MINOR.PATCH``
+        """
         return self.elem.documentVersion
 
     # ArcGISProject CIM is not directly available and needs to be loaded from
     # the raw GISProject.json file in the aprx zip directory
     @property
     def cim(self) -> cim.CIMGISProject:
+        """Load the CIM data from the `GISProject.json` file in the `aprx` zip directory"""
         with ZipFile(self.path) as zf, zf.open('GISProject.json') as cim:
             return jsontocim.GetJSONTypeOBJ(json.load(cim))  # type: ignore
 
     @cim.setter
-    def cim(self, cim: Never) -> Never: ...  # type: ignore (Project CIM is ro)
+    def cim(self, cim: Never) -> Never:  # type: ignore
+        """Project CIM is read only"""
 
     @property
     def path(self) -> Path:
+        """A `Path` object pointed at the Project `aprx` file"""
         return Path(self.elem.filePath)
 
     @property
     def home(self) -> Path:
+        """A `Path` object pointed at the Project Home Folder"""
         return Path(self.elem.homeFolder)
 
     @home.setter
@@ -731,6 +745,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def maps(self) -> ElementList[Map]:
+        """An `ElementList` of Maps in the Project.
+        By default this property is cached on first load
+        """
         return self._cached('maps',
             lambda: ElementList(
                 Map(map, self)
@@ -740,6 +757,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def layouts(self) -> ElementList[Layout]:
+        """An `ElementList` of Layouts in the Project.
+        By default this property is cached on first load
+        """
         return self._cached('layouts',
             lambda: ElementList(
                 Layout(layout, self)
@@ -749,6 +769,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def reports(self) -> ElementList[Report]:
+        """An `ElementList` of Reports in the Project.
+        By default this property is cached on first load
+        """
         return self._cached('reports',
             lambda: ElementList(
                 Report(report, self)
@@ -758,6 +781,9 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def styles(self) -> ElementList[Style]:
+        """An `ElementList` of Styles in the Project.
+        By default this property is cached on first load
+        """
         return self._cached('styles',
             lambda: ElementList(
                 Style(st, self)
@@ -768,9 +794,11 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     @styles.setter
     def styles(self, styles: Iterable[str | Path | Style]) -> None:
         self.elem.updateStyles([str(style) for style in styles])
+        self.refresh('styles')
 
     @property
     def toolboxes(self) -> list[ToolboxConf]:
+        """A list of Toolboxes in the Project."""
         return cast(list[ToolboxConf], self.elem.toolboxes)
 
     @toolboxes.setter
@@ -779,7 +807,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             [
                 {
                     'toolboxPath': str(tb['toolboxPath']),
-                    'validate': tb['validate'],
+                    'isDefaultToolbox': tb['isDefaultToolbox'],
                 }
                 for tb in toolboxes
             ],
@@ -788,6 +816,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def folder_connections(self) -> list[FolderConf]:
+        """A list of Folder Connections in the Project"""
         return cast(list[FolderConf], self.elem.folderConnections)
 
     @folder_connections.setter
@@ -806,6 +835,10 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def active_map(self) -> Map:
+        """The active map for the Project. Check for active map using `has_active_map` to avoid `AttributeError`
+        Raises:
+            AttributeError: If the Project has no active map
+        """
         active = self.elem.activeMap
         if not active:
             raise AttributeError(f'{self} has no active map')
@@ -813,10 +846,15 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def has_active_map(self) -> bool:
+        """Check to see if the Project has an active map set"""
         return bool(self.elem.activeMap)
 
     @property
     def active_view(self) -> MapView | Layout | Report:
+        """The active map for the View. Check for active map using `has_active_view` to avoid `AttributeError`
+        Raises:
+            AttributeError: If the Project has no active view
+        """
         active = self.elem.activeView
         view_type = type(active).__name__
         if view_type == 'MapView':
@@ -838,10 +876,14 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def has_active_view(self) -> bool:
+        """Check to see if the Project has an active view set"""
         return bool(self.elem.activeView)
 
     @property
     def databases(self) -> list[Dataset]:
+        """Get a list of all `arcpie.Dataset` objects in the Project.
+        By default these are cached on first load
+        """
         return self._cached('databases',
             lambda: [
                 db.Dataset(str(path))
@@ -853,10 +895,12 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def default_database(self) -> Dataset:
+        """Get an `arcpie.Dataset` object for the default project database"""
         return db.Dataset(self.elem.defaultGeodatabase)
 
     @default_database.setter
     def default_database(self, db: Dataset | Path | str) -> None:
+        """Can set the default database with a `Dataset`, `Path`, or `str`"""
         if not isinstance(db, Path | str):
             if hasattr(db, 'conn'):
                 db = db.conn
@@ -866,6 +910,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def metadata(self) -> Metadata:
+        """Get the metadata object for the Project"""
         return self.elem.metadata
 
     @metadata.setter
@@ -874,16 +919,27 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
     @property
     def basemaps(self) -> list[str]:
+        """Get the basemap names for the Project"""
         return self.elem.listBasemaps()
 
     @property
     def color_ramps(self) -> list[mp.ColorRamp]:
+        """Get the color ramps in the project"""
         return self.elem.listColorRamps()
 
     def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False):
+        """Update a connection at the Project level"""
         self.elem.updateConnectionProperties(current, new, auto_update, validate, ignore_case)
 
-    def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'MAPS_AND_LAYOUTS', wildcard: str | None = None) -> None:
+    def close_views(self, view_type: Literal['ALL'] | mpt.ViewType = 'ALL', wildcard: str | None = None) -> None:
+        """Close open views for a `CURRENT` project
+
+        Args:
+            view_type: The type of views to close (default: `ALL`)
+            wildcard: A wildcard string that will filter the on the view parent (Map/Report/Layout name)
+        Raises:
+            PermissionError: If the Project is not `CURRENT`
+        """
         if not self.is_current:
             raise PermissionError(f'{self} was not initialized as `CURRENT` and has no views to close')
         if view_type == 'ALL':
@@ -904,6 +960,15 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         item: MapLike | LayoutLike | ReportLike,
         name: str | None = None,
     ) -> Map | Layout | Report:
+        """Create a copy of a Map/Layout/Report element in the Project
+
+        Args:
+            item: The item to copy
+            name: The new name (default: `<original>{n}`)
+
+        Raises:
+            TypeError: If the element is not a Map/Layout/Report
+        """
         if isinstance(item, Element):
             item = item.elem
         item_type = type(item).__name__
@@ -919,10 +984,24 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         else:
             raise Exception('Unreachable')
 
-    def create_layout(self, width: float, height: float, units: mpt.PageUnits, name: str | None) -> Layout:
+    def create_layout(self, width: float, height: float, units: mpt.PageUnits, name: str | None = None) -> Layout:
+        """Create a new Layout in the Project.
+
+        Args:
+            width: The Layout width in `units`
+            height: The Layout height in `units`
+            units: The Layout page units
+            name: An optional name for the Layout (default: `Layout{n}`)
+        """
         return Layout(self.elem.createLayout(width, height, units, name), self)
 
     def create_map(self, name: str | None = None, type: mpt.MapType = 'MAP') -> Map:
+        """Create a new Map in the Project.
+
+        Args:
+            name: An optional name for the Map (default: `Map{n}`)
+            type: The map type to create (default: `MAP`)
+        """
         return Map(self.elem.createMap(name, type), self)
 
     def create_report(
@@ -936,6 +1015,18 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         template: Literal['ATTR_LIST', 'ATTR_LIST_GROUP', 'BASIC_SUM', 'BASIC_SUM_GROUP', 'PAGE_PER_FEATURE'] = 'ATTR_LIST',
         styling: Literal['BLACK_AND_WHITE', 'COOL_TONES', 'WARM_TONES', 'NO_STYLING'] = 'BLACK_AND_WHITE',
     ) -> Report:
+        """Create a new Report in the Project.
+
+        Args:
+            units: The Report page units.
+            margin: The Report margin width.
+            source: The Report data source (Layer or Table).
+            fields: A list of dictonaries defining the Report fields.
+            stats: A list of dictonaries defining the Report statistics.
+            name: An optional name for the Layout. (default: `Report{n}`)
+            template: The Report template. (default: `ATTR_LIST`)
+            styling: The Report color styling. (default: `BLACK_AND_WHITE`)
+        """
         if isinstance(source, Element):
             source = source.elem
         rpt = self.elem.createReport(
@@ -957,6 +1048,18 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> GraphicElement:
+        """Create a new GraphicElement in the Project.
+
+        Args:
+            container: A Layout or GroupElement to create the GraphicElement in.
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            style_item: An optional style to apply to the GraphicElement.
+            name: An optional name to give the GraphicElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the container element is not a `Layout` or a `GroupElement`
+        """
         if isinstance(container, Element):
             container = container.elem
         if isinstance(style_item, Element):
@@ -988,6 +1091,16 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         elements: Iterable[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
         name: str | None,
     ) -> GroupElement:
+        """Create a new GroupElement in the Project.
+
+        Args:
+            container: A Layout or GroupElement to create the GroupElement in.
+            elements: An iterable of LayoutElements to include in the group.
+            name: An optional name to give the GroupElement. (default: `Group{n}`)
+
+        Raises:
+            ValueError: If the container element is not a `Layout` or a `GroupElement`
+        """
         if isinstance(container, Element):
             container = container.elem
         container_type = type(container).__name__
@@ -1016,10 +1129,23 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         container: LayoutLike | GroupElementLike,
         geometry: Point | Polyline | Polygon | HasCentroid,
         image: Path | str | bytes,
+        image_extension: str | None = None,
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> PictureElement:
-        """Note: if using raw bytes, this method expects the png format"""
+        """Create a new PictureElement in the Project.
+
+        Args:
+            container: A Layout or GroupElement to create the PictureElement in.
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            image: A file path or raw bytes to use as the image.
+            image_extension: If passing raw image bytes, provide an extension (no dot) here. (default: `png`)
+            name: An optional name to give the PictureElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the container element is not a `Layout` or a `GroupElement`
+        """
         if isinstance(container, Element):
             container = container.elem
 
@@ -1035,7 +1161,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
         if isinstance(image, bytes):
             with tempfile.TemporaryDirectory() as tmp:
-                fl = (Path(tmp) / (name or 'img')).with_suffix('.png')
+                fl = (Path(tmp) / (name or 'img')).with_suffix(f'.{image_extension or 'png'}')
                 fl.write_bytes(image)
                 pe = self.elem.createPictureElement(container, geometry, str(fl), name, lock_aspect_ratio)
         else:
@@ -1061,6 +1187,23 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> TextElement:
+        """Create a new TextElement in the Project.
+
+        Args:
+            container: A Layout or GroupElement to create the TextElement in.
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            text_type: The type of textbox to create.
+            text: The text to add to the text element.
+            size: The font size (in points) of the text.
+            font: The font face to use (must be installed at system level).
+            style: The font style to use (e.g. bold, italic). Options depend on selected font face.
+            style_item: An optional style item that matches the geometry type provided to the `geometry` arg.
+            name: An optional name to give the TextElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the container element is not a `Layout` or a `GroupElement`
+        """
         if isinstance(container, Element):
             container = container.elem
 
@@ -1094,6 +1237,19 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         name: str | None = None,
         lock_aspect_ratio: bool = True,
     ) -> GraphicElement:
+        """Create a new GraphicElement in the Project using a predefined style.
+
+        Args:
+            container: A Layout or GroupElement to create the GraphicElement in.
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            shape_type: The predefined shape type to create (see: [docs](https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/arcgisproject-class.html#method-createPredefinedGraphicElement)).
+            style_item: An optional style item that matches the geometry type provided to the `geometry` arg.
+            name: An optional name to give the TextElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the container element is not a `Layout` or a `GroupElement`
+        """
         if isinstance(container, Element):
             container = container.elem
 
@@ -1120,7 +1276,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             raise Exception('Unreachable')
 
     def save(self) -> None:
-        """Save the project
+        """Save the project.
 
         Raises:
             ``PermissionError`` if the file is ReadOnly
@@ -1136,11 +1292,19 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         return type(self)(path)
 
     def start(self) -> None:
-        """Open the project using ``os.startfile``"""
+        """Open the project using `os.startfile`"""
         os.startfile(self.path)  # noqa: S606
 
     def to_directory(self, to: Path | str, *, overwrite: bool = False) -> Path:
-        """Unzip the aprx file to a target directory"""
+        """Unzip the aprx file to a target directory.
+
+        Args:
+            to: The folder to unzip the Project into.
+            overwrite: Overwrite the contents of the target folder if it exists.
+
+        Raises:
+            FileExistsError: If `to` exists and is not an empty directory
+        """
         to = Path(to).resolve()
         if to.exists() and not overwrite:
             raise FileExistsError(f'{to} exists and `overwrite` is set to `False`')
@@ -1149,7 +1313,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         return to
 
     def delete(self, *, home_folder: bool = False) -> None:
-        """Delete the project
+        """Delete the project.
 
         Args:
             home_folder: If set, recursively delete the homeFolder (default: `False`)
@@ -1166,9 +1330,6 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             doc: The path to the document (`.pagx`, `.mapx`, `.rptx`, `.mxd`, ...[see `importDocument`])
             include_layout: Include layouts with `.mapx` files
             reuse_existing_maps: Reuse existing maps with `.pagx` files
-
-        Returns:
-            Layout | Map | Report: The imported object
         """
         doc = Path(doc)
         if doc.suffix not in ('.pagx', '.mapx', '.rptx', '.mxd'):
@@ -1249,8 +1410,13 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             self.close()
 
     @classmethod
-    def from_directory(cls, directory: Path | str, *, outfile: Path | str) -> Project:
-        """Create an aprx file from a previously unzipped directory (see: `Project.to_directory`)"""
+    def from_directory(cls, directory: Path | str, outfile: Path | str) -> Project:
+        """Create an aprx file from a previously unzipped directory (see: `Project.to_directory`)
+
+        Args:
+            directory: The source directory (see: `Project.to_directory`).
+            outfile: The target `aprx` file.
+        """
         directory = Path(directory).resolve()
         outfile = Path(outfile).resolve().with_suffix('.aprx')
         outfile.touch(exist_ok=True)
@@ -1269,21 +1435,31 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         path: Path | str,
         name: str,
         *,
-        home_folder: str | None = None,
-        default_database: str | None = None,
-        default_toolbox: str | None = None,
+        home_folder: Path | str | None = None,
+        default_database: Path | str | None = None,
+        default_toolbox: Path | str | None = None,
         create_parents: bool = True,
         overwrite: bool = False,
     ) -> Self:
+        """Create a new Project from scratch.
+
+        Args:
+            path: The target location for the project home folder.
+            name: The name of the project aprx file.
+            home_folder: An optional path to the project home folder. (default: `path.parent`)
+            default_database: An optional path to the project default database. (default: `{home_folder}/default.gdb`)
+            default_toolbox: An optional path to the project default toolbox. (default: `{home_folder}/default.atbx`)
+            create_parents: Create the parent directories for the Project if they don't exist. (default: )
+        """
         path = Path(path)
         path.mkdir(exist_ok=overwrite, parents=create_parents)
         aprx = mp.CreateArcGISProject(
             project_path=str(path),
             project_name=name,
             create_parent_folder=True,
-            home_folder=home_folder,
-            default_database=default_database,
-            default_toolbox=default_toolbox,
+            home_folder=str(home_folder),
+            default_database=str(default_database),
+            default_toolbox=str(default_toolbox),
         )
         return cls(aprx.filePath)
 
