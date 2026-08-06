@@ -1386,11 +1386,9 @@ class PolylineEditor:
 
     def extend(self, points: Iterable[Point | PointGeometry]) -> None:
         """Extend the last part of the polyline with the points"""
-        points = list(self.part_editors[-1])
-
-        points.extend(self._cast_point(p) for p in points)
+        self_points = list(self.part_editors[-1])
+        self_points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
-
         parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
