@@ -2143,6 +2143,10 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
             return SpatialReference(4326)
 
     @property
+    def source_data(self) -> fc.FeatureClass:
+        return self.feature_class
+
+    @property
     def feature_class(self) -> fc.FeatureClass:
         """Get the associated FeatureClass object for the layer
 
@@ -2456,6 +2460,10 @@ class LabelClass(Element[mpt.LabelClass, cim.CIMLabelClass, Layer]):
 
 
 class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
+
+    @property
+    def source_data(self) -> fc.Table:
+        return self.table
 
     @property
     def table(self) -> fc.Table:
