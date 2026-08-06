@@ -1532,15 +1532,35 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
 
 
 class Map(Element[mpt.Map, cim.CIMMap, Project]):
+    """mp.Map wrapper that allows for simpler interacton with Maps.
+
+    Example:
+    ```python
+    >>> my_map = prj.maps['My Map$'].unwrap()
+    >>> my_map.layers
+    [Layer(Lay 1), Layer(Lay 2), ....]
+    >>> lay2 = my_map.layers['2$'].unwrap()
+    >>> lay1 = my_map.layers['1$'].unwrap()
+    >>> my_map.move_layer(lay1, lay2, 'AFTER')
+    >>> my_map.layers
+    [Layer(Lay 2), Layer(Lay 1), ....]
+    ```
+    """
+
+    # Default spatial reference for Maps with unset reference
+    _default_reference = SpatialReference('GCS_WGS_1984')
+    """Set the fallback reference for Maps that have no assigned spatialReference"""
 
     @property
     def map_type(self) -> mpt.MapType:
+        """Get the type of the Map. (`GLOBE`, `SCENE`, `MAP`)"""
         return self.elem.mapType
 
     @property
     def spatial_reference(self) -> SpatialReference:
+        """Get the SpatialReference of the Map (or `Map._default_reference`)."""
         # Get custom ref or return default WGS84/4326
-        return self.elem.spatialReference or SpatialReference('GCS_WGS_1984')
+        return self.elem.spatialReference or type(self)._default_reference
 
     @spatial_reference.setter
     def spatial_reference(self, reference: SpatialReference) -> None:
@@ -1548,6 +1568,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def scale(self) -> float:
+        """Get the current reference scale of the Map."""
         return self.elem.referenceScale
 
     @scale.setter
@@ -1556,6 +1577,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def camera(self) -> mp.Camera:
+        """Get the Map camera."""
         return self.elem.defaultCamera
 
     @camera.setter
@@ -1564,10 +1586,14 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def units(self) -> str:
+        """Get the name of the current Map's units."""
         return self.elem.mapUnits
 
     @property
     def all_layers(self) -> ElementList[Layer]:
+        """Get all Layers in the Map (including GroupLayers and broken Layers).
+        By default this is cached on first access.
+        """
         return self._cached('all_layers',
             lambda: ElementList(
                 Layer(lay, self)
@@ -1576,6 +1602,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def layers(self) -> ElementList[Layer]:
+        """Get all Layers in the Map (excluding GroupLayers and broken Layers).
+        By default this is cached on first access.
+        """
         return self._cached('layers',
             lambda: ElementList(
                 Layer(lay, self)
@@ -1586,6 +1615,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def broken_layers(self) -> ElementList[Layer]:
+        """Get all broken Layers in the Map.
+        By default this is cached on first access.
+        """
         return self._cached('broken_layers',
             lambda: ElementList(
                 Layer(lay, self)
@@ -1595,6 +1627,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def tables(self) -> ElementList[Table]:
+        """Get all Tables in the Map.
+        By default this is cached on first access.
+        """
         return self._cached('tables',
             lambda: ElementList(
                 Table(lay, self)
@@ -1604,6 +1639,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def group_layers(self) -> ElementList[GroupLayer]:
+        """Get all GroupLayers in the Map.
+        By default this is cached on first access.
+        """
         return self._cached('group_layers',
             lambda: ElementList(
                 GroupLayer(lay, self)
@@ -1613,6 +1651,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def mapx(self) -> bytes:
+        """Get the `mapx` file data as bytes."""
         with tempfile.TemporaryDirectory(suffix=self.name) as tmp:
             mapx = Path(tmp) / f'{self.name}.mapx'
             self.elem.exportToMAPX(str(mapx))
@@ -1620,10 +1659,12 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def mapx_dict(self) -> dict[str, Any]:
+        """Get the `mapx` file data as a Python dictionary."""
         return json.loads(self.mapx)
 
     @property
     def bkmx(self) -> bytes:
+        """Get the `bkmx` file data as bytes."""
         with tempfile.TemporaryDirectory(suffix=self.name) as tmp:
             bkmx = Path(tmp) / f'{self.name}.bkmx'
             self.elem.exportBookmarks(str(bkmx))
@@ -1631,10 +1672,12 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def bkmx_dict(self) -> dict[str, Any]:
+        """Get the `bkmx` file data as a Python dictionary."""
         return json.loads(self.bkmx)
 
     @property
     def metadata(self) -> Metadata:
+        """Get the Metadata for the Map."""
         return self.elem.metadata
 
     @metadata.setter
@@ -1643,6 +1686,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def excluded_from_clipping(self) -> ElementList[Layer]:
+        """Get all Layers in the Map that are excluded from clipping."""
         return ElementList(Layer(lay, self) for lay in self.elem.excludedLayersFromClipping)
 
     @excluded_from_clipping.setter
@@ -1654,6 +1698,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def transformations(self) -> dict[str, Any]:
+        """Get a mapping of all transformations present in the Map."""
         return self.elem.transformations
 
     @transformations.setter
@@ -1662,6 +1707,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     @property
     def color_model(self) -> mpt.ColorModel:
+        """Get the current Map ColorModel. (`CMYK`, `RGB`)"""
         return self.elem.colorModel
 
     @color_model.setter
@@ -1669,6 +1715,7 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         self.elem.setColorModel(color_model)
 
     def add_basemap(self, basemap: str | LayerLike) -> None:
+        """Add a basemap to the Map using the string name from `Project.basemaps` or a Layer object."""
         if isinstance(basemap, str):
             if not self.parent:
                 raise ValueError('Adding basemaps by name only supported on Maps with a parent project')
