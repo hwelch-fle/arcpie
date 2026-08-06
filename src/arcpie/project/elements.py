@@ -194,6 +194,7 @@ class ChartMap(TypedDict):
     ScatterMatrix: list[cht.ScatterMatrix]
 
 
+# Type unions that allow arcpie Elements and mp Elements to be used interchangeably
 type MapLike = Map | mpt.Map
 type MapViewLike = MapView | mpt.MapView
 type LayerLike = Layer | mpt.Layer
@@ -286,10 +287,15 @@ def _noop(*args: Any, **kwargs: Any) -> None: ...
 # Allow any class that has these attributes to be used in geometry operations
 @runtime_checkable
 class HasCentroid(Protocol):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.centroid: Point
-        self.trueCentroid: Point
-        self.spatialReference: SpatialReference
+    centroid: Point
+    trueCentroid: Point
+    spatialReference: SpatialReference
+
+
+@runtime_checkable
+class HasExtent(Protocol):
+    extent: Extent
+    spatialReference: SpatialReference
 
 
 # mapping elements with no get/set CIM methods
