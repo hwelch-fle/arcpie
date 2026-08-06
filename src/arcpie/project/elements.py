@@ -478,7 +478,8 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
         return diff
 
 
-class UnwrapError(KeyError):
+# Subclass Key/Value/Index error so you can catch this with normal Exception subclasses
+class UnwrapError(KeyError, ValueError, IndexError):
     def __init__(self, expects: int, have: int):
         super().__init__(f'expected {expects}: have {have}')
         self.expects = expects
@@ -537,9 +538,16 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         """Filter elements in the list using the provided function"""
         return type(self)(e for e in self if cond(e))
 
-    def get[D](self, key: str, default: D = None, /) -> Self | D:
-        """Only works when indexing the list with a string name"""
-
+    @overload
+    def get[D](self, i: SupportsIndex, /, default: D = ...) -> E | D: ...
+    @overload
+    def get[D](self, s: slice, /, default: D = ...) -> Self | D: ...
+    @overload
+    def get[D](self, key: str, /, default: D = ...) -> Self | D: ...
+    @overload
+    def get[D](self, i: re.Pattern[str], /, default: D | None = None) -> Self | D: ...
+    def get[D](self, key: SupportsIndex | str | re.Pattern[str] | slice, /, default: D = None) -> Self | E | D:
+        """Get the item from the list but return the default if it doesn't exist"""
         try:
             return self[key]
         except IndexError:
