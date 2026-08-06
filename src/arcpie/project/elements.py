@@ -518,7 +518,7 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         """Filter elements in the list using the provided function"""
         return type(self)(e for e in self if cond(e))
 
-    def get[D](self, key: str, default: D = None, /) -> list[E] | D:
+    def get[D](self, key: str, default: D = None, /) -> Self | D:
         """Only works when indexing the list with a string name"""
 
         try:
