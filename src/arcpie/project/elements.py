@@ -4354,12 +4354,6 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
     def locked(self, locked: bool) -> None:
         self.elem.locked = locked
 
-    # def set_name(self, name: str) -> None:
-    #     """Since `name` is used as the unique identifier for the Elements (longName)
-    #     setting the visible name is done with this method.
-    #     """
-    #     self.elem.name = name
-
     def delete(self) -> None:
         assert self.parent, f'{self} has no parent Layout to be deleted from'
         self.parent.delete_element(self)
