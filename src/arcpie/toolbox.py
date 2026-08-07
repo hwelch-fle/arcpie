@@ -64,8 +64,7 @@ class Tool(ToolABC):
 
     @property
     def active_map(self) -> Map | None:
-        if self.project.aprx.activeMap:
-            return Map(self.project.aprx.activeMap, parent=self.project)
+        return self.project.active_map if self.project.has_active_map else None
 
 
 def profile(*selectors: str):
