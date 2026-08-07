@@ -329,14 +329,16 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
 
 # Element takes Base arcpy.mp element, cim definition (from `getDefinition`) and parent type
 class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
-    def __init__(self, elem: MPElem, parent: Parent | None = None) -> None:
-        self.elem = elem
+    def __init__(self, elem: MPElem | Element[MPElem, CIMDef, Parent], parent: Parent | None = None) -> None:
+        if isinstance(elem, type(self)):
+            elem = elem.elem
+        self.elem = cast(MPElem, elem)
         self._elemattrs = set(dir(elem))
         self.parent = parent
         self.children = ElementList[Element[Any, Any, Any]]()
         self.mp_type = type(elem)
         self.mp_type_name = self.mp_type.__name__
-        self.uri = _get_uri(elem)
+        self.uri = _get_uri(self.elem)
         self.unique_name = f'{self.name}:{self.uri}'
         self.cache = dict[str, Any]()
         self._cache_enabled = True
@@ -538,7 +540,12 @@ class ElementList[E: Element[Any, Any, Any]](list[E]):
         return super().__getitem__(key)
 
     def __contains__(self, key: Any) -> bool:
-        return super().__contains__(key) or self.get(key) is not None
+        if super().__contains__(key):
+            return True
+        try:
+            return self.get(key) is not None
+        except Exception:
+            return False
 
     def filter(self, cond: Callable[[E], bool]) -> Self:
         """Filter elements in the list using the provided function"""
@@ -1456,6 +1463,12 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         assert isinstance(imported, Report)
         return imported
 
+    def add_database(self, database: Dataset | Path | str, *, default: bool = False):
+        current = self.elem.databases
+        current.append({'databasePath': str(database), 'isDefaultDatabase': default})
+        self.elem.updateDatabases(current)
+        self.refresh('databases')
+
     def __enter__(self) -> Self:
         if not self.is_open:
             self.open()
@@ -1506,7 +1519,6 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         default_database: Path | str | None = None,
         default_toolbox: Path | str | None = None,
         create_parents: bool = True,
-        overwrite: bool = False,
     ) -> Self:
         """Create a new Project from scratch.
 
@@ -1519,14 +1531,14 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             create_parents: Create the parent directories for the Project if they don't exist. (default: )
         """
         path = Path(path)
-        path.mkdir(exist_ok=overwrite, parents=create_parents)
+        path.mkdir(exist_ok=True, parents=create_parents)
         aprx = mp.CreateArcGISProject(
             project_path=str(path),
             project_name=name,
-            create_parent_folder=True,
-            home_folder=str(home_folder),
-            default_database=str(default_database),
-            default_toolbox=str(default_toolbox),
+            create_parent_folder=create_parents,
+            home_folder=str(home_folder) if home_folder else None,
+            default_database=str(default_database) if default_database else None,
+            default_toolbox=str(default_toolbox) if default_toolbox else None,
         )
         return cls(aprx.filePath)
 
@@ -1552,6 +1564,10 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
     """Set the fallback reference for Maps that have no assigned spatialReference"""
 
     @property
+    def default_view(self) -> MapView:
+        return MapView(self.elem.defaultView, self.parent)
+
+    @property
     def map_type(self) -> mpt.MapType:
         """Get the type of the Map. (`GLOBE`, `SCENE`, `MAP`)"""
         return self.elem.mapType
@@ -1563,7 +1579,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         return self.elem.spatialReference or type(self)._default_reference
 
     @spatial_reference.setter
-    def spatial_reference(self, reference: SpatialReference) -> None:
+    def spatial_reference(self, reference: SpatialReference | int | str) -> None:
+        if not isinstance(reference, SpatialReference):
+            reference = SpatialReference(reference)
         self.elem.spatialReference = reference
 
     @property
@@ -1739,6 +1757,13 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             )
         )
 
+    def filter_by_type(self, include: Iterable[LayerType] | None = None, exclude: Iterable[LayerType] | None = None) -> ElementList[Layer]:
+        include = set(include or [])
+        exclude = set(exclude or [])
+        included = self.layers_by_type(*include)
+        excluded = self.layers_by_type(*exclude, invert=True)
+        return ElementList(lay for lay in included if lay not in excluded)
+
     @overload
     def add_layer(self, layer: LayerLike,
                   *,
@@ -1773,35 +1798,31 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             `before` takes precedence over all other arguments followed by `after`, then `position` and `group`
         """
         is_group = isinstance(layer, GroupLayer)
-        if isinstance(layer, (Layer, GroupLayer)):
-            layer = layer.elem
-        if isinstance(group, GroupLayer):
-            group = group.elem
-        if isinstance(before, Layer):
-            before = before.elem
-        if isinstance(after, Layer):
-            after = after.elem
+        layer = layer.elem if isinstance(layer, Element) else layer
+        group = group.elem if isinstance(group, Element) else group
+        before = before.elem if isinstance(before, Element) else before
+        after = after.elem if isinstance(after, Element) else after
 
         if before:
             elem = self.elem.insertLayer(before, layer, 'BEFORE')
         elif after:
             elem = self.elem.insertLayer(after, layer, 'AFTER')
         elif group:
-            elem = self.elem.addLayerToGroup(group, layer, position)
+            elem = self.elem.addLayerToGroup(group, layer, position)[0]
         else:
-            elem = self.elem.addLayer(layer, position)
+            elem = self.elem.addLayer(layer, position)[0]
 
-        if not isinstance(elem, mp.Layer):
+        if type(elem).__name__ != 'Layer':
             raise ValueError(f'Expected Layer object, got {type(elem)}. use `add_table` to add Tables.')
 
         if not is_group:
             self.refresh('layers')
-            return Layer(elem, self)
+            return Layer(cast(mpt.Layer, elem), self)
         else:
             self.refresh('group_layers')
-            return GroupLayer(elem, self)
+            return GroupLayer(cast(mpt.Layer, elem), self)
 
-    def move_layer(self, layer: LayerLike, reference: LayerLike, position: mpt.MovePosition = 'BEFORE') -> None:
+    def move_layer(self, layer: LayerLike | GroupLayerLike, reference: LayerLike | GroupLayerLike, position: mpt.MovePosition = 'BEFORE') -> None:
         """Move a layer to a position (`BEFORE`/`AFTER`) relative to the reference Layer."""
         layer = layer.elem if isinstance(layer, Element) else layer
         reference = reference.elem if isinstance(reference, Element) else reference
@@ -1891,7 +1912,13 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             layer = layer.elem
         self.elem.clipLayers(layer, selection='SELECTED' if selected else 'ALL')
 
-    def add_data(self, path: Path | str, service_type: mpt.WebServiceType = 'AUTOMATIC', **params: Any) -> Layer | Table:
+    @overload
+    def add_data(self, path: fc.FeatureClass, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer: ...  # type: ignore
+    @overload
+    def add_data(self, path: fc.Table, service_type: mpt.WebServiceType = ..., **params: Any) -> Table: ...
+    @overload
+    def add_data(self, path: Path | str, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer | Table: ...
+    def add_data(self, path: fc.FeatureClass | fc.Table | Path | str, service_type: mpt.WebServiceType = 'AUTOMATIC', **params: Any) -> Layer | Table:
         """Add data to the map from a path or URL.
 
         Args:
@@ -1900,12 +1927,14 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             **params: Additional keyword parameters passed to the webservice (optional)
         """
         elem = self.elem.addDataFromPath(str(path), web_service_type=service_type, custom_parameters=params or None)
-        if isinstance(elem, mp.Layer):
+
+        elem_name = type(elem).__name__
+        if elem_name == 'Layer':
             self.refresh('layers')
-            return Layer(elem, self)
-        if isinstance(elem, mp.Table):
+            return Layer(cast(mpt.Layer, elem), self)
+        if elem_name == 'Table':
             self.refresh('tables')
-            return Table(elem, self)
+            return Table(cast(mpt.Table, elem), self)
 
         # Unreachable ? (at least not documented as reachable...)
         raise ValueError(f'Something went wrong got {type(elem)} but expected Layer or Table')
@@ -1949,6 +1978,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         """Filter Layers using a predicate function."""
         return self.group_layers.filter(pred)
 
+    def open_view(self) -> None:
+        self.elem.openView()
+
 
 class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
 
@@ -1960,6 +1992,11 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
     @camera.setter
     def camera(self, camera: mp.Camera) -> None:
         self.elem.camera = camera
+
+    @property
+    def extent(self) -> Extent:
+        """Get the current extent of the MapView camera"""
+        return self.camera.getExtent()
 
     @property
     def map(self) -> Map:
@@ -2144,14 +2181,33 @@ class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, "Map | GroupLayer"]):
         lyrx['tableDefinitions'] = [tab.cim_dict for tab in self.tables]
         return lyrx
 
-    def add_layer(self, layer: LayerLike, position: mpt.AddPosition = 'AUTO_ARRANGE') -> Layer:
+    def add_layer(self, layer: LayerLike, position: mpt.AddPosition = 'AUTO_ARRANGE', *, copy: bool = False) -> Layer:
         parent = self.parent
         layer = layer.elem if isinstance(layer, Element) else layer
         while not isinstance(parent, Map | None):
             parent = parent.parent
         if parent is None:
             raise ValueError(f'{self} is unbound and cannot add new layers')
-        return parent.add_layer(layer, position=position, group=self)
+        new_lay = parent.add_layer(layer, position=position, group=self)
+        if copy:
+            parent.refresh('layers')
+            return new_lay
+        else:
+            parent.move_layer(layer, new_lay.elem, 'AFTER')
+            parent.remove(new_lay)
+            self.refresh('layers')
+            return Layer(layer, self)
+
+    def add_table(self, table: TableLike) -> Table:
+        parent = self.parent
+        table = table.elem if isinstance(table, Element) else table
+        while not isinstance(parent, Map | None):
+            parent = parent.parent
+        if parent is None:
+            raise ValueError(f'{self} is unbound and cannot add new layers')
+        new_table = parent.add_table(table, group=self)
+        parent.refresh('tables')
+        return new_table
 
     def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
         outdir = Path(outdir)
