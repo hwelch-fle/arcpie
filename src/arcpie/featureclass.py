@@ -46,6 +46,11 @@ if TYPE_CHECKING:
     from arcpy.da import (
         SpatialRelationship,
     )
+
+    from arcpie.project.elements import (
+        LayerLike,
+        TableLike,
+    )
 else:
     SpatialRelationship = None
 
@@ -77,9 +82,8 @@ from arcpy import (
     SpatialReference,
 )
 from arcpy._mp import (
-    Layer,
-    Map,
-    Table as TableLayer,  # Alias
+    Layer,  # noqa: PLC2701
+    Map,  # Alias
 )
 from arcpy.analysis import (
     PairwiseBuffer,  # type: ignore
@@ -1465,7 +1469,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             yield self
 
     # Mapping interfaces (These pass common `Layer` operations up to the Table or FeatureClass)
-    def bind_to_layer(self, layer: Layer) -> None:
+    def bind_to_layer(self, layer: LayerLike) -> None:
         """Update the provided layer's datasource to this Table or FeatureClass
 
         Args:
@@ -1588,18 +1592,18 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
 
     # Factory Constructors
     @classmethod
-    def from_table(cls, table: TableLayer,
+    def from_table(cls, table: TableLike,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> Table:
+                   ignore_def_query: bool = False,) -> Table[Schema]:
         """See `from_layer` for documentation, this is an alternative constructor that builds from a mp.Table object"""
         return Table.from_layer(table, ignore_selection=ignore_selection, ignore_def_query=ignore_def_query)  # type: ignore (this won't break the interface)
 
     @classmethod
-    def from_layer(cls, layer: Layer,
+    def from_layer(cls, layer: LayerLike,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> Table[Any]:
+                   ignore_def_query: bool = False,) -> Table[Schema]:
         """Build a Table or FeatureClass object from a layer applying the layer's current selection to the stored cursors
 
         Args:
@@ -1609,6 +1613,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         Returns:
             ( Table or FeatureClass ): The Table or FeatureClass object with the layer query applied
         """
+        layer = cast(Layer, getattr(layer, 'elem', layer))
         try:
             source = layer.dataSource
             if source.startswith('http'):
@@ -2130,7 +2135,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
     # Factory Constructors
 
     @classmethod
-    def from_layer(cls, layer: Layer,
+    def from_layer(cls, layer: LayerLike,
                    *,
                    ignore_selection: bool = False,
                    ignore_def_query: bool = False,) -> FeatureClass[GeoType, Schema]:
@@ -2143,6 +2148,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """
+        layer = cast(Layer, getattr(layer, 'elem', layer))
         try:
             source = layer.dataSource
             if source.startswith('http'):
