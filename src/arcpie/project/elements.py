@@ -77,6 +77,7 @@ import arcpy._mp as mpt
 import arcpy.charts as cht
 import arcpy.cim as cim
 import arcpy.mp as mp
+import httpx
 from arcpy import Extent, Point, Polygon, Polyline, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
@@ -141,6 +142,7 @@ type MPElement = (
     | mpt.GraphicElement
     | mpt.GroupElement
     | mpt.LegendElement
+    | mpt.LegendItem
     | mpt.PictureElement
     | mpt.TextElement
     # ReportSections
@@ -216,6 +218,7 @@ type TableFrameElementLike = TableFrameElement | mpt.TableFrameElement
 type GraphicElementLike = GraphicElement | mpt.GraphicElement
 type GroupElementLike = GroupElement | mpt.GroupElement
 type LegendElementLike = LegendElement | mpt.LegendElement
+type LegendItemLike = LegendItem | mpt.LegendItem
 type PictureElementLike = PictureElement | mpt.PictureElement
 type TextElementLike = TextElement | mpt.TextElement
 type ReportSectionLike = ReportSection | mpt.ReportSection
@@ -311,6 +314,7 @@ type _NoCIM = (
     | mpt.StyleItem
     | mpt.ReportSection
     | mpt.ReportLayoutSection
+    | mpt.LegendItem
     | None
 )
 
@@ -3674,7 +3678,7 @@ class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
         layout = self.parent
         if map and layout:
             return Map(map, layout.parent)
-        raise ValueError(f'MapFrame {self.name} has no associated Map')
+        raise ValueError(f'{self} has no associated Map')
 
     @property
     def parent_group(self) -> GroupElement:
@@ -4109,7 +4113,7 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
         elif isinstance(format, str):
             if format not in _MSFormatName.__args__:
-                raise ValueError(f'MapSeries can only export to {_MSFormatName.__args__}, not {format}')
+                raise ValueError(f'{self} can only export to {_MSFormatName.__args__}, not {format}')
             # Some type forcing required here for the subset
             suffix = format[:3].lower()
             format = cast(_MSFormat, mp.CreateExportFormat(format))
@@ -4498,10 +4502,12 @@ class ElevationSource(Element[mpt.ElevationSource, None, Project]):
 
     @property
     def source(self) -> str:
+        """The string representation of the Elevation data source."""
         return self.elem.dataSource
 
     @property
     def visible(self) -> bool:
+        """Visibility state of the ElevationSource."""
         return self.elem.visible
 
     @visible.setter
@@ -4537,6 +4543,7 @@ class Style(Element[None, None, Project]):
 
     @property
     def items(self) -> ElementList[StyleItem]:
+        """ElementList of StyleItems associated with the Style/stylx."""
         return self._cached('items',
             lambda: ElementList(
                 StyleItem(cast(mpt.StyleItem, item), self)
@@ -4546,7 +4553,7 @@ class Style(Element[None, None, Project]):
 
     @property
     def by_name(self) -> dict[str, ElementList[StyleItem]]:
-        """Group the StyleItems by name"""
+        """Group the StyleItems by name."""
         items = dict[str, ElementList[StyleItem]]()
         for item in self.items:
             name = item.name
@@ -4556,7 +4563,7 @@ class Style(Element[None, None, Project]):
 
     @property
     def by_tags(self) -> dict[str, ElementList[StyleItem]]:
-        """Group the StyleItems by tag (will create duplicate item refrences)"""
+        """Group the StyleItems by tag. (will create duplicate item refrences)"""
         items = dict[str, ElementList[StyleItem]]()
         for item in self.items:
             for tag in item.tags:
@@ -4566,7 +4573,7 @@ class Style(Element[None, None, Project]):
 
     @property
     def by_class(self) -> dict[mpt.StyleClass, ElementList[StyleItem]]:
-        """Group the StyleItems by styleClass"""
+        """Group the StyleItems by styleClass."""
         items = dict[mpt.StyleClass, ElementList[StyleItem]]()
         for item in self.items:
             cls = item.elem.styleClass
@@ -4576,7 +4583,7 @@ class Style(Element[None, None, Project]):
 
     @property
     def by_key(self) -> dict[str, StyleItem]:
-        """Create a mapping of each item to its unique key"""
+        """Create a mapping of each item to its unique key."""
         return {st.key: st for st in self.items}
 
     def filter_by(
@@ -4586,6 +4593,14 @@ class Style(Element[None, None, Project]):
         style_class: mpt.StyleClass | None = None,
         tags: Iterable[str] | str | None = None,
     ) -> ElementList[StyleItem]:
+        """Apply a filter to the StyleItems in the Sytle group.
+
+        Args:
+            key: A unique key to filter by.
+            name: A name expression to filter by.
+            style_class: A style class to filter by.
+            tags: Tags to filter by.
+        """
         if isinstance(tags, str):
             tags = tags.split(';')
         tags = set(tags) if tags else set()
@@ -4616,17 +4631,35 @@ class StyleItem(Element[mpt.StyleItem, None, Style]):
 
     @property
     def tags(self) -> set[str]:
+        """A set of tags applied to the StyleItem."""
         return set(str(self.elem.tags).split(';'))
 
     @property
     def key(self) -> str:
+        """The uniqiue key for the StyleItem."""
         return self.elem.key
+
+    @property
+    def style(self):
+        """The string representation of the parent Style. (use `parent` for `Style` object)"""
+        return self.elem.style
+
+    @property
+    def style_class(self) -> mpt.StyleClass:
+        """The style class of the StyleItem."""
+        return self.elem.styleClass
+
+    @property
+    def category(self) -> str:
+        """The category of the StyleItem."""
+        return self.elem.category
 
 
 class ReportElement[MPElem: mpt.ReportSection | mpt.ReportLayoutSection, CIM](Element[MPElem, CIM, Report]):
 
     @property
     def visible(self) -> bool:
+        """Visibility state of the ReportElement."""
         return self.elem.visible
 
     @visible.setter
@@ -4657,19 +4690,13 @@ class ReferenceDataSource(TypedDict):
 class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
 
     @property
-    def visible(self) -> bool:
-        return self.elem.visible
-
-    @visible.setter
-    def visible(self, visible: bool) -> None:
-        self.elem.visible = visible
-
-    @property
-    def statistics(self) -> list[dict[str, Any]]:
-        return self.elem.statistics
+    def statistics(self) -> list[ReportStatistic]:
+        """A list of ReportStatistic dictionaries for the ReportSection."""
+        return cast(list[ReportStatistic], self.elem.statistics)
 
     @property
     def definition_query(self) -> str:
+        """SQL where clause that filters the ReportSection."""
         return self.elem.definitionQuery
 
     @definition_query.setter
@@ -4678,6 +4705,7 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
 
     @property
     def fields(self) -> list[ReportSectionField]:
+        """A list of ReportSectionFields dictionaries for the ReportSection."""
         return cast(list[ReportSectionField], self.elem.fields)
 
     @fields.setter
@@ -4686,9 +4714,15 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
 
     @property
     def source(self) -> ReferenceDataSource:
+        """A ReferenceDataSource dictionary that defines the data connection."""
         return cast(ReferenceDataSource, self.elem.referenceDataSource)
 
     def set_source(self, source: LayerLike | TableLike | fc.FeatureClass | fc.Table | Path | str):
+        """Set the ReportSection data source to something that has data.
+
+        Args:
+            source: Any valid source object (Layer, Table, FeatureClass, URL, Path, etc.)
+        """
         if isinstance(source, Element):
             source = source.elem
         else:
@@ -4696,6 +4730,13 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
         self.elem.setReferenceDataSource(source)
 
     def set_report_source(self, source: LayerLike | TableLike | fc.FeatureClass | fc.Table | Path | str, name: str | None = None, rel_class: str | None = None):
+        """Set the related Report data source.
+
+        Args:
+            source: Any valid data source for a Report.
+            name: The name of the datasource.
+            rel_class: The name of the new relationship class.
+        """
         if isinstance(source, Element):
             source = source.elem
         else:
@@ -4704,6 +4745,18 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
 
     @contextmanager
     def query_as(self, query: str | None):
+        """Create a query context for the ReportSection.
+
+        Args:
+            query: SQL where clause to set for the context block.
+
+        Example:
+        ```python
+        >>> for q_name, sql in section_queries.items():
+        ...     with report_section.query_as(sql):
+        ...         report.export(..., name=q_name)
+        ```
+        """
         cur = self.definition_query
         try:
             self.definition_query = query
@@ -4712,30 +4765,25 @@ class ReportSection(ReportElement[mpt.ReportSection, cim.CIMReportSection]):
             self.definition_query = cur
 
 
-class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLayoutPageSection]):
-
-    @property
-    def visible(self) -> bool:
-        return self.elem.visible
-
-    @visible.setter
-    def visible(self, visible: bool) -> None:
-        self.elem.visible = visible
+class ReportLayoutSection(ReportElement[mpt.ReportLayoutSection, cim.CIMReportLayoutPageSection]): ...
 
 
 class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]):
 
     @property
     def group(self) -> GroupElement | None:
+        """GroupElement the LayoutElement belongs to if it exists."""
         if self.elem.parentGroupElement:
             return GroupElement(self.elem.parentGroupElement, self.parent)
 
     @property
     def type(self) -> mpt.ElementType:
+        """The string name for the LayoutElement type."""
         return cast(mpt.ElementType, self.elem.type)
 
     @property
     def visible(self) -> bool:
+        """Visibility state for the LayoutElement."""
         return self.elem.visible
 
     @visible.setter
@@ -4744,6 +4792,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def height(self) -> float:
+        """LayoutElement height in page units."""
         return self.elem.elementHeight
 
     @height.setter
@@ -4752,6 +4801,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def width(self) -> float:
+        """LayoutElement width in page units."""
         return self.elem.elementWidth
 
     @width.setter
@@ -4760,6 +4810,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def anchor(self) -> mpt.Anchor:
+        """LayoutElement anchor point."""
         return self.elem.anchor
 
     @anchor.setter
@@ -4768,6 +4819,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def rotation(self) -> float:
+        """LayoutElement rotation in degrees. (`TableFrameElements` cannot be rotated)"""
         if not isinstance(self, TableFrameElement):
             return self.elem.elementRotation  # type: ignore
         return 0.0
@@ -4779,6 +4831,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def x(self) -> float:
+        """The X position of the LayoutElement anchor point in page units."""
         return self.elem.elementPositionX
 
     @x.setter
@@ -4787,6 +4840,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def y(self) -> float:
+        """The Y position of the LayoutElement anchor point in page units."""
         return self.elem.elementPositionY
 
     @y.setter
@@ -4795,6 +4849,7 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 
     @property
     def locked(self) -> bool:
+        """The editability state of the LayoutElement."""
         return self.elem.locked
 
     @locked.setter
@@ -4802,11 +4857,12 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
         self.elem.locked = locked
 
     def delete(self) -> None:
-        assert self.parent, f'{self} has no parent Layout to be deleted from'
-        self.parent.delete_element(self)
+        """Delete the LayuoutElement from its parent Layout (if it has one)."""
+        if self.parent is not None:
+            self.parent.delete_element(self)
 
     def move(self, x: float = 0.0, y: float = 0.0) -> None:
-        """Shift the element by the provided x/y deltas"""
+        """Shift the element by the provided x/y deltas."""
         self.x += x
         self.y += y
 
@@ -4814,24 +4870,34 @@ class LayoutElement[MPElem: mpt.LayoutElement, CIM](Element[MPElem, CIM, Layout]
 class MapSurroundElement(LayoutElement[mpt.MapSurroundElement, cim.CIMMapSurround]):
 
     def apply_style(self, style_item: StyleItemLike) -> None:
+        """Apply a `MAP_SURROUND` StyleItem to the MapSurroundElement."""
         style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass != 'MAP_SURROUND':
+            raise ValueError(f'{self} can only use `MAP_SURROUND` style classes, not {style_item.styleClass}')
         self.elem.applyStyleItem(style_item)
 
 
 class TableFrameElement(LayoutElement[mpt.TableFrameElement, cim.CIMTableFrame]):
 
     def apply_style(self, style_item: StyleItemLike) -> None:
+        """Apply a `TABLE_FRAME` StyleItem to the TableFrameElement."""
         style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass != 'TABLE_FRAME':
+            raise ValueError(f'{self} can only use `TABLE_FRAME` style classes, not {style_item.styleClass}')
         self.elem.applyStyleItem(style_item)
 
 
 class GraphicElement(LayoutElement[mpt.GraphicElement, cim.CIMGraphicElement]):
 
     def apply_style(self, style_item: StyleItemLike) -> None:
+        """Apply a `` StyleItem to the MapSurroundElement."""
         style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass not in ('POINT', 'LINE', 'POLYGON'):
+            raise ValueError(f'{self} can only use `POINT`, `LINE`, or `POLYGON` style classes, not {style_item.styleClass}')
         self.elem.applyStyleItem(style_item)
 
     def clone(self, name: str | None = None) -> Self:
+        """Clone the GraphicElement with an optional new name. (default: `{name}{n+1}`)"""
         new = type(self)(self.elem.clone(), self.parent)
         new.name = name or new.name
         return new
@@ -4841,6 +4907,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def elements(self) -> ElementList[LayoutElement[Any, Any]]:
+        """ElementList of all LayoutElements within the GroupElement. (use other properties for typed/filtered LayoutElements)"""
         return self._cached('elements',
             lambda: ElementList(
                 LayoutElement[Any, Any](elem, self.parent)
@@ -4849,6 +4916,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def graphic_elements(self) -> ElementList[GraphicElement]:
+        """ElementList of all GraphicElements within the GroupElement."""
         return ElementList(
             GraphicElement(cast(mpt.GraphicElement, elem), self.parent)
             for elem in self.elements
@@ -4857,6 +4925,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def group_elements(self) -> ElementList[GroupElement]:
+        """ElementList of all GroupElements within the GroupElement."""
         return ElementList(
             GroupElement(cast(mpt.GroupElement, elem), self.parent)
             for elem in self.elements
@@ -4865,6 +4934,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def legend_elements(self) -> ElementList[LegendElement]:
+        """ElementList of all LegendElements within the GroupElement."""
         return ElementList(
             LegendElement(cast(mpt.LegendElement, elem), self.parent)
             for elem in self.elements
@@ -4873,6 +4943,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def map_frames(self) -> ElementList[MapFrame]:
+        """ElementList of all MapFrames within the GroupElement."""
         return ElementList(
             MapFrame(cast(mpt.MapFrame, elem), self.parent)
             for elem in self.elements
@@ -4881,6 +4952,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def map_surround_elements(self) -> ElementList[MapSurroundElement]:
+        """ElementList of all MapSurroundElements within the GroupElement."""
         return ElementList(
             MapSurroundElement(cast(mpt.MapSurroundElement, elem), self.parent)
             for elem in self.elements
@@ -4889,6 +4961,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def picture_elements(self) -> ElementList[PictureElement]:
+        """ElementList of all PictureElements within the GroupElement."""
         return ElementList(
             PictureElement(cast(mpt.PictureElement, elem), self.parent)
             for elem in self.elements
@@ -4897,6 +4970,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def table_frame_elements(self) -> ElementList[TableFrameElement]:
+        """ElementList of all TableFrameElements within the GroupElement."""
         return ElementList(
             TableFrameElement(cast(mpt.TableFrameElement, elem), self.parent)
             for elem in self.elements
@@ -4905,6 +4979,7 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
 
     @property
     def text_elements(self) -> ElementList[TextElement]:
+        """ElementList of all TextElements within the GroupElement."""
         return ElementList(
             TextElement(cast(mpt.TextElement, elem), self.parent)
             for elem in self.elements
@@ -4912,19 +4987,379 @@ class GroupElement(LayoutElement[mpt.GroupElement, cim.CIMGroupElement]):
         )
 
 
-class LegendElement(LayoutElement[mpt.LayoutElement, cim.CIMLegend]): ...
+LegendFittingStrategy = Literal[
+    'AdjustFontSize',
+    'AdjustColumns',
+    'AdjustColumnsAndFont',
+    'AdjustFrame',
+    'ManualColumns',
+]
 
 
-class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]): ...
+class LegendElement(LayoutElement[mpt.LegendElement, cim.CIMLegend]):
+
+    @property
+    def map(self) -> Map:
+        if self.has_map_frame and self.map_frame.has_map:
+            return self.map_frame.map
+        raise AttributeError(f'{self} has no associated Map or MapFrame')
+
+    @property
+    def map_frame(self) -> MapFrame:
+        """Get the MapFrame associated with the LegendElement. (raises: `AttributeError`)"""
+        if self.has_map_frame:
+            assert self.elem.mapFrame
+            return MapFrame(self.elem.mapFrame, self.parent)
+        raise AttributeError(f'{self} has no associated MapFrame')
+
+    @map_frame.setter
+    def map_frame(self, frame: MapFrameLike) -> None:
+        frame = frame.elem if isinstance(frame, Element) else frame
+        self.elem.mapFrame = frame
+
+    @property
+    def has_map_frame(self) -> bool:
+        """Determine if the LegendElement has an associated MapFrame."""
+        return self.elem.mapFrame is not None
+
+    @property
+    def columns(self) -> int:
+        """The number of columns in the Legend."""
+        return self.elem.columnCount
+
+    @columns.setter
+    def columns(self, cols: int) -> None:
+        self.elem.columnCount = cols
+
+    @property
+    def title(self) -> str:
+        """The title of the LegendElement."""
+        return self.elem.title
+
+    @title.setter
+    def title(self, title: str) -> None:
+        self.elem.title = title
+
+    @property
+    def fitting_strategy(self) -> LegendFittingStrategy:
+        """The fitting strategy of the LegendElement."""
+        return cast(LegendFittingStrategy, self.elem.fittingStrategy)
+
+    @fitting_strategy.setter
+    def fitting_strategy(self, strategy: LegendFittingStrategy) -> None:
+        self.elem.fittingStrategy = strategy
+
+    @property
+    def overflowing(self) -> bool:
+        """Determine if the LegendElement is overflowing its bounds."""
+        return self.elem.isOverflowing
+
+    @property
+    def show_title(self) -> bool:
+        """Title visibility state of the LegendElement."""
+        return self.elem.showTitle
+
+    @show_title.setter
+    def show_title(self, show: bool) -> None:
+        self.elem.showTitle = show
+
+    @property
+    def sync_order(self) -> bool:
+        return self.elem.syncLayerOrder
+
+    @sync_order.setter
+    def sync_order(self, sync: bool) -> None:
+        """Sync legend order with Map Layer order."""
+        self.elem.syncLayerOrder = sync
+
+    @property
+    def sync_visibility(self) -> bool:
+        """Sync legend visibility with Map Layer visibility."""
+        return self.elem.syncLayerVisibility
+
+    @sync_visibility.setter
+    def sync_visibility(self, sync: bool) -> None:
+        self.elem.syncLayerVisibility = sync
+
+    @property
+    def sync_new(self) -> bool:
+        """Add new Layers to the LegendElement when they are added to the Map."""
+        return self.elem.syncNewLayer
+
+    @sync_new.setter
+    def sync_new(self, sync: bool) -> None:
+        self.elem.syncNewLayer = sync
+
+    @property
+    def sync_scale(self) -> bool:
+        """Sync the reference scale of the LegendElement with the Map reference scale."""
+        return self.elem.syncReferenceScale
+
+    @sync_scale.setter
+    def sync_scale(self, sync: bool) -> None:
+        self.elem.syncReferenceScale = sync
+
+    def sync(self, *on: Literal['visibility', 'new', 'scale', 'order']) -> None:
+        """Set sync properties for the LegendElement.
+
+        Note:
+            Any properties not explicitly passed to this method will be disabled.
+        """
+        self.sync_visibility = 'visibility' in on
+        self.sync_new = 'new' in on
+        self.sync_scale = 'scale' in on
+        self.sync_order = 'order' in on
+
+    @property
+    def items(self) -> ElementList[LegendItem]:
+        """ElementList of LegendItems in the LegendElement.
+
+        Items can be mutated directly to update them. No need or ability to set this.
+        """
+        return self._cached('items',
+            lambda: ElementList(
+                LegendItem(itm, self)
+                for itm in self.elem.items or []
+            )
+        )
+
+    def add_item(self, layer: LayerLike, position: mpt.AddPosition = 'TOP') -> LegendItem:
+        """Add a Layer to the Legend.
+
+        Args:
+            layer: A Layer to add to the Legend.
+            position: The position to add the layer in. (default: `TOP`)
+        """
+        layer = layer.elem if isinstance(layer, Element) else layer
+        item = LegendItem(self.elem.addItem(layer, position), self)
+        self.refresh('items')
+        return item
+
+    def remove_item(self, item: LegendItemLike) -> None:
+        """Remove a LegedItem from the LegendElement."""
+        item = item.elem if isinstance(item, Element) else item
+        self.elem.removeItem(item)
+        self.refresh('items')
+
+    def move_item(self, reference: LegendItemLike, item: LegendItemLike, position: mpt.MovePosition = 'BEFORE'):
+        """Move a LegendItem to a different location in the LegendElement.
+
+        Args:
+            reference: The reference LegendItem to move the item relative to.
+            item: The LegendItem to move.
+            position: Where to move the item relative to the reference. (default: `BEFORE`)
+        """
+        reference = reference.elem if isinstance(reference, Element) else reference
+        item = item.elem if isinstance(item, Element) else item
+        self.elem.moveItem(reference, item, position)
+
+    def apply_style(self, style_item: StyleItemLike):
+        """Apply a `LEGEND` style item to the LegendElement."""
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass != 'LEGEND':
+            raise ValueError(f'{self} can only use `LEGEND` style classes, not {style_item.styleClass}')
+        self.elem.applyStyleItem(style_item)
+
+
+LegendItemArrangement = Literal[
+    'PatchLabelDescription',
+    'PatchDescriptionLabel',
+    'LabelPatchDescription',
+    'LabelDescriptionPatch',
+    'DescriptionPatchLabel',
+    'DescriptionLabelPatch',
+]
+
+
+class LegendItem(Element[mpt.LegendItem, cim.CIMLegendItem, LegendElement]):
+
+    @property
+    def arrangement(self) -> LegendItemArrangement:
+        """The patch/description/label arrangement order for the LegendItem."""
+        return cast(LegendItemArrangement, self.elem.arrangement)
+
+    @arrangement.setter
+    def arrangement(self, arrangement: LegendItemArrangement) -> None:
+        self.elem.arrangement = arrangement
+
+    @property
+    def column(self) -> int:
+        return self.elem.column
+
+    @column.setter
+    def column(self, col: int) -> None:
+        self.elem.column = col
+
+    @property
+    def patch_height(self) -> float:
+        """The patch height of the LayoutItem in points."""
+        return self.elem.patchHeight
+
+    @patch_height.setter
+    def patch_height(self, height: float) -> None:
+        self.elem.patchHeight = height
+
+    @property
+    def patch_width(self) -> float:
+        """The patch width of the LayoutItem in points."""
+        return self.elem.patchWidth
+
+    @patch_width.setter
+    def patch_width(self, width: float) -> None:
+        self.elem.patchHeight = width
+
+    @property
+    def show_feature_count(self) -> bool:
+        return self.elem.showFeatureCount
+
+    @show_feature_count.setter
+    def show_feature_count(self, show: bool) -> None:
+        self.elem.showFeatureCount = show
+
+    @property
+    def show_visible(self) -> bool:
+        return self.elem.showVisibleFeatures
+
+    @show_visible.setter
+    def show_visibleure_count(self, show: bool) -> None:
+        self.elem.showVisibleFeatures = show
+
+    def apply_style(self, style_item: StyleItemLike) -> None:
+        """Apply a `LEGEND_ITEM` style to the LegendItem."""
+        style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass != 'LEGEND_ITEM':
+            raise ValueError(f'{self} can only use `LEGEND_ITEM` style classes, not {style_item.styleClass}')
+        self.elem.applyStyleItem(style_item)
+
+
+class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]):
+
+    @property
+    def alt_text(self) -> str:
+        """The hover text of the PictureElement."""
+        return self.elem.altText
+
+    @alt_text.setter
+    def alt_text(self, text: str) -> None:
+        self.elem.altText = text
+
+    @property
+    def image_data(self) -> bytes:
+        """Get the raw bytes for the source image. Will work with URLs and local filepaths."""
+        try:
+            if self.source.startswith('http'):
+                return httpx.get(self.source).read()
+            elif Path(self.source).exists():
+                return Path(self.source).read_bytes()
+            else:
+                raise FileNotFoundError
+        except Exception as e:
+            raise AttributeError(f'{self.source} cannot be resolved.') from e
+
+    @property
+    def source(self) -> str:
+        """A string representation of the source image path. (filepath or URL)"""
+        return self.elem.sourceImage
+
+    @source.setter
+    def source(self, image: Path | str) -> None:
+        self.elem.sourceImage = str(image)
 
 
 class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
 
+    @property
+    def font_family(self) -> str:
+        """The Font Family of the Text Element. (must be proper name of an installed font)"""
+        return self.elem.fontFamilyName
+
+    @font_family.setter
+    def font_family(self, family: str) -> None:
+        self.elem.fontFamilyName = family
+
+    @property
+    def font_style(self) -> str:
+        """The style name of the font (bold, italic, regular, etc.). Must be supported by font family."""
+        return self.elem.fontStyleName
+
+    @font_style.setter
+    def font_style(self, style: str) -> None:
+        self.elem.fontStyleName = style
+
+    @property
+    def overflowing(self) -> bool:
+        """Determine if the TextElement text is overflowing the TextElement boundary."""
+        return self.elem.isOverflowing
+
+    @property
+    def text(self) -> str:
+        """The text string of the TextElement."""
+        return self.elem.text
+
+    @text.setter
+    def text(self, text: str) -> None:
+        self.elem.text = text
+
+    @property
+    def text_angle(self) -> float:
+        """The rotation angle of the text in degrees."""
+        return self.elem.textAngle
+
+    @text_angle.setter
+    def text_angle(self, angle: float) -> None:
+        self.elem.textAngle = angle
+
+    @property
+    def text_size(self) -> float:
+        """The text size in points."""
+        return self.elem.textSize
+
+    @text_size.setter
+    def text_size(self, size: float) -> None:
+        """The text size in points."""
+        self.elem.textSize = size
+
+    def set_text(self,
+                 *,
+                 text: str | None = None,
+                 family: str | None = None,
+                 style: str | None = None,
+                 size: float | None = None,
+                 angle: float | None = None,
+    ) -> None:
+        """Set properties of the TextElement text.
+
+        Args:
+            text: Set the text.
+            family: Set the font family.
+            style: Set the font style.
+            size: Set the font size.
+            angle: Set the font angle.
+        """
+        if text is not None:
+            self.text = text
+        if family is not None:
+            self.font_family = family
+        if style is not None:
+            self.font_style = style
+        if size is not None:
+            self.size = size
+        if angle is not None:
+            self.angle = angle
+
     def apply_style(self, style_item: StyleItemLike) -> None:
+        """Apply a `TEXT` StyleItem to the TextElement."""
         style_item = style_item.elem if isinstance(style_item, Element) else style_item
+        if style_item.styleClass != 'TEXT':
+            raise ValueError(f'{self} can only use `TEXT` style classes, not {style_item.styleClass}')
         self.elem.applyStyleItem(style_item)
 
     def clone(self, name: str | None = None) -> Self:
+        """Make a copy of the TextElement in the parent Layout.
+
+        Args:
+            name: An optional name to give the copy. (default: `{name}{n+1}`)
+        """
         new = type(self)(self.elem.clone(), self.parent)
         new.name = name or new.name
         return new
