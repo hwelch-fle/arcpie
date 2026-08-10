@@ -1393,7 +1393,7 @@ class PolylineEditor:
         self_points = list(self.part_editors[-1])
         self_points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
-        parts.append(self.from_points(points, self.ref))
+        parts.append(self.from_points(self_points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def reverse(self) -> None:
@@ -1699,7 +1699,7 @@ class PolylineEditor:
     # Constructors
 
     @classmethod
-    def merge_lines(cls, lines: Iterable[Polyline]) -> Polyline:
+    def merge_lines(cls, lines: Iterable[Polyline], ref: SpatialReference | None = None) -> Polyline:
         """Merge a sequence of Polylines into one Polyline (uses `union` so each line becomes a part)
 
         Example:
@@ -1713,7 +1713,6 @@ class PolylineEditor:
         # but allows for disjoint parts to remain disjoint
         parts: list[list[PointGeometry]] = []
         last_point: PointGeometry | None = None
-        ref: SpatialReference | None = None
         for line in lines:
             if ref is None:
                 ref = line.spatialReference
@@ -1730,7 +1729,6 @@ class PolylineEditor:
             ),
             ref
         )
-        # return reduce(lambda acc, l: acc.union(l), lines) # type: ignore
 
     @classmethod
     def from_points(cls, points: Iterable[Point | PointGeometry], ref: SpatialReference | None = None) -> Polyline:
