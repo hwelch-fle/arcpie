@@ -272,17 +272,24 @@ def _get_uri(elem: MPElement) -> str:
      Fallback of ``NO_URI:{type(elem)}<{get_name(elem)}@{hex(id(elem))}>`` is used if uRI cannot be determined.
     """
     props = _get_props(elem, 'URI')
-    fallback_uri = f'NO_URI:{type(elem)}<{_get_name(elem)}@{hex(id(elem))}>'
+    fallback_uri = f'NO_URI:{type(elem).__name__}<{_get_name(elem)}@{hex(id(elem))}>'
     if (uri := props.get('URI')):
-        return uri
+        return str(uri).replace('CIMPATH=', '')
     if not (arc_object := getattr(elem, '_arc_object', None)):
         return fallback_uri
     if not (cim_str := getattr(arc_object, 'GetCimJSONString', None)):
         return fallback_uri
-    cim: dict[str, Any] | None = json.loads(cim_str() or '{}')
-    if not isinstance(cim, dict) or 'uRI' not in cim:
+    cim_dict: dict[str, Any] | None = json.loads(cim_str() or '{}')
+    if not isinstance(cim_dict, dict):
         return fallback_uri
-    return str(cim['uRI'])
+    # PictureElements actually have a hidden uri if the image is bundled
+    # Just try and get it if possible
+    if 'uRI' in cim_dict:
+        return str(cim_dict['uRI']).replace('CIMPATH=', '')
+    if 'graphic' in cim_dict:
+        with suppress(Exception):
+            return str(cim_dict['graphic']['referenceURI']).replace('CIMPATH=', '')
+    return fallback_uri
 
 
 # Used when we need to consume a callable but none exists
@@ -431,15 +438,39 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
     @property
     def cim(self) -> CIMDef:
         """The CIM object for the Element"""
-        elem = self.elem
-        if _cimless(elem):
-            raise AttributeError(f'{type(self).__name__} has no implemented CIM getter')
-        return cast(CIMDef, elem.getDefinition('V3'))
+        return self.get_cim()
 
     @cim.setter
     def cim(self, cim: CIMDef) -> None:
+        self.set_cim(cim)
+
+    def get_cim(self) -> CIMDef:
+        """Get the CIM definition for the Element."""
         elem = self.elem
+        # Try really hard to access the CIM definition,
+        # even if it's not available in the public API
         if _cimless(elem):
+            if arc_object := getattr(elem, '_arc_object', None):
+                if getter := getattr(arc_object, 'GetCimJSONString', None):
+                    with suppress(Exception):
+                        assert callable(getter)
+                        return jsontocim.GetJSONTypeOBJ(json.loads(cast(str, getter())))  # type: ignore
+            raise AttributeError(f'{type(self).__name__} has no implemented CIM getter')
+        return cast(CIMDef, elem.getDefinition('V3'))
+
+    def set_cim(self, cim: CIMDef, _force: bool = False) -> None:
+        """Set a CIM definition for an Element set `_force` to False to allow CIMType change.
+        (must be valid instance of original CIM by default)"""
+        elem = self.elem
+        target_type = type(self.cim)
+        if not isinstance(cim, target_type) and not _force:
+            raise ValueError(f'{self} expects cim type {target_type.__name__}, got {type(cim).__name__}')
+        if _cimless(elem):
+            if arc_object := getattr(elem, '_arc_object', None):
+                if setter := getattr(arc_object, 'SetCimJSONString', None):
+                    with suppress(Exception):
+                        assert callable(setter)
+                        setter(cim)
             raise AttributeError(f'{type(self).__name__} has no implemented CIM setter')
         elem.setDefinition(cast(str, cim))  # Signature here is wrong CIM obj OR string name
 
@@ -5327,7 +5358,7 @@ class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]):
         self.elem.sourceImage = str(image)
 
 
-class TextElement(LayoutElement[mpt.TextElement, cim.CIMTextGraphic]):
+class TextElement(LayoutElement[mpt.TextElement, cim.CIMGraphicElement]):
 
     @property
     def font_family(self) -> str:
