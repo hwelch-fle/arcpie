@@ -667,6 +667,20 @@ class _ClosedProject:
         raise PermissionError(f'{self.filePath} is closed')
 
 
+class APRXNode(TypedDict):
+    NodeId: int
+    NodeType: str
+    FileName: str
+    ChildNodeIds: str
+
+
+class ProjectNode(TypedDict):
+    type: str
+    path: str
+    name: str
+    children: set[int]
+
+
 class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     """ArcGISProject wrapper
 
@@ -978,6 +992,46 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def color_ramps(self) -> list[mp.ColorRamp]:
         """Get the color ramps in the project"""
         return self.elem.listColorRamps()
+
+    @property
+    def index(self) -> dict[str, Any]:
+        if 'index' not in self.cache:
+            self.cache['index'] = json.loads(self.read_cim_file('Index.json'))
+        return self._cached('index')
+
+    @property
+    def raw_nodes(self) -> list[APRXNode]:
+        return self.index['Nodes']
+
+    @property
+    def nodes(self) -> dict[int, ProjectNode]:
+        if 'nodes' not in self.cache:
+            node_map = dict[int, ProjectNode]()
+            for node in self.raw_nodes:
+                n_id = node['NodeId']
+                n_type = node['NodeType']
+                n_path = node['FileName']
+                n_children = node['ChildNodeIds']
+                cur_node = node_map.setdefault(n_id, cast(ProjectNode, {}))
+                cur_node['path'] = n_path
+                cur_node['type'] = n_type
+                try:
+                    cur_node['name'] = json.loads(self.read_cim_file(n_path))['name']
+                except Exception:
+                    cur_node['name'] = n_path
+                if n_children:
+                    cur_node['children'] = {int(chld) for chld in n_children.split(',')}
+                else:
+                    cur_node['children'] = set()
+            self.cache['nodes'] = node_map
+        return self._cached('nodes')
+
+    def read_cim_file(self, path: Path | str) -> bytes:
+        """Open the aprx and read a file inside it (useful for extracting images)."""
+        # ZipFile paths need to be in posix (/ delimited) format
+        path = Path(path).as_posix()
+        with ZipFile(self.path) as zf:
+            return zf.read(str(path))
 
     def update_connection(self, new: str, current: str | None = None, auto_update: bool = True, validate: bool = True, ignore_case: bool = False):
         """Update a connection at the Project level"""
@@ -5252,9 +5306,16 @@ class PictureElement(LayoutElement[mpt.PictureElement, cim.CIMPictureGraphic]):
             elif Path(self.source).exists():
                 return Path(self.source).read_bytes()
             else:
-                raise FileNotFoundError
-        except Exception as e:
-            raise AttributeError(f'{self.source} cannot be resolved.') from e
+                raise FileNotFoundError('Cannot Resolve file with URL or filepath, Trying to read form aprx archive...')
+        except Exception:
+            try:
+                cim_path: str = self.cim_dict['graphic']['referenceURI'][8:]
+                cim_path = cim_path.replace('\\', '/')
+                assert self.parent
+                assert self.parent.parent
+                return self.parent.parent.read_cim_file(cim_path)
+            except Exception as e2:
+                raise AttributeError(f'{self.source} cannot be resolved.') from e2
 
     @property
     def source(self) -> str:
