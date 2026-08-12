@@ -102,9 +102,37 @@ def _walk(ds: str, dtype: WalkDataTypes | None = None):
     ]
 
 
+_valid_walk_types = [
+    "ANY",
+    "CADDRAWING",
+    "FEATURECLASS",
+    "RASTERDATASET",
+    "GEOMETRICNETWORK",
+    "LASDATASET",
+    "LAYER",
+    "LOCATOR",
+    "MAP",
+    "MOSAICDATASET",
+    "NETWORKDATASET",
+    "PARCELDATASET",
+    "RASTERCATALOG",
+    "RASTERDATASET",
+    "RELATIONSHIPCLASS",
+    "REPRESENTATIONCLASS",
+    "TABLE",
+    "TERRAIN",
+    "TIN",
+    "TOOL",
+    "TOPOLOGY",
+    "UTILITYNETWORK"
+]
+
+
 def _extract_types_threaded(ds: Path | str, dtypes: list[WalkDataTypes]) -> dict[str, list[Path]]:
     """Extract paths from a dataset grouped by type"""
     ds = str(ds)
+    # Ensure that no invalid types are walked
+    dtypes = [dtype for dtype in dtypes if dtype.upper() in _valid_walk_types]
     data: dict[str, list[Path]] = {}
     with ThreadPoolExecutor(max_workers=len(dtypes)) as executor:
         futures = {executor.submit(_walk, ds, dtype): dtype for dtype in dtypes}
@@ -343,6 +371,8 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         try:
             datatypes = get_items(self.conn, *features)
         except Exception:
+            # Walk cannot filter by Annotation
+            features.remove('Annotation')
             datatypes = _extract_types_threaded(self.conn, features)  # type: ignore (WalkDatatypes is uppercase??)
 
         self._feature_classes = {
