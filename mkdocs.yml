@@ -103,8 +103,9 @@ nav:
     - featureclass: modules/featureclass.md
     - database: modules/database.md
     - cursor: modules/cursor.md
-    - network: modules/network.md
-    - project: modules/project.md
+    # - network: modules/network.md
+    - project.elements: modules/project/elements.md
+    - project.formats: modules/project/formats.md
     - toolbox: modules/toolbox.md
     - utils: modules/utils.md
     - diff: modules/diff.md
