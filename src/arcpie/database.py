@@ -10,6 +10,7 @@ from collections.abc import (
     Sequence,
 )
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from functools import cached_property
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -211,6 +212,10 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         self.conn = Path(conn)
         self.parent = parent
 
+        # Used to hold a list of File Descriptors to prevent directory writes
+        # Does nothing if the Dataset is not a file GDB
+        self._locks = None
+
         self._datasets = dict[str, Dataset]()
         self._feature_classes = dict[str, FeatureClass]()
         self._tables = dict[str, Table]()
@@ -276,6 +281,28 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
     @property
     def editor(self) -> Editor:
         return Editor(str(self.conn))
+
+    def get_locks(self) -> None:
+        """Open all files in the gdb to prevent writing."""
+        self._locks = self._locks or [
+            fl.open('r')
+            for fl in self.conn.iterdir()
+            if fl.is_file() and not fl.suffix == '.lock'
+        ]
+
+    def clear_locks(self) -> None:
+        """Clear locks if held."""
+        for fd in self._locks or []:
+            fd.close()
+        self._locks = None
+
+    @contextmanager
+    def lock(self):
+        try:
+            self.get_locks()
+            yield self
+        finally:
+            self.clear_locks()
 
     def export_rules(self, rule_dir: Path | str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
@@ -373,23 +400,23 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         try:
             datatypes = get_items(self.conn, *features)
         except Exception:
-            self.is_likeley_corrupt = True
+            self.is_likeley_corrupt = self.conn.suffix == '.gdb'
             # Walk cannot filter by Annotation
             features.remove('Annotation')
             datatypes = _extract_types_threaded(self.conn, features)  # type: ignore (WalkDatatypes is uppercase??)
 
         self._feature_classes = {
             path.name: FeatureClass(path)
-            for path in datatypes['FeatureClass']
+            for path in datatypes.get('FeatureClass', [])
             if path.name not in Dataset._invalid_tables
         }
-        self._tables = {path.name: Table(path) for path in datatypes['Table']}
-        self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes['RelationshipClass']}
-        self._datasets = {path.name: Dataset[Schema](path, parent=self) for path in datatypes['FeatureDataset']}
+        self._tables = {path.name: Table(path) for path in datatypes.get('Table', [])}
+        self._relationships = {path.name: Relationship(self.parent or self, path) for path in datatypes.get('RelationshipClass', [])}
+        self._datasets = {path.name: Dataset[Schema](path, parent=self) for path in datatypes.get('FeatureDataset', [])}
 
         # Special case for raw walk since we extracted annotations directly
         if 'Annotation' in datatypes:
-            self._annotations = {path.name: FeatureClass(path) for path in datatypes['Annotation']}
+            self._annotations = {path.name: FeatureClass(path) for path in datatypes.get('Annotation', [])}
             self._feature_classes.update(self._annotations)
         else:
             # Annotations are a subtype of FeatureClass, so we need to access them differently
