@@ -1,3 +1,3 @@
 # Network
 
-::: arcpie.network
+::: arcpie._network
