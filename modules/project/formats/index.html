@@ -1,0 +1,2799 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://hwelch-fle.github.io/arcpie/modules/project/formats/">
+      
+      
+        <link rel="prev" href="../elements/">
+      
+      
+        <link rel="next" href="../../toolbox/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>project.formats - arcpie</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#project" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="arcpie" class="md-header__button md-logo" aria-label="arcpie" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            arcpie
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              project.formats
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hwelch-fle/arcpie" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../featureclass/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../examples/1_getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="arcpie" class="md-nav__button md-logo" aria-label="arcpie" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    arcpie
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hwelch-fle/arcpie" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../featureclass/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    featureclass
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../elements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.formats
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.AIX" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;AIX
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.BMP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BMP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.EMF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EMF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.EPS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;update
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" update">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update(mapping)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update(**opts)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;**opts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.GIF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GIF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.JPEG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;JPEG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.PDF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.PNG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PNG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.SVG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SVG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.TGA" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TGA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.TIFF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TIFF
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../toolbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    toolbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../diff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    diff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.domain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/field/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.field
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../schema/workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/1_getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/2_feature-interaction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Interaction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.AIX" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;AIX
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.BMP" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BMP
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.EMF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EMF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.EPS" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EPS
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Format
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Format">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;update
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" update">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update(mapping)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;mapping
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.project.formats.Format.update(**opts)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;**opts
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.GIF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GIF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.JPEG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;JPEG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.PDF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PDF
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.PNG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PNG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.SVG" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SVG
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.TGA" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TGA
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.project.formats.TIFF" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TIFF
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../../featureclass/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Modules
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="project">Project<a class="headerlink" href="#project" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+
+    <div class="doc doc-contents first">
+
+          
+
+
+
+
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">CLASS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.AIX">AIX</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>AIXFormat</code> object represents a collection of Adobe Illustrator Exchange (AIX)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.BMP">BMP</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>BMPFormat</code> object represents a collection of Microsoft Windows bitmap (BMP)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.EMF">EMF</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>EMFFormat</code> object represents a collection of Enhanced Metafile format (EMF)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.EPS">EPS</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>EPSFormat</code> object represents a collection of Encapsulated PostScript (EPS)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>Base Format class that contains all shared props and allows for isinstance checking for a <code>Format</code> object</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.GIF">GIF</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>GIFFormat</code> object represents a collection of Graphic Interchange Format (GIF)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.JPEG">JPEG</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>JPEGFormat</code> object represents a collection of Joint Photographic Experts Group (JPEG)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.PDF">PDF</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>PDFFormat</code> object represents a collection of Portable Document Format (PDF)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.PNG">PNG</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The PNGFormat object represents a collection of Portable Network Graphics (PNG)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.SVG">SVG</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>SVGFormat</code> object represents a collection of Scalable Vector Graphics (SVG)</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.TGA">TGA</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>The <code>TGAFormat</code> object represents a collection of Truevision Graphics Adaptor (TGA)</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.AIX" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">AIX</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.AIX" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">AIX</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.AIX(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.AIX(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.AIX(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.AIX(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.AIX(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.AIX(convertMarkers)">convertMarkers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.AIX(embedColorProfile)">embedColorProfile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.AIX(embedFonts)">embedFonts</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.AIX(imageCompression)">imageCompression</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageCompression">ImageCompression</span></span> <span class="o">=</span> <span class="s1">&#39;ADAPTIVE&#39;</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.AIX(imageCompressionQuality)">imageCompressionQuality</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+</span><span id="__span-0-12">    <span class="n"><span title="arcpie.project.formats.AIX(imageQuality)">imageQuality</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageQuality">ImageQuality</span></span> <span class="o">=</span> <span class="s1">&#39;BEST&#39;</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="n"><span title="arcpie.project.formats.AIX(removeLayoutBackground)">removeLayoutBackground</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-14"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.AIXFormat">AIXFormat</span>, <span title="arcpie.project.formats.AIXOpts">AIXOpts</span>]</code></p>
+
+
+
+        <p>The <code>AIXFormat</code> object represents a collection of Adobe Illustrator Exchange (AIX)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output AIX file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/aixformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.BMP" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">BMP</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.BMP" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">BMP</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.BMP(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.BMP(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.BMP(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.BMP(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.BMP(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.BMP(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;24-BIT_TRUE_COLOR&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.BMP(georeferenceMapFrame)">georeferenceMapFrame</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.MapFrame">MapFrame</span></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" href="../elements/#arcpie.project.elements.MapFrame">MapFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.BMP(threshold)">threshold</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.BMP(worldFile)">worldFile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-11"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.BMPFormat">BMPFormat</span>, <span title="arcpie.project.formats.BMPOpts">BMPOpts</span>]</code></p>
+
+
+
+        <p>The <code>BMPFormat</code> object represents a collection of Microsoft Windows bitmap (BMP)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output BMP file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/bmpformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.EMF" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">EMF</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.EMF" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">EMF</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.EMF(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.EMF(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.EMF(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.EMF(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.EMF(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.EMF(convertMarkers)">convertMarkers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.EMF(imageQuality)">imageQuality</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageQuality">ImageQuality</span></span> <span class="o">=</span> <span class="s1">&#39;BEST&#39;</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.EMF(outputAsImage)">outputAsImage</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-10"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.EMFFormat">EMFFormat</span>, <span title="arcpie.project.formats.EMFOpts">EMFOpts</span>]</code></p>
+
+
+
+        <p>The <code>EMFFormat</code> object represents a collection of Enhanced Metafile format (EMF)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output EMF file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/emfformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.EPS" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">EPS</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.EPS" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">EPS</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.EPS(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.EPS(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.EPS(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.EPS(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.EPS(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.EPS(convertMarkers)">convertMarkers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.EPS(embedFonts)">embedFonts</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.EPS(imageCompression)">imageCompression</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageCompression">ImageCompression</span></span> <span class="o">=</span> <span class="s1">&#39;DEFLATE&#39;</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.EPS(imageQuality)">imageQuality</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageQuality">ImageQuality</span></span> <span class="o">=</span> <span class="s1">&#39;BEST&#39;</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.EPS(outputAsImage)">outputAsImage</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-12"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.EPSFormat">EPSFormat</span>, <span title="arcpie.project.formats.EPSOpts">EPSOpts</span>]</code></p>
+
+
+
+        <p>The <code>EPSFormat</code> object represents a collection of Encapsulated PostScript (EPS)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output EPS file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/epsformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.Format" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">Format</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.Format" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">Format</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.Format(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.Format(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.Format(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.Format(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.Format(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>Base Format class that contains all shared props and allows for isinstance checking for a <code>Format</code> object</p>
+
+          
+
+
+  <div class="doc doc-backlinks">
+        <b class="doc doc-backlink-type">Subclassed by:</b>
+          <ul class="doc doc-backlink-list">
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <span>Modules</span>
+  </span>
+
+            <span class="doc doc-backlink-crumb">
+      <a href="#project">Project</a>
+  </span>
+
+            <ul class="doc doc-backlink-list">
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.AIX"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;AIX</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.BMP"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;BMP</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.EMF"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EMF</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.EPS"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;EPS</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.GIF"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;GIF</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.JPEG"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;JPEG</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.PDF"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PDF</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.PNG"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;PNG</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.SVG"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;SVG</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.TGA"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TGA</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.project.formats.TIFF"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;TIFF</a>
+  </span>
+
+      </li>
+  </ul>
+
+      </li>
+  </ul>
+
+        <b class="doc doc-backlink-type">Used by:</b>
+          <ul class="doc doc-backlink-list">
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <span>Modules</span>
+  </span>
+
+            <span class="doc doc-backlink-crumb">
+      <a href="../elements/#project">Project</a>
+  </span>
+
+            <ul class="doc doc-backlink-list">
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <a href="../elements/#arcpie.project.elements.Layout"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Layout</a>
+  </span>
+
+            <span class="doc doc-backlink-crumb last">
+      <a href="../elements/#arcpie.project.elements.Layout.export"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;export</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <a href="../elements/#arcpie.project.elements.MapFrame"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MapFrame</a>
+  </span>
+
+            <span class="doc doc-backlink-crumb last">
+      <a href="../elements/#arcpie.project.elements.MapFrame.export"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;export</a>
+  </span>
+
+      </li>
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <a href="../elements/#arcpie.project.elements.MapView"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;MapView</a>
+  </span>
+
+            <span class="doc doc-backlink-crumb last">
+      <a href="../elements/#arcpie.project.elements.MapView.export"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;export</a>
+  </span>
+
+      </li>
+  </ul>
+
+      </li>
+  </ul>
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">METHOD</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format.update">update</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Update the Format with the provided options.</p>
+                </div>
+              </td>
+            </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.project.formats.Format.update" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">update</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-abstractmethod"><code>abstractmethod</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.Format.update" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">update</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format.update(mapping)">mapping</a></span><span class="p">:</span> <span class="n"><span title="arcpie.project.formats.Format[Opts]">Opts</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="o">**</span><span class="n"><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format.update(**opts)">opts</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Unpack&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a></span><span class="p">[</span><span class="n"><span title="arcpie.project.formats.Format[Opts]">Opts</span></span><span class="p">]</span>
+</span><span id="__span-0-3"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Update the Format with the provided options.</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+<h4 id="arcpie.project.formats.Format.update(mapping)" class="doc doc-heading doc-heading-parameter">                  <code>mapping</code>
+<a href="#arcpie.project.formats.Format.update(mapping)" class="headerlink" title="Permanent link">&para;</a></h4>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>An optional positional only dictionary (arg[0]) containing the update options</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="arcpie.project.formats.Format[Opts]">Opts</span> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h4 id="arcpie.project.formats.Format.update(**opts)" class="doc doc-heading doc-heading-parameter">                  <code>**opts</code>
+<a href="#arcpie.project.formats.Format.update(**opts)" class="headerlink" title="Permanent link">&para;</a></h4>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Keyword overrides that will be applied to any supplied mapping arg</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Unpack&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Unpack">Unpack</a>[<span title="arcpie.project.formats.Format[Opts]">Opts</span>]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>{}</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/project/formats.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">54</span>
+<span class="normal">55</span>
+<span class="normal">56</span>
+<span class="normal">57</span>
+<span class="normal">58</span>
+<span class="normal">59</span>
+<span class="normal">60</span>
+<span class="normal">61</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-54"><span class="nd">@abstractmethod</span>
+</span><span id="__span-0-55"><span class="k">def</span><span class="w"> </span><span class="nf">update</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">mapping</span><span class="p">:</span> <span class="n">Opts</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">/</span><span class="p">,</span> <span class="o">**</span><span class="n">opts</span><span class="p">:</span> <span class="n">Unpack</span><span class="p">[</span><span class="n">Opts</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>  <span class="c1"># type: ignore</span>
+</span><span id="__span-0-56"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Update the Format with the provided options.</span>
+</span><span id="__span-0-57">
+</span><span id="__span-0-58"><span class="sd">    Args:</span>
+</span><span id="__span-0-59"><span class="sd">        mapping: An optional positional only dictionary (arg[0]) containing the update options</span>
+</span><span id="__span-0-60"><span class="sd">        **opts: Keyword overrides that will be applied to any supplied mapping arg</span>
+</span><span id="__span-0-61"><span class="sd">    &quot;&quot;&quot;</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.GIF" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">GIF</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.GIF" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">GIF</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.GIF(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.GIF(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.GIF(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.GIF(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.GIF(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.GIF(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;8-BIT_ADAPTIVE_PALETTE&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.GIF(georeferenceMapFrame)">georeferenceMapFrame</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.MapFrame">MapFrame</span></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" href="../elements/#arcpie.project.elements.MapFrame">MapFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.GIF(threshold)">threshold</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.GIF(worldFile)">worldFile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-11"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.GIFFormat">GIFFormat</span>, <span title="arcpie.project.formats.GIFOpts">GIFOpts</span>]</code></p>
+
+
+
+        <p>The <code>GIFFormat</code> object represents a collection of Graphic Interchange Format (GIF)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output GIF file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/gifformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.JPEG" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">JPEG</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.JPEG" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">JPEG</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.JPEG(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.JPEG(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.JPEG(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.JPEG(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.JPEG(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.JPEG(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;24-BIT_TRUE_COLOR&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.JPEG(georeferenceMapFrame)">georeferenceMapFrame</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.MapFrame">MapFrame</span></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" href="../elements/#arcpie.project.elements.MapFrame">MapFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.JPEG(imageCompressionQuality)">imageCompressionQuality</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.JPEG(worldFile)">worldFile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-11"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.JPEGFormat">JPEGFormat</span>, <span title="arcpie.project.formats.JPEGOpts">JPEGOpts</span>]</code></p>
+
+
+
+        <p>The <code>JPEGFormat</code> object represents a collection of Joint Photographic Experts Group (JPEG)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, <code>MapView</code>, <code>MapSeries</code> and <code>BookmarkMapSeries</code> objects to create an output JPG file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/jpegformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.PDF" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">PDF</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.PDF" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">PDF</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.PDF(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.PDF(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.PDF(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.PDF(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.PDF(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.PDF(author)">author</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.PDF(compressVectorGraphics)">compressVectorGraphics</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.PDF(convertMarkers)">convertMarkers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.PDF(embedColorProfile)">embedColorProfile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.PDF(embedFonts)">embedFonts</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-12">    <span class="n"><span title="arcpie.project.formats.PDF(georefInfo)">georefInfo</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="n"><span title="arcpie.project.formats.PDF(imageCompression)">imageCompression</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageCompression">ImageCompression</span></span> <span class="o">=</span> <span class="s1">&#39;ADAPTIVE&#39;</span><span class="p">,</span>
+</span><span id="__span-0-14">    <span class="n"><span title="arcpie.project.formats.PDF(imageCompressionQuality)">imageCompressionQuality</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">80</span><span class="p">,</span>
+</span><span id="__span-0-15">    <span class="n"><span title="arcpie.project.formats.PDF(imageQuality)">imageQuality</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageQuality">ImageQuality</span></span> <span class="o">=</span> <span class="s1">&#39;BEST&#39;</span><span class="p">,</span>
+</span><span id="__span-0-16">    <span class="n"><span title="arcpie.project.formats.PDF(includeAccessibilityTags)">includeAccessibilityTags</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-17">    <span class="n"><span title="arcpie.project.formats.PDF(includeNonVisibleMapLayers)">includeNonVisibleMapLayers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-18">    <span class="n"><span title="arcpie.project.formats.PDF(keywords)">keywords</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-19">    <span class="n"><span title="arcpie.project.formats.PDF(languageCode)">languageCode</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-20">    <span class="n"><span title="arcpie.project.formats.PDF(layersAndAttributes)">layersAndAttributes</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.LayerAttributes">LayerAttributes</span></span> <span class="o">=</span> <span class="s1">&#39;LAYERS_ONLY&#39;</span><span class="p">,</span>
+</span><span id="__span-0-21">    <span class="n"><span title="arcpie.project.formats.PDF(outputAsImage)">outputAsImage</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-22">    <span class="n"><span title="arcpie.project.formats.PDF(rasterAsSingleTile)">rasterAsSingleTile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-23">    <span class="n"><span title="arcpie.project.formats.PDF(removeLayoutBackground)">removeLayoutBackground</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-24">    <span class="n"><span title="arcpie.project.formats.PDF(simulateOverprint)">simulateOverprint</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-25">    <span class="n"><span title="arcpie.project.formats.PDF(subject)">subject</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-26">    <span class="n"><span title="arcpie.project.formats.PDF(title)">title</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-27"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.PDFFormat">PDFFormat</span>, <span title="arcpie.project.formats.PDFOpts">PDFOpts</span>]</code></p>
+
+
+
+        <p>The <code>PDFFormat</code> object represents a collection of Portable Document Format (PDF)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, <code>MapView</code>, <code>MapSeries</code>, <code>BookmarkMapSeries</code> and <code>Report</code>
+objects to create an output PDF file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/pdfformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.PNG" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">PNG</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.PNG" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">PNG</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.PNG(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.PNG(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.PNG(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.PNG(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.PNG(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.PNG(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;32-BIT_WITH_ALPHA&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.PNG(georeferenceMapFrame)">georeferenceMapFrame</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.MapFrame">MapFrame</span></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" href="../elements/#arcpie.project.elements.MapFrame">MapFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.PNG(threshold)">threshold</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.PNG(transparentBackground)">transparentBackground</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.PNG(worldFile)">worldFile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-12"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.PNGFormat">PNGFormat</span>, <span title="arcpie.project.formats.PNGOpts">PNGOpts</span>]</code></p>
+
+
+
+        <p>The PNGFormat object represents a collection of Portable Network Graphics (PNG)
+file properties that can be configured and used with the export method on the
+Layout, MapFrame, MapView, MapSeries and BookmarkMapSeries objects to create an output PNG file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/pngformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.SVG" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">SVG</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.SVG" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">SVG</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.SVG(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.SVG(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.SVG(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.SVG(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.SVG(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.SVG(compressToSVGZ)">compressToSVGZ</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.SVG(convertMarkers)">convertMarkers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.SVG(embedFonts)">embedFonts</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.SVG(imageQuality)">imageQuality</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageQuality">ImageQuality</span></span> <span class="o">=</span> <span class="s1">&#39;BEST&#39;</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.SVG(includeNonVisibleMapLayers)">includeNonVisibleMapLayers</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-12">    <span class="n"><span title="arcpie.project.formats.SVG(outputAsImage)">outputAsImage</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="n"><span title="arcpie.project.formats.SVG(rasterAsSingleTile)">rasterAsSingleTile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-14"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.SVGFormat">SVGFormat</span>, <span title="arcpie.project.formats.SVGOpts">SVGOpts</span>]</code></p>
+
+
+
+        <p>The <code>SVGFormat</code> object represents a collection of Scalable Vector Graphics (SVG)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output SVG or SVGZ file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/svgformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.TGA" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">TGA</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.TGA" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">TGA</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.TGA(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.TGA(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.TGA(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.TGA(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.TGA(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.TGA(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;32-BIT_WITH_ALPHA&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.TGA(transparentBackground)">transparentBackground</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-9"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.TGAFormat">TGAFormat</span>, <span title="arcpie.project.formats.TGAOpts">TGAOpts</span>]</code></p>
+
+
+
+        <p>The <code>TGAFormat</code> object represents a collection of Truevision Graphics Adaptor (TGA)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, and <code>MapView</code> objects to create an output TGA file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/tgaformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.project.formats.TIFF" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">TIFF</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#arcpie.project.formats.TIFF" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">TIFF</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><span title="arcpie.project.formats.TIFF(clipToElements)">clipToElements</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-3">    <span class="n"><span title="arcpie.project.formats.TIFF(filePath)">filePath</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;pathlib.Path&lt;/code&gt;" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><span title="arcpie.project.formats.TIFF(height)">height</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><span title="arcpie.project.formats.TIFF(width)">width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mi">960</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><span title="arcpie.project.formats.TIFF(resolution)">resolution</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">96</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><span title="arcpie.project.formats.TIFF(colorMode)">colorMode</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ColorMode">ColorMode</span></span> <span class="o">=</span> <span class="s1">&#39;32-BIT_WITH_ALPHA&#39;</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><span title="arcpie.project.formats.TIFF(embedColorProfile)">embedColorProfile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.project.formats.TIFF(georeferenceMapFrame)">georeferenceMapFrame</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.MapFrame">MapFrame</span></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-internal" href="../elements/#arcpie.project.elements.MapFrame">MapFrame</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-10">    <span class="n"><span title="arcpie.project.formats.TIFF(geoTIFFTags)">geoTIFFTags</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-11">    <span class="n"><span title="arcpie.project.formats.TIFF(imageCompression)">imageCompression</span></span><span class="p">:</span> <span class="n"><span title="arcpy._mp.ImageCompression">ImageCompression</span></span> <span class="o">=</span> <span class="s1">&#39;LZW&#39;</span><span class="p">,</span>
+</span><span id="__span-0-12">    <span class="n"><span title="arcpie.project.formats.TIFF(imageCompressionQuality)">imageCompressionQuality</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-0-13">    <span class="n"><span title="arcpie.project.formats.TIFF(threshold)">threshold</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+</span><span id="__span-0-14">    <span class="n"><span title="arcpie.project.formats.TIFF(transparentBackground)">transparentBackground</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-15">    <span class="n"><span title="arcpie.project.formats.TIFF(worldFile)">worldFile</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-16"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-internal" href="#arcpie.project.formats.Format">Format</a>[<span title="arcpy._mp.TIFFFormat">TIFFFormat</span>, <span title="arcpie.project.formats.TIFFOpts">TIFFOpts</span>]</code></p>
+
+
+
+        <p>The <code>TIFFFormat</code> object represents a collection of Tagged Image File Format (TIFF)
+file properties that can be configured and used with the export method on the
+<code>Layout</code>, <code>MapFrame</code>, <code>MapView</code>, <code>MapSeries</code> and <code>BookmarkMapSeries</code>
+objects to create an output TIF file.</p>
+<p><a href="https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/tiffformat-class.html">Documentation</a></p>
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../elements/" class="md-footer__link md-footer__link--prev" aria-label="Previous: project.elements">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                project.elements
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../../toolbox/" class="md-footer__link md-footer__link--next" aria-label="Next: toolbox">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                toolbox
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.code.select", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.preview", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>

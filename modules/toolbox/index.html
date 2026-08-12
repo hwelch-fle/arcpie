@@ -1,0 +1,3440 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://hwelch-fle.github.io/arcpie/modules/toolbox/">
+      
+      
+        <link rel="prev" href="../project/formats/">
+      
+      
+        <link rel="next" href="../utils/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>toolbox - arcpie</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#toolbox" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="arcpie" class="md-header__button md-logo" aria-label="arcpie" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            arcpie
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              toolbox
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9 2C5.13 2 2 5.13 2 9c0 2.38 1.19 4.47 3 5.74V17c0 .55.45 1 1 1h6c.55 0 1-.45 1-1v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7M6 21c0 .55.45 1 1 1h4c.55 0 1-.45 1-1v-1H6zm13-8h-2l-3.2 9h1.9l.7-2h3.2l.7 2h1.9zm-2.15 5.65L18 15l1.15 3.65z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 0 0-7-7M9 21a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1v-1H9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="teal" data-md-color-accent="amber"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.26C6.19 13.47 5 11.38 5 9a7 7 0 0 1 7-7M9 21v-1h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1m3-17a5 5 0 0 0-5 5c0 2.05 1.23 3.81 3 4.58V16h4v-2.42c1.77-.77 3-2.53 3-4.58a5 5 0 0 0-5-5"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+          <a href="javascript:void(0)" class="md-search__icon md-icon" title="Share" aria-label="Share" data-clipboard data-clipboard-text="" data-md-component="search-share" tabindex="-1">
+            
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9a3 3 0 0 0-3 3 3 3 0 0 0 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.15c-.05.21-.08.43-.08.66 0 1.61 1.31 2.91 2.92 2.91s2.92-1.3 2.92-2.91A2.92 2.92 0 0 0 18 16.08"/></svg>
+          </a>
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/hwelch-fle/arcpie" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  
+    
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../featureclass/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Modules
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../examples/1_getting-started/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Examples
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="arcpie" class="md-nav__button md-logo" aria-label="arcpie" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    arcpie
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/hwelch-fle/arcpie" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Modules
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Modules
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../featureclass/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    featureclass
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../database/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    database
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cursor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    cursor
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/elements/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.elements
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../project/formats/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    project.formats
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    toolbox
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    toolbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Progressor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Progressor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(it)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(message)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;message
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(mode)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(lazy)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;lazy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(length_hint)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;length_hint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.global_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;global_position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.reset_progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;reset_progressor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.root" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;root
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_label" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_label
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_progressor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Tool.project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;project
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;progressor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" progressor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor(it)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor(msg)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;msg
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;safe_load
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" safe_load">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(tools)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(scope)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(reload_module)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;reload_module
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;toolify
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" toolify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(*tool_registries)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;*tool_registries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(name)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(params)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;params
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(debug)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;debug
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(logger)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;logger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    utils
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../diff/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    diff
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/domain/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.domain
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/field/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.field
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/layer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.layer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../schema/workspace/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    schema.workspace
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/1_getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/2_feature-interaction/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Feature Interaction
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Progressor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Progressor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(it)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(message)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;message
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(mode)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(lazy)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;lazy
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor(length_hint)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;length_hint
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.global_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;global_position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.reset_progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;reset_progressor
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.root" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;root
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_label" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_label
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_position" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_position
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Progressor.set_progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;set_progressor
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Tool
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.Tool.project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-attribute"></code>&nbsp;project
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;progressor
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" progressor">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor(it)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;it
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.progressor(msg)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;msg
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;safe_load
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" safe_load">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(tools)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;tools
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(scope)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.safe_load(reload_module)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;reload_module
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-function"></code>&nbsp;toolify
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label=" toolify">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(*tool_registries)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;*tool_registries
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(name)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(params)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;params
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(debug)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;debug
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#arcpie.toolbox.toolify(logger)" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        <code class="doc-symbol doc-symbol-toc doc-symbol-parameter"></code>&nbsp;logger
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+  <nav class="md-path" aria-label="Navigation" >
+    <ol class="md-path__list">
+      
+        
+  
+  
+    <li class="md-path__item">
+      <a href="../.." class="md-path__link">
+        
+  <span class="md-ellipsis">
+    Home
+  </span>
+
+      </a>
+    </li>
+  
+
+      
+      
+        
+  
+  
+    
+    
+      <li class="md-path__item">
+        <a href="../featureclass/" class="md-path__link">
+          
+  <span class="md-ellipsis">
+    Modules
+  </span>
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ol>
+  </nav>
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="toolbox">Toolbox<a class="headerlink" href="#toolbox" title="Permanent link">&para;</a></h1>
+
+
+<div class="doc doc-object doc-module">
+
+
+
+
+    <div class="doc doc-contents first">
+
+          
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">MODULE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><span title="arcpie.toolbox.p">p</span></code></td>
+            <td class="doc-module-details">
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">CLASS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor">Progressor</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                <p>A more configurable Progressor class that supports nesting.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Tool">Tool</a></code></td>
+            <td class="doc-class-details">
+              <div class="doc-md-description">
+                
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">FUNCTION</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.progressor">progressor</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Initialize a progress bar for an iterable</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.safe_load">safe_load</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Safely load in tools to a toolbox placing all failed imports in a <code>Broken Tools</code> category</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify">toolify</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Convert a typed function into a tool for the specified Toolbox class</p>
+                </div>
+              </td>
+            </tr>
+      </tbody>
+    </table>
+
+
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.toolbox.Progressor" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">Progressor</span>
+
+
+<a href="#arcpie.toolbox.Progressor" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">Progressor</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor(it)">it</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.Progressor[T]">T</span></span><span class="p">],</span>
+</span><span id="__span-0-3">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor(message)">message</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;...&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor(mode)">mode</a></span><span class="p">:</span> <span class="n"><span title="arcpie.toolbox.Progressor.ProgressorMode">ProgressorMode</span></span>
+</span><span id="__span-0-6">    <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.Progressor.ProgressorMode">ProgressorMode</span></span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+</span><span id="__span-0-7">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor(lazy)">lazy</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-8">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor(length_hint)">length_hint</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9">    <span class="n"><span title="arcpie.toolbox.Progressor(bar_width)">bar_width</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-0-10"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+
+        <p>A more configurable Progressor class that supports nesting.</p>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>To allow for progress position, the input iterable is consumed into a list.
+ If this is not what you want, it's best to handroll a progressor flow.</p>
+</details>
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="kn">import</span><span class="w"> </span><span class="nn">time</span>
+</span><span id="__span-0-2"><span class="n">a</span> <span class="o">=</span> <span class="n">Progressor</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="s1">&#39;A&#39;</span><span class="p">)</span>
+</span><span id="__span-0-3"><span class="n">b</span> <span class="o">=</span> <span class="n">Progressor</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="s1">&#39;B&#39;</span><span class="p">)</span>
+</span><span id="__span-0-4"><span class="n">c</span> <span class="o">=</span> <span class="n">Progressor</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="mi">10</span><span class="p">),</span> <span class="s1">&#39;C&#39;</span><span class="p">)</span>
+</span><span id="__span-0-5"><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">a</span><span class="p">:</span>
+</span><span id="__span-0-6">    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span id="__span-0-7">    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="n">b</span><span class="p">:</span>
+</span><span id="__span-0-8">        <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+</span><span id="__span-0-9">        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">c</span><span class="p">:</span>
+</span><span id="__span-0-10">            <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.1</span><span class="p">)</span>
+</span></code></pre></div>
+</details>        <p>Each loop will initialize a new progressor and maintain its position.</p>
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.Progressor(it)" class="doc doc-heading doc-heading-parameter">                  <code>it</code>
+<a href="#arcpie.toolbox.Progressor(it)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Iterable to create a Progressor for.</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<span title="arcpie.toolbox.Progressor[T]">T</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.Progressor(message)" class="doc doc-heading doc-heading-parameter">                  <code>message</code>
+<a href="#arcpie.toolbox.Progressor(message)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The message to display in the progressor message box. (default: <code>'...'</code>)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>&#39;...&#39;</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.Progressor(mode)" class="doc doc-heading doc-heading-parameter">                  <code>mode</code>
+<a href="#arcpie.toolbox.Progressor(mode)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Display a count/percent in the progressor message box <code>'hide'</code> shows message only. (default: <code>'count'</code>)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="arcpie.toolbox.Progressor.ProgressorMode">ProgressorMode</span> | <a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<span title="arcpie.toolbox.Progressor.ProgressorMode">ProgressorMode</span>]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>&#39;auto&#39;</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.Progressor(lazy)" class="doc doc-heading doc-heading-parameter">                  <code>lazy</code>
+<a href="#arcpie.toolbox.Progressor(lazy)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Don't immediately consume the iterable and instead use <code>__length_hint__</code> <em>or</em> <code>length_hint</code> param. (default: <code>False</code>)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>False</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.Progressor(length_hint)" class="doc doc-heading doc-heading-parameter">                  <code>length_hint</code>
+<a href="#arcpie.toolbox.Progressor(length_hint)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>If the iterable has not <code>__len__</code> or <code>__length_hint__</code>, use this as the iterable length. (default: <code>None</code>)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>If you set <code>lazy</code> <em>or</em> <code>length_hint</code>, the progressor will lazily iterate the iterable.
+Excluding <code>length_hint</code> when <code>lazy</code> is set with an iterable with no <code>__length_hint__</code>
+attribute will cause the progress bar to set the max position to 1.
+Alternatively, setting <code>length_hint</code> and not setting <code>lazy</code> will automatically make the progressor lazy.</p>
+</details>
+          
+
+
+  <div class="doc doc-backlinks">
+        <b class="doc doc-backlink-type">Returned by:</b>
+          <ul class="doc doc-backlink-list">
+      <li class="doc doc-backlink">
+            <span class="doc doc-backlink-crumb">
+      <span>Modules</span>
+  </span>
+
+            <span class="doc doc-backlink-crumb">
+      <a href="#toolbox">Toolbox</a>
+  </span>
+
+            <span class="doc doc-backlink-crumb">
+      <a href="#arcpie.toolbox.Progressor"><code class="doc-symbol doc-symbol-toc doc-symbol-class"></code>&nbsp;Progressor</a>
+  </span>
+
+            <span class="doc doc-backlink-crumb last">
+      <a href="#arcpie.toolbox.Progressor.root"><code class="doc-symbol doc-symbol-toc doc-symbol-method"></code>&nbsp;root</a>
+  </span>
+
+      </li>
+  </ul>
+
+  </div>
+
+
+
+
+
+
+
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">METHOD</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.global_position">global_position</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Get the position of the innermost (most recent) progressor on the stack</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.reset_progressor">reset_progressor</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Alias for ResetProgressor</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.root">root</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Get the outermost progressor (this one drives the window progress bar)</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.set_label">set_label</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Alias for SetProgressorLabel</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.set_position">set_position</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Alias for SetProgressorPosition</p>
+                </div>
+              </td>
+            </tr>
+            <tr class="doc-section-item">
+              <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.set_progressor">set_progressor</a></code></td>
+              <td class="doc-function-details">
+                <div class="doc-md-description">
+                  <p>Alias for SetProgressor</p>
+                </div>
+              </td>
+            </tr>
+      </tbody>
+    </table>
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor.position">position</a></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Get the position of this progressor</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">157</span>
+<span class="normal">158</span>
+<span class="normal">159</span>
+<span class="normal">160</span>
+<span class="normal">161</span>
+<span class="normal">162</span>
+<span class="normal">163</span>
+<span class="normal">164</span>
+<span class="normal">165</span>
+<span class="normal">166</span>
+<span class="normal">167</span>
+<span class="normal">168</span>
+<span class="normal">169</span>
+<span class="normal">170</span>
+<span class="normal">171</span>
+<span class="normal">172</span>
+<span class="normal">173</span>
+<span class="normal">174</span>
+<span class="normal">175</span>
+<span class="normal">176</span>
+<span class="normal">177</span>
+<span class="normal">178</span>
+<span class="normal">179</span>
+<span class="normal">180</span>
+<span class="normal">181</span>
+<span class="normal">182</span>
+<span class="normal">183</span>
+<span class="normal">184</span>
+<span class="normal">185</span>
+<span class="normal">186</span>
+<span class="normal">187</span>
+<span class="normal">188</span>
+<span class="normal">189</span>
+<span class="normal">190</span>
+<span class="normal">191</span>
+<span class="normal">192</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-157"><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+</span><span id="__span-0-158">    <span class="bp">self</span><span class="p">,</span>
+</span><span id="__span-0-159">    <span class="n">it</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">T</span><span class="p">],</span>
+</span><span id="__span-0-160">    <span class="n">message</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;...&#39;</span><span class="p">,</span>
+</span><span id="__span-0-161">    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-162">    <span class="n">mode</span><span class="p">:</span> <span class="n">ProgressorMode</span> <span class="o">|</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">ProgressorMode</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;auto&#39;</span><span class="p">,</span>
+</span><span id="__span-0-163">    <span class="n">lazy</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-164">    <span class="n">length_hint</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-165">    <span class="n">bar_width</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+</span><span id="__span-0-166"><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-167"><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="__span-0-168"><span class="sd">    Args:</span>
+</span><span id="__span-0-169"><span class="sd">        it: Iterable to create a Progressor for.</span>
+</span><span id="__span-0-170"><span class="sd">        message: The message to display in the progressor message box. (default: ``&#39;...&#39;``)</span>
+</span><span id="__span-0-171"><span class="sd">        mode: Display a count/percent in the progressor message box ``&#39;hide&#39;`` shows message only. (default: ``&#39;count&#39;``)</span>
+</span><span id="__span-0-172"><span class="sd">        lazy: Don&#39;t immediately consume the iterable and instead use `__length_hint__` *or* `length_hint` param. (default: ``False``)</span>
+</span><span id="__span-0-173"><span class="sd">        length_hint: If the iterable has not ``__len__`` or ``__length_hint__``, use this as the iterable length. (default: ``None``)</span>
+</span><span id="__span-0-174">
+</span><span id="__span-0-175"><span class="sd">    Note:</span>
+</span><span id="__span-0-176"><span class="sd">        If you set ``lazy`` *or* ``length_hint``, the progressor will lazily iterate the iterable.</span>
+</span><span id="__span-0-177"><span class="sd">        Excluding ``length_hint`` when ``lazy`` is set with an iterable with no ``__length_hint__``</span>
+</span><span id="__span-0-178"><span class="sd">        attribute will cause the progress bar to set the max position to 1.</span>
+</span><span id="__span-0-179"><span class="sd">        Alternatively, setting ``length_hint`` and not setting ``lazy`` will automatically make the progressor lazy.</span>
+</span><span id="__span-0-180"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-181">    <span class="k">if</span> <span class="ow">not</span> <span class="n">lazy</span> <span class="ow">and</span> <span class="n">length_hint</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-182">        <span class="bp">self</span><span class="o">.</span><span class="n">it</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+</span><span id="__span-0-183">        <span class="bp">self</span><span class="o">.</span><span class="n">it_len</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">it</span><span class="p">)</span>
+</span><span id="__span-0-184">    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-185">        <span class="bp">self</span><span class="o">.</span><span class="n">it</span> <span class="o">=</span> <span class="n">it</span>
+</span><span id="__span-0-186">        <span class="bp">self</span><span class="o">.</span><span class="n">it_len</span> <span class="o">=</span> <span class="n">length_hint</span> <span class="ow">or</span> <span class="n">operator</span><span class="o">.</span><span class="n">length_hint</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-0-187">    <span class="bp">self</span><span class="o">.</span><span class="n">_message</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">__message</span> <span class="o">=</span> <span class="n">message</span>
+</span><span id="__span-0-188">    <span class="bp">self</span><span class="o">.</span><span class="n">mode</span> <span class="o">=</span> <span class="p">[</span><span class="n">mode</span><span class="p">]</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mode</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">else</span> <span class="nb">list</span><span class="p">(</span><span class="n">mode</span><span class="p">)</span>
+</span><span id="__span-0-189">    <span class="k">if</span> <span class="n">mode</span> <span class="o">==</span> <span class="s1">&#39;auto&#39;</span><span class="p">:</span>
+</span><span id="__span-0-190">        <span class="n">mode</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">default_mode</span>
+</span><span id="__span-0-191">    <span class="bp">self</span><span class="o">.</span><span class="n">_bar_width</span> <span class="o">=</span> <span class="n">bar_width</span>
+</span><span id="__span-0-192">    <span class="bp">self</span><span class="o">.</span><span class="n">_pos</span> <span class="o">=</span> <span class="mi">0</span>
+</span></code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="arcpie.toolbox.Progressor.position" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">position</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+      <small class="doc doc-label doc-label-writable"><code>writable</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.position" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">position</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the position of this progressor</p>
+
+          
+    </div>
+
+</div>
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.global_position" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">global_position</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.global_position" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">global_position</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the position of the innermost (most recent) progressor on the stack</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">230</span>
+<span class="normal">231</span>
+<span class="normal">232</span>
+<span class="normal">233</span>
+<span class="normal">234</span>
+<span class="normal">235</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-230"><span class="nd">@classmethod</span>
+</span><span id="__span-0-231"><span class="k">def</span><span class="w"> </span><span class="nf">global_position</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+</span><span id="__span-0-232"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the position of the innermost (most recent) progressor on the stack&quot;&quot;&quot;</span>
+</span><span id="__span-0-233">    <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stack</span><span class="p">:</span>
+</span><span id="__span-0-234">        <span class="k">return</span> <span class="mi">0</span>
+</span><span id="__span-0-235">    <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stack</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">position</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.reset_progressor" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">reset_progressor</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.reset_progressor" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">reset_progressor</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for ResetProgressor</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">251</span>
+<span class="normal">252</span>
+<span class="normal">253</span>
+<span class="normal">254</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-251"><span class="nd">@classmethod</span>
+</span><span id="__span-0-252"><span class="k">def</span><span class="w"> </span><span class="nf">reset_progressor</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-253"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Alias for ResetProgressor&quot;&quot;&quot;</span>
+</span><span id="__span-0-254">    <span class="n">ResetProgressor</span><span class="p">()</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.root" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">root</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.root" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">root</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Progressor">Progressor</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the outermost progressor (this one drives the window progress bar)</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">241</span>
+<span class="normal">242</span>
+<span class="normal">243</span>
+<span class="normal">244</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-241"><span class="nd">@classmethod</span>
+</span><span id="__span-0-242"><span class="k">def</span><span class="w"> </span><span class="nf">root</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]])</span> <span class="o">-&gt;</span> <span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+</span><span id="__span-0-243"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the outermost progressor (this one drives the window progress bar)&quot;&quot;&quot;</span>
+</span><span id="__span-0-244">    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span> <span class="k">if</span> <span class="ow">not</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stack</span> <span class="k">else</span> <span class="bp">cls</span><span class="o">.</span><span class="n">stack</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.set_label" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">set_label</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.set_label" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">set_label</span><span class="p">(</span><span class="n"><span title="arcpie.toolbox.Progressor.set_label(label)">label</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for SetProgressorLabel</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">261</span>
+<span class="normal">262</span>
+<span class="normal">263</span>
+<span class="normal">264</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-261"><span class="nd">@classmethod</span>
+</span><span id="__span-0-262"><span class="k">def</span><span class="w"> </span><span class="nf">set_label</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-263"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Alias for SetProgressorLabel&quot;&quot;&quot;</span>
+</span><span id="__span-0-264">    <span class="n">SetProgressorLabel</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.set_position" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">set_position</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.set_position" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">set_position</span><span class="p">(</span><span class="n"><span title="arcpie.toolbox.Progressor.set_position(pos)">pos</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for SetProgressorPosition</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">256</span>
+<span class="normal">257</span>
+<span class="normal">258</span>
+<span class="normal">259</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-256"><span class="nd">@classmethod</span>
+</span><span id="__span-0-257"><span class="k">def</span><span class="w"> </span><span class="nf">set_position</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">[</span><span class="n">Progressor</span><span class="p">[</span><span class="n">Any</span><span class="p">]],</span> <span class="n">pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-258"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Alias for SetProgressorPosition&quot;&quot;&quot;</span>
+</span><span id="__span-0-259">    <span class="n">SetProgressorPosition</span><span class="p">(</span><span class="n">pos</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="arcpie.toolbox.Progressor.set_progressor" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-method"></code>            <span class="doc doc-object-name doc-function-name">set_progressor</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-classmethod"><code>classmethod</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Progressor.set_progressor" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">set_progressor</span><span class="p">(</span><span class="n"><span title="arcpie.toolbox.Progressor.set_progressor(msg)">msg</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><span title="arcpie.toolbox.Progressor.set_progressor(rng)">rng</span></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#range">range</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Alias for SetProgressor</p>
+
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">246</span>
+<span class="normal">247</span>
+<span class="normal">248</span>
+<span class="normal">249</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-246"><span class="nd">@classmethod</span>
+</span><span id="__span-0-247"><span class="k">def</span><span class="w"> </span><span class="nf">set_progressor</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">rng</span><span class="p">:</span> <span class="nb">range</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-248"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Alias for SetProgressor&quot;&quot;&quot;</span>
+</span><span id="__span-0-249">    <span class="n">SetProgressor</span><span class="p">(</span><span class="s1">&#39;step&#39;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">start</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">stop</span><span class="p">,</span> <span class="n">rng</span><span class="o">.</span><span class="n">step</span><span class="p">)</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="arcpie.toolbox.Tool" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-class"></code>            <span class="doc doc-object-name doc-class-name">Tool</span>
+
+
+<a href="#arcpie.toolbox.Tool" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">Tool</span><span class="p">()</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+            <p class="doc doc-class-bases">
+              Bases: <code><span title="arcpie.toolbox.ToolABC">ToolABC</span></code></p>
+
+
+
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">ATTRIBUTE</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td><code><a class="autorefs autorefs-internal" href="#arcpie.toolbox.Tool.project">project</a></code></td>
+            <td class="doc-attribute-details">
+              <div class="doc-md-description">
+                <p>Get the current project that the tool is running in if it exists (otherwise: None)</p>
+              </div>
+              <p>
+                  <span class="doc-attribute-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-internal" href="../project/elements/#arcpie.project.elements.Project">Project</a></code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+                  <details class="mkdocstrings-source">
+                    <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">45</span>
+<span class="normal">46</span>
+<span class="normal">47</span>
+<span class="normal">48</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-45"><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-46">    <span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span>
+</span><span id="__span-0-47">    <span class="bp">self</span><span class="o">.</span><span class="n">description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__doc__</span> <span class="ow">or</span> <span class="s1">&#39;No Descrption Provided&#39;</span>
+</span><span id="__span-0-48">    <span class="bp">self</span><span class="o">.</span><span class="n">category</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+</span></code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+<div class="doc doc-children">
+
+
+
+
+
+
+
+<div class="doc doc-object doc-attribute">
+
+
+
+<h3 id="arcpie.toolbox.Tool.project" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-attribute"></code>            <span class="doc doc-object-name doc-attribute-name">project</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-property"><code>property</code></small>
+  </span>
+
+<a href="#arcpie.toolbox.Tool.project" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="n">project</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" href="../project/elements/#arcpie.project.elements.Project">Project</a></span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Get the current project that the tool is running in if it exists (otherwise: None)</p>
+
+          
+    </div>
+
+</div>
+
+
+
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="arcpie.toolbox.progressor" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">progressor</span>
+
+
+<a href="#arcpie.toolbox.progressor" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">progressor</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.progressor(it)">it</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.progressor[T]">T</span></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.progressor(msg)">msg</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;...&#39;</span>
+</span><span id="__span-0-3"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.progressor[T]">T</span></span><span class="p">]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Initialize a progress bar for an iterable</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.progressor(it)" class="doc doc-heading doc-heading-parameter">                  <code>it</code>
+<a href="#arcpie.toolbox.progressor(it)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The iterable to initialize a progressor for</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="&lt;code&gt;collections.abc.Iterable&lt;/code&gt;" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a>[<span title="arcpie.toolbox.progressor[T]">T</span>]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.progressor(msg)" class="doc doc-heading doc-heading-parameter">                  <code>msg</code>
+<a href="#arcpie.toolbox.progressor(msg)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The message to show in the progress bar label area</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>&#39;...&#39;</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="k">for</span> <span class="n">parcel</span> <span class="ow">in</span> <span class="n">progressor</span><span class="p">(</span><span class="n">parcels</span><span class="p">,</span> <span class="s1">&#39;Gathering&#39;</span><span class="p">):</span>
+</span><span id="__span-0-2">    <span class="o">...</span>
+</span></code></pre></div>
+</details>
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>The iterable is consumed on progressor initialization to allow a size check.
+ Each iteration of the progressor will update the label area with a count in the
+ format: <code>{msg}: [{idx}/{total}]</code></p>
+</details>
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 94</span>
+<span class="normal"> 95</span>
+<span class="normal"> 96</span>
+<span class="normal"> 97</span>
+<span class="normal"> 98</span>
+<span class="normal"> 99</span>
+<span class="normal">100</span>
+<span class="normal">101</span>
+<span class="normal">102</span>
+<span class="normal">103</span>
+<span class="normal">104</span>
+<span class="normal">105</span>
+<span class="normal">106</span>
+<span class="normal">107</span>
+<span class="normal">108</span>
+<span class="normal">109</span>
+<span class="normal">110</span>
+<span class="normal">111</span>
+<span class="normal">112</span>
+<span class="normal">113</span>
+<span class="normal">114</span>
+<span class="normal">115</span>
+<span class="normal">116</span>
+<span class="normal">117</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-94"><span class="k">def</span><span class="w"> </span><span class="nf">progressor</span><span class="p">[</span><span class="n">T</span><span class="p">](</span><span class="n">it</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">T</span><span class="p">],</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;...&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Iterable</span><span class="p">[</span><span class="n">T</span><span class="p">]:</span>
+</span><span id="__span-0-95"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Initialize a progress bar for an iterable</span>
+</span><span id="__span-0-96">
+</span><span id="__span-0-97"><span class="sd">    Args:</span>
+</span><span id="__span-0-98"><span class="sd">        it: The iterable to initialize a progressor for</span>
+</span><span id="__span-0-99"><span class="sd">        msg: The message to show in the progress bar label area</span>
+</span><span id="__span-0-100">
+</span><span id="__span-0-101"><span class="sd">    Example:</span>
+</span><span id="__span-0-102"><span class="sd">        ```python</span>
+</span><span id="__span-0-103"><span class="sd">        for parcel in progressor(parcels, &#39;Gathering&#39;):</span>
+</span><span id="__span-0-104"><span class="sd">            ...</span>
+</span><span id="__span-0-105"><span class="sd">        ```</span>
+</span><span id="__span-0-106">
+</span><span id="__span-0-107"><span class="sd">    Note:</span>
+</span><span id="__span-0-108"><span class="sd">        The iterable is consumed on progressor initialization to allow a size check.</span>
+</span><span id="__span-0-109"><span class="sd">         Each iteration of the progressor will update the label area with a count in the</span>
+</span><span id="__span-0-110"><span class="sd">         format: `{msg}: [{idx}/{total}]`</span>
+</span><span id="__span-0-111"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-112">    <span class="n">ResetProgressor</span><span class="p">()</span>
+</span><span id="__span-0-113">    <span class="n">it</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+</span><span id="__span-0-114">    <span class="n">length</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">it</span><span class="p">)</span>
+</span><span id="__span-0-115">    <span class="n">SetProgressor</span><span class="p">(</span><span class="s1">&#39;step&#39;</span><span class="p">,</span> <span class="n">msg</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-0-116">    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">item</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="n">start</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+</span><span id="__span-0-117">        <span class="n">SetProgressorLabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">msg</span><span class="si">}</span><span class="s1">: [</span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="s1">/</span><span class="si">{</span><span class="n">length</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+</span><span id="__span-0-118">        <span class="k">yield</span> <span class="n">item</span>
+</span><span id="__span-0-119">        <span class="n">SetProgressorPosition</span><span class="p">()</span>
+</span><span id="__span-0-120">    <span class="n">ResetProgressor</span><span class="p">()</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="arcpie.toolbox.safe_load" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">safe_load</span>
+
+
+<a href="#arcpie.toolbox.safe_load" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">safe_load</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.safe_load(tools)">tools</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]],</span>
+</span><span id="__span-0-3">    <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.safe_load(scope)">scope</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.safe_load(reload_module)">reload_module</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-6"><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#type">type</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.ToolABC">ToolABC</span></span><span class="p">]]</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Safely load in tools to a toolbox placing all failed imports in a <code>Broken Tools</code> category</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.safe_load(tools)" class="doc doc-heading doc-heading-parameter">                  <code>tools</code>
+<a href="#arcpie.toolbox.safe_load(tools)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>A mapping of tool modules to tool files or tool classes in a module</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>]]</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.safe_load(scope)" class="doc doc-heading doc-heading-parameter">                  <code>scope</code>
+<a href="#arcpie.toolbox.safe_load(scope)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The <code>globals()</code> dict for the Toolbox scope (required so loading happend in Toolbox scope)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="&lt;code&gt;typing.Any&lt;/code&gt;" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a>]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.safe_load(reload_module)" class="doc doc-heading doc-heading-parameter">                  <code>reload_module</code>
+<a href="#arcpie.toolbox.safe_load(reload_module)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Reload the module after importing (default: False)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>False</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">RETURNS</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <span class="doc-returns-annotation">
+                    <code> list[type[ToolABC]] </code>
+                </span>
+            </td>
+            <td class="doc-returns-details">
+              <div class="doc-md-description">
+                <p>A list of tool classes</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="note" open>
+  <summary>Note</summary>
+  <p>To isolate bugs in a large toolbox, it is reccomended that you use file/module level importing
+with matching toolclass names (e.g. <code>Tool.py -&gt; class Tool</code>) where the Tool mapping is:
+    <code>Tools = {'tools': ['Tool.py']}</code>
+instead of:
+    <code>Tools = {'tools.Tool': ['Tool']}</code>
+This allows the import to fail softly on a single tool instead of breaking imports for all other
+toolclasses in that <code>Tool.py</code> module.</p>
+<p>Any tools with errors will be placed in a <code>Broken Tools</code> category in the toolbox with the full
+stack trace placed in its description field. The final component of the exception will be placed
+at the end of the tool label for easy debugging.</p>
+</details>
+
+<details class="example" open>
+  <summary>Example</summary>
+  <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="o">&gt;&gt;&gt;</span> <span class="c1"># File import</span>
+</span><span id="__span-0-2"><span class="o">&gt;&gt;&gt;</span> <span class="n">Tools</span> <span class="o">=</span> <span class="p">{</span>
+</span><span id="__span-0-3"><span class="o">...</span>     <span class="c1"># import matching class from named file in a submodule (tools)</span>
+</span><span id="__span-0-4"><span class="o">...</span>     <span class="c1"># where ToolFileA is ToolFileA.py with a class ToolFileA</span>
+</span><span id="__span-0-5"><span class="o">...</span>     <span class="s1">&#39;tools&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;ToolFileA&#39;</span><span class="p">,</span> <span class="s1">&#39;ToolFileB&#39;</span><span class="p">],</span>
+</span><span id="__span-0-6"><span class="o">...</span>     <span class="c1"># Import explicit ToolClass from toolfile (MyTools.py)</span>
+</span><span id="__span-0-7"><span class="o">...</span>     <span class="c1"># NOT RECOMMENDED</span>
+</span><span id="__span-0-8"><span class="o">...</span>     <span class="s1">&#39;tools.MyTools&#39;</span><span class="p">:</span> <span class="p">[</span><span class="s1">&#39;ToolClassA&#39;</span><span class="p">,</span> <span class="s1">&#39;ToolClassB&#39;</span><span class="p">],</span>
+</span><span id="__span-0-9"><span class="o">...</span> <span class="p">}</span>
+</span><span id="__span-0-10"><span class="o">&gt;&gt;&gt;</span> <span class="n">tools</span> <span class="o">=</span> <span class="n">safe_import</span><span class="p">(</span><span class="nb">globals</span><span class="p">(),</span> <span class="n">Tools</span><span class="p">)</span>
+</span></code></pre></div>
+</details>
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">354</span>
+<span class="normal">355</span>
+<span class="normal">356</span>
+<span class="normal">357</span>
+<span class="normal">358</span>
+<span class="normal">359</span>
+<span class="normal">360</span>
+<span class="normal">361</span>
+<span class="normal">362</span>
+<span class="normal">363</span>
+<span class="normal">364</span>
+<span class="normal">365</span>
+<span class="normal">366</span>
+<span class="normal">367</span>
+<span class="normal">368</span>
+<span class="normal">369</span>
+<span class="normal">370</span>
+<span class="normal">371</span>
+<span class="normal">372</span>
+<span class="normal">373</span>
+<span class="normal">374</span>
+<span class="normal">375</span>
+<span class="normal">376</span>
+<span class="normal">377</span>
+<span class="normal">378</span>
+<span class="normal">379</span>
+<span class="normal">380</span>
+<span class="normal">381</span>
+<span class="normal">382</span>
+<span class="normal">383</span>
+<span class="normal">384</span>
+<span class="normal">385</span>
+<span class="normal">386</span>
+<span class="normal">387</span>
+<span class="normal">388</span>
+<span class="normal">389</span>
+<span class="normal">390</span>
+<span class="normal">391</span>
+<span class="normal">392</span>
+<span class="normal">393</span>
+<span class="normal">394</span>
+<span class="normal">395</span>
+<span class="normal">396</span>
+<span class="normal">397</span>
+<span class="normal">398</span>
+<span class="normal">399</span>
+<span class="normal">400</span>
+<span class="normal">401</span>
+<span class="normal">402</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-354"><span class="k">def</span><span class="w"> </span><span class="nf">safe_load</span><span class="p">(</span><span class="n">tools</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]],</span>
+</span><span id="__span-0-355">              <span class="o">*</span><span class="p">,</span>
+</span><span id="__span-0-356">              <span class="n">scope</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-357">              <span class="n">reload_module</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">[</span><span class="n">ToolABC</span><span class="p">]]:</span>
+</span><span id="__span-0-358"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Safely load in tools to a toolbox placing all failed imports in a `Broken Tools` category</span>
+</span><span id="__span-0-359">
+</span><span id="__span-0-360"><span class="sd">    Args:</span>
+</span><span id="__span-0-361"><span class="sd">        tools (dict[str, list[str]]): A mapping of tool modules to tool files or tool classes in a module</span>
+</span><span id="__span-0-362"><span class="sd">        scope (dict[str, Any]): The `globals()` dict for the Toolbox scope (required so loading happend in Toolbox scope)</span>
+</span><span id="__span-0-363"><span class="sd">        reload_module (bool): Reload the module after importing (default: False)</span>
+</span><span id="__span-0-364">
+</span><span id="__span-0-365"><span class="sd">    Returns:</span>
+</span><span id="__span-0-366"><span class="sd">        ( list[type[ToolABC]] ): A list of tool classes</span>
+</span><span id="__span-0-367">
+</span><span id="__span-0-368"><span class="sd">    Note:</span>
+</span><span id="__span-0-369"><span class="sd">        To isolate bugs in a large toolbox, it is reccomended that you use file/module level importing</span>
+</span><span id="__span-0-370"><span class="sd">        with matching toolclass names (e.g. `Tool.py -&gt; class Tool`) where the Tool mapping is:</span>
+</span><span id="__span-0-371"><span class="sd">            `Tools = {&#39;tools&#39;: [&#39;Tool.py&#39;]}`</span>
+</span><span id="__span-0-372"><span class="sd">        instead of:</span>
+</span><span id="__span-0-373"><span class="sd">            `Tools = {&#39;tools.Tool&#39;: [&#39;Tool&#39;]}`</span>
+</span><span id="__span-0-374"><span class="sd">        This allows the import to fail softly on a single tool instead of breaking imports for all other</span>
+</span><span id="__span-0-375"><span class="sd">        toolclasses in that `Tool.py` module.</span>
+</span><span id="__span-0-376">
+</span><span id="__span-0-377"><span class="sd">        Any tools with errors will be placed in a `Broken Tools` category in the toolbox with the full</span>
+</span><span id="__span-0-378"><span class="sd">        stack trace placed in its description field. The final component of the exception will be placed</span>
+</span><span id="__span-0-379"><span class="sd">        at the end of the tool label for easy debugging.</span>
+</span><span id="__span-0-380">
+</span><span id="__span-0-381"><span class="sd">    Example:</span>
+</span><span id="__span-0-382"><span class="sd">        ```python</span>
+</span><span id="__span-0-383"><span class="sd">        &gt;&gt;&gt; # File import</span>
+</span><span id="__span-0-384"><span class="sd">        &gt;&gt;&gt; Tools = {</span>
+</span><span id="__span-0-385"><span class="sd">        ...     # import matching class from named file in a submodule (tools)</span>
+</span><span id="__span-0-386"><span class="sd">        ...     # where ToolFileA is ToolFileA.py with a class ToolFileA</span>
+</span><span id="__span-0-387"><span class="sd">        ...     &#39;tools&#39;: [&#39;ToolFileA&#39;, &#39;ToolFileB&#39;],</span>
+</span><span id="__span-0-388"><span class="sd">        ...     # Import explicit ToolClass from toolfile (MyTools.py)</span>
+</span><span id="__span-0-389"><span class="sd">        ...     # NOT RECOMMENDED</span>
+</span><span id="__span-0-390"><span class="sd">        ...     &#39;tools.MyTools&#39;: [&#39;ToolClassA&#39;, &#39;ToolClassB&#39;],</span>
+</span><span id="__span-0-391"><span class="sd">        ... }</span>
+</span><span id="__span-0-392"><span class="sd">        &gt;&gt;&gt; tools = safe_import(globals(), Tools)</span>
+</span><span id="__span-0-393"><span class="sd">        ```</span>
+</span><span id="__span-0-394"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-395">    <span class="n">tb_tools</span> <span class="o">=</span> <span class="p">[</span>
+</span><span id="__span-0-396">        <span class="n">_get_tool</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">tool_name</span><span class="p">,</span> <span class="n">reload_module</span><span class="p">)</span>
+</span><span id="__span-0-397">        <span class="k">for</span> <span class="n">module</span> <span class="ow">in</span> <span class="n">tools</span>
+</span><span id="__span-0-398">        <span class="k">for</span> <span class="n">tool_name</span> <span class="ow">in</span> <span class="n">tools</span><span class="p">[</span><span class="n">module</span><span class="p">]</span>
+</span><span id="__span-0-399">    <span class="p">]</span>
+</span><span id="__span-0-400">    <span class="k">if</span> <span class="n">scope</span><span class="p">:</span>
+</span><span id="__span-0-401">        <span class="n">scope</span><span class="o">.</span><span class="n">update</span><span class="p">({</span><span class="n">tool</span><span class="o">.</span><span class="vm">__name__</span><span class="p">:</span> <span class="n">tool</span> <span class="k">for</span> <span class="n">tool</span> <span class="ow">in</span> <span class="n">tb_tools</span><span class="p">})</span>
+</span><span id="__span-0-402">    <span class="k">return</span> <span class="n">tb_tools</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="arcpie.toolbox.toolify" class="doc doc-heading">
+<code class="doc-symbol doc-symbol-heading doc-symbol-function"></code>            <span class="doc doc-object-name doc-function-name">toolify</span>
+
+
+<a href="#arcpie.toolbox.toolify" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><span id="__span-0-1"><span class="nf">toolify</span><span class="p">(</span>
+</span><span id="__span-0-2">    <span class="o">*</span><span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify(*tool_registries)">tool_registries</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#type">type</a></span><span class="p">[</span><span class="n"><span title="arcpie.toolbox.ToolABC">ToolABC</span></span><span class="p">]],</span>
+</span><span id="__span-0-3">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify(name)">name</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-4">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify(params)">params</a></span><span class="p">:</span> <span class="n"><span title="arcpie.toolbox.ParameterTypeMap">ParameterTypeMap</span></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-5">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify(debug)">debug</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-6">    <span class="n"><a class="autorefs autorefs-internal" href="#arcpie.toolbox.toolify(logger)">logger</a></span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="&lt;code&gt;logging.Logger&lt;/code&gt;" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><span class="p">)</span>
+</span></code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Convert a typed function into a tool for the specified Toolbox class</p>
+
+
+<table>
+      <thead>
+        <tr>
+          <th><span class="doc-section-title">PARAMETER</span></th>
+          <th><span>DESCRIPTION</span></th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.toolify(*tool_registries)" class="doc doc-heading doc-heading-parameter">                  <code>*tool_registries</code>
+<a href="#arcpie.toolbox.toolify(*tool_registries)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The tool registry lists to add this tool to</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#type">type</a>[<span title="arcpie.toolbox.ToolABC">ToolABC</span>]]</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>()</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.toolify(name)" class="doc doc-heading doc-heading-parameter">                  <code>name</code>
+<a href="#arcpie.toolbox.toolify(name)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>The name of the tool</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.toolify(params)" class="doc doc-heading doc-heading-parameter">                  <code>params</code>
+<a href="#arcpie.toolbox.toolify(params)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>A mapping of parameter names to Parameter types and a callable constructor
+that converts the parameter to the expected value for the function parameter. You can also pass
+a fully formed arcpy.Parameter object as the first item in the tuple instead of a simple type</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><span title="arcpie.toolbox.ParameterTypeMap">ParameterTypeMap</span></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.toolify(debug)" class="doc doc-heading doc-heading-parameter">                  <code>debug</code>
+<a href="#arcpie.toolbox.toolify(debug)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>Print the converted arguments to the ArcGIS Pro message console (default: False)</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>False</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+<h3 id="arcpie.toolbox.toolify(logger)" class="doc doc-heading doc-heading-parameter">                  <code>logger</code>
+<a href="#arcpie.toolbox.toolify(logger)" class="headerlink" title="Permanent link">&para;</a></h3>            </td>
+            <td class="doc-param-details">
+              <div class="doc-md-description">
+                <p>An optional logger to use for logging all runs of the toolified tool</p>
+              </div>
+              <p>
+                  <span class="doc-param-annotation">
+                    <b>TYPE:</b>
+                      <code><a class="autorefs autorefs-external" title="&lt;code&gt;logging.Logger&lt;/code&gt;" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a> | None</code>
+                  </span>
+                  <span class="doc-param-default">
+                    <b>DEFAULT:</b>
+                      <code>None</code>
+                  </span>
+              </p>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<details class="usage" open>
+  <summary>Usage</summary>
+  <div class="highlight"><pre><span></span><code><span id="__span-0-1"><span class="o">&gt;&gt;&gt;</span> <span class="nd">@toolify</span><span class="p">(</span>
+</span><span id="__span-0-2"><span class="o">&gt;&gt;&gt;</span>     <span class="n">TOOL_REGISTRY</span><span class="p">,</span>
+</span><span id="__span-0-3"><span class="o">&gt;&gt;&gt;</span>     <span class="n">name</span><span class="o">=</span><span class="s1">&#39;PDF Exporter&#39;</span><span class="p">,</span>
+</span><span id="__span-0-4"><span class="o">&gt;&gt;&gt;</span>     <span class="n">params</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-0-5"><span class="o">&gt;&gt;&gt;</span>         <span class="s1">&#39;project&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;DEFile&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">Project</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">valueAsText</span><span class="p">)),</span>
+</span><span id="__span-0-6"><span class="o">&gt;&gt;&gt;</span>         <span class="s1">&#39;outfile&#39;</span><span class="p">:</span> <span class="p">(</span><span class="s1">&#39;DEFile&#39;</span><span class="p">,</span> <span class="k">lambda</span> <span class="n">p</span><span class="p">:</span> <span class="n">Path</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">valueAsText</span><span class="p">))</span>
+</span><span id="__span-0-7"><span class="o">&gt;&gt;&gt;</span>     <span class="p">}</span>
+</span><span id="__span-0-8"><span class="o">&gt;&gt;&gt;</span> <span class="p">)</span>
+</span><span id="__span-0-9"><span class="o">&gt;&gt;&gt;</span> <span class="k">def</span><span class="w"> </span><span class="nf">export_pdf</span><span class="p">(</span><span class="n">project</span><span class="p">:</span> <span class="n">Project</span><span class="o">|</span><span class="nb">str</span><span class="o">=</span><span class="s1">&#39;CURRENT&#39;</span><span class="p">,</span> <span class="n">outfile</span><span class="p">:</span> <span class="n">Path</span><span class="o">|</span><span class="nb">str</span><span class="o">=</span><span class="s1">&#39;out.pdf&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-10"><span class="o">&gt;&gt;&gt;</span>     <span class="o">...</span>
+</span></code></pre></div>
+</details>
+          
+
+            <details class="mkdocstrings-source">
+              <summary>Source code in <code>src/arcpie/toolbox.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">451</span>
+<span class="normal">452</span>
+<span class="normal">453</span>
+<span class="normal">454</span>
+<span class="normal">455</span>
+<span class="normal">456</span>
+<span class="normal">457</span>
+<span class="normal">458</span>
+<span class="normal">459</span>
+<span class="normal">460</span>
+<span class="normal">461</span>
+<span class="normal">462</span>
+<span class="normal">463</span>
+<span class="normal">464</span>
+<span class="normal">465</span>
+<span class="normal">466</span>
+<span class="normal">467</span>
+<span class="normal">468</span>
+<span class="normal">469</span>
+<span class="normal">470</span>
+<span class="normal">471</span>
+<span class="normal">472</span>
+<span class="normal">473</span>
+<span class="normal">474</span>
+<span class="normal">475</span>
+<span class="normal">476</span>
+<span class="normal">477</span>
+<span class="normal">478</span>
+<span class="normal">479</span>
+<span class="normal">480</span>
+<span class="normal">481</span>
+<span class="normal">482</span>
+<span class="normal">483</span>
+<span class="normal">484</span>
+<span class="normal">485</span>
+<span class="normal">486</span>
+<span class="normal">487</span>
+<span class="normal">488</span>
+<span class="normal">489</span>
+<span class="normal">490</span>
+<span class="normal">491</span>
+<span class="normal">492</span>
+<span class="normal">493</span>
+<span class="normal">494</span>
+<span class="normal">495</span>
+<span class="normal">496</span>
+<span class="normal">497</span>
+<span class="normal">498</span>
+<span class="normal">499</span>
+<span class="normal">500</span>
+<span class="normal">501</span>
+<span class="normal">502</span>
+<span class="normal">503</span>
+<span class="normal">504</span>
+<span class="normal">505</span>
+<span class="normal">506</span>
+<span class="normal">507</span>
+<span class="normal">508</span>
+<span class="normal">509</span>
+<span class="normal">510</span>
+<span class="normal">511</span>
+<span class="normal">512</span>
+<span class="normal">513</span>
+<span class="normal">514</span>
+<span class="normal">515</span>
+<span class="normal">516</span>
+<span class="normal">517</span>
+<span class="normal">518</span>
+<span class="normal">519</span>
+<span class="normal">520</span>
+<span class="normal">521</span>
+<span class="normal">522</span>
+<span class="normal">523</span>
+<span class="normal">524</span>
+<span class="normal">525</span>
+<span class="normal">526</span>
+<span class="normal">527</span>
+<span class="normal">528</span>
+<span class="normal">529</span>
+<span class="normal">530</span>
+<span class="normal">531</span>
+<span class="normal">532</span>
+<span class="normal">533</span>
+<span class="normal">534</span>
+<span class="normal">535</span>
+<span class="normal">536</span></pre></div></td><td class="code"><div><pre><span></span><code><span id="__span-0-451"><span class="k">def</span><span class="w"> </span><span class="nf">toolify</span><span class="p">(</span><span class="o">*</span><span class="n">tool_registries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">type</span><span class="p">[</span><span class="n">ToolABC</span><span class="p">]],</span>
+</span><span id="__span-0-452">            <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-453">            <span class="n">params</span><span class="p">:</span> <span class="n">ParameterTypeMap</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-454">            <span class="n">debug</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-0-455">            <span class="n">logger</span><span class="p">:</span> <span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-456"><span class="p">):</span>
+</span><span id="__span-0-457"><span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a typed function into a tool for the specified Toolbox class</span>
+</span><span id="__span-0-458">
+</span><span id="__span-0-459"><span class="sd">    Args:</span>
+</span><span id="__span-0-460"><span class="sd">        *tool_registries (list[type[ToolABC]]): The tool registry lists to add this tool to</span>
+</span><span id="__span-0-461"><span class="sd">        name (str): The name of the tool</span>
+</span><span id="__span-0-462"><span class="sd">        params (ParameterTypeMap): A mapping of parameter names to Parameter types and a callable constructor</span>
+</span><span id="__span-0-463"><span class="sd">            that converts the parameter to the expected value for the function parameter. You can also pass</span>
+</span><span id="__span-0-464"><span class="sd">            a fully formed arcpy.Parameter object as the first item in the tuple instead of a simple type</span>
+</span><span id="__span-0-465"><span class="sd">        debug (bool): Print the converted arguments to the ArcGIS Pro message console (default: False)</span>
+</span><span id="__span-0-466"><span class="sd">        logger (Logger|None): An optional logger to use for logging all runs of the toolified tool</span>
+</span><span id="__span-0-467">
+</span><span id="__span-0-468"><span class="sd">    Usage:</span>
+</span><span id="__span-0-469"><span class="sd">        ```python</span>
+</span><span id="__span-0-470"><span class="sd">        &gt;&gt;&gt; @toolify(</span>
+</span><span id="__span-0-471"><span class="sd">        &gt;&gt;&gt;     TOOL_REGISTRY,</span>
+</span><span id="__span-0-472"><span class="sd">        &gt;&gt;&gt;     name=&#39;PDF Exporter&#39;,</span>
+</span><span id="__span-0-473"><span class="sd">        &gt;&gt;&gt;     params={</span>
+</span><span id="__span-0-474"><span class="sd">        &gt;&gt;&gt;         &#39;project&#39;: (&#39;DEFile&#39;, lambda p: Project(p.valueAsText)),</span>
+</span><span id="__span-0-475"><span class="sd">        &gt;&gt;&gt;         &#39;outfile&#39;: (&#39;DEFile&#39;, lambda p: Path(p.valueAsText))</span>
+</span><span id="__span-0-476"><span class="sd">        &gt;&gt;&gt;     }</span>
+</span><span id="__span-0-477"><span class="sd">        &gt;&gt;&gt; )</span>
+</span><span id="__span-0-478"><span class="sd">        &gt;&gt;&gt; def export_pdf(project: Project|str=&#39;CURRENT&#39;, outfile: Path|str=&#39;out.pdf&#39;) -&gt; None:</span>
+</span><span id="__span-0-479"><span class="sd">        &gt;&gt;&gt;     ...</span>
+</span><span id="__span-0-480"><span class="sd">        ```</span>
+</span><span id="__span-0-481"><span class="sd">    &quot;&quot;&quot;</span>
+</span><span id="__span-0-482">    <span class="k">def</span><span class="w"> </span><span class="nf">_builder</span><span class="p">(</span><span class="n">func</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">Any</span><span class="p">]):</span>
+</span><span id="__span-0-483">
+</span><span id="__span-0-484">        <span class="nd">@wraps</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+</span><span id="__span-0-485">        <span class="k">def</span><span class="w"> </span><span class="nf">_execute</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">):</span>
+</span><span id="__span-0-486">            <span class="k">return</span> <span class="n">func</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-0-487">
+</span><span id="__span-0-488">        <span class="c1"># Build the tool class</span>
+</span><span id="__span-0-489">        <span class="n">label</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="p">)</span><span class="o">.</span><span class="n">title</span><span class="p">()</span>
+</span><span id="__span-0-490">        <span class="n">description</span> <span class="o">=</span> <span class="n">func</span><span class="o">.</span><span class="vm">__doc__</span> <span class="ow">or</span> <span class="s1">&#39;No Description Provided&#39;</span>
+</span><span id="__span-0-491">        <span class="n">class_name</span> <span class="o">=</span> <span class="n">label</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span> <span class="s1">&#39;&#39;</span><span class="p">)</span>
+</span><span id="__span-0-492">        <span class="n">sig</span> <span class="o">=</span> <span class="n">inspect</span><span class="o">.</span><span class="n">signature</span><span class="p">(</span><span class="n">func</span><span class="p">)</span>
+</span><span id="__span-0-493">        <span class="n">sig_params</span> <span class="o">=</span> <span class="n">sig</span><span class="o">.</span><span class="n">parameters</span>
+</span><span id="__span-0-494">
+</span><span id="__span-0-495">        <span class="c1"># Handle parameter converison</span>
+</span><span id="__span-0-496">        <span class="k">def</span><span class="w"> </span><span class="nf">_passthrough_execution</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ToolABC</span><span class="p">,</span> <span class="n">parameters</span><span class="p">:</span> <span class="n">Parameters</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">],</span> <span class="n">messages</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-497">            <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+</span><span id="__span-0-498">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Executing toolified </span><span class="si">{</span><span class="n">func</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s1"> via </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+</span><span id="__span-0-499">            <span class="n">args</span><span class="p">,</span> <span class="n">kwargs</span> <span class="o">=</span> <span class="n">_read_params</span><span class="p">(</span><span class="n">parameters</span><span class="p">,</span> <span class="n">sig_params</span><span class="p">,</span> <span class="n">params</span> <span class="ow">or</span> <span class="p">{})</span>
+</span><span id="__span-0-500">            <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="__span-0-501">            <span class="k">try</span><span class="p">:</span>
+</span><span id="__span-0-502">                <span class="k">if</span> <span class="n">debug</span><span class="p">:</span>
+</span><span id="__span-0-503">                    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Using *</span><span class="si">{</span><span class="n">args</span><span class="si">}</span><span class="s2">, **</span><span class="si">{</span><span class="n">kwargs</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-504">                <span class="n">res</span> <span class="o">=</span> <span class="n">_execute</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+</span><span id="__span-0-505">                <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="__span-0-506">                <span class="k">if</span> <span class="n">logger</span><span class="p">:</span>
+</span><span id="__span-0-507">                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">tz</span><span class="o">=</span><span class="n">dt</span><span class="o">.</span><span class="n">UTC</span><span class="p">))</span><span class="si">}</span><span class="s1">] PASS &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1">&quot; (</span><span class="si">{</span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1"> seconds) [</span><span class="si">{</span><span class="n">res</span><span class="si">}</span><span class="s1">]&#39;</span><span class="p">)</span>
+</span><span id="__span-0-508">            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-0-509">                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Something went wrong!:</span><span class="se">\n\t</span><span class="si">{</span><span class="n">traceback</span><span class="o">.</span><span class="n">format_exc</span><span class="p">()</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">severity</span><span class="o">=</span><span class="s1">&#39;ERROR&#39;</span><span class="p">)</span>
+</span><span id="__span-0-510">                <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+</span><span id="__span-0-511">                <span class="k">if</span> <span class="n">logger</span><span class="p">:</span>
+</span><span id="__span-0-512">                    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;[</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">tz</span><span class="o">=</span><span class="n">dt</span><span class="o">.</span><span class="n">UTC</span><span class="p">))</span><span class="si">}</span><span class="s1">] FAIL &quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">label</span><span class="si">}</span><span class="s1">&quot; (</span><span class="si">{</span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="si">:</span><span class="s1">0.2f</span><span class="si">}</span><span class="s1"> seconds) [</span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s1">] &#39;</span><span class="p">)</span>
+</span><span id="__span-0-513">
+</span><span id="__span-0-514">        <span class="k">def</span><span class="w"> </span><span class="nf">_local_build_params</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ToolABC</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Parameters</span> <span class="o">|</span> <span class="nb">list</span><span class="p">[</span><span class="n">Parameter</span><span class="p">]:</span>
+</span><span id="__span-0-515">            <span class="k">return</span> <span class="n">_build_params</span><span class="p">(</span><span class="n">sig_params</span><span class="p">,</span> <span class="n">params</span> <span class="ow">or</span> <span class="p">{})</span>
+</span><span id="__span-0-516">
+</span><span id="__span-0-517">        <span class="k">def</span><span class="w"> </span><span class="nf">_local_init</span><span class="p">(</span><span class="bp">self</span><span class="p">:</span> <span class="n">ToolABC</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-0-518">            <span class="bp">self</span><span class="o">.</span><span class="n">label</span> <span class="o">=</span> <span class="n">name</span> <span class="ow">or</span> <span class="n">label</span>
+</span><span id="__span-0-519">            <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+</span><span id="__span-0-520">
+</span><span id="__span-0-521">        <span class="n">tool_class</span> <span class="o">=</span> <span class="nb">type</span><span class="p">(</span>
+</span><span id="__span-0-522">            <span class="n">class_name</span><span class="p">,</span>
+</span><span id="__span-0-523">            <span class="p">(</span><span class="n">ToolABC</span><span class="p">,</span> <span class="p">),</span>
+</span><span id="__span-0-524">            <span class="p">{</span>
+</span><span id="__span-0-525">                <span class="s1">&#39;__init__&#39;</span><span class="p">:</span> <span class="n">_local_init</span><span class="p">,</span>
+</span><span id="__span-0-526">                <span class="s1">&#39;getParameterInfo&#39;</span><span class="p">:</span> <span class="n">_local_build_params</span><span class="p">,</span>
+</span><span id="__span-0-527">                <span class="s1">&#39;execute&#39;</span><span class="p">:</span> <span class="n">_passthrough_execution</span>
+</span><span id="__span-0-528">            <span class="p">}</span>
+</span><span id="__span-0-529">        <span class="p">)</span>
+</span><span id="__span-0-530">
+</span><span id="__span-0-531">        <span class="k">for</span> <span class="n">registry</span> <span class="ow">in</span> <span class="n">tool_registries</span><span class="p">:</span>
+</span><span id="__span-0-532">            <span class="k">if</span> <span class="n">tool_class</span><span class="o">.</span><span class="vm">__name__</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="n">c</span><span class="o">.</span><span class="vm">__name__</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">registry</span><span class="p">):</span>
+</span><span id="__span-0-533">                <span class="n">registry</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">tool_class</span><span class="p">)</span>
+</span><span id="__span-0-534">                <span class="nb">globals</span><span class="p">()[</span><span class="n">class_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">tool_class</span>
+</span><span id="__span-0-535">        <span class="k">return</span> <span class="n">_execute</span>
+</span><span id="__span-0-536">    <span class="k">return</span> <span class="n">_builder</span>
+</span></code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../project/formats/" class="md-footer__link md-footer__link--prev" aria-label="Previous: project.formats">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                project.formats
+              </div>
+            </div>
+          </a>
+        
+        
+          
+          <a href="../utils/" class="md-footer__link md-footer__link--next" aria-label="Next: utils">
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Next
+              </span>
+              <div class="md-ellipsis">
+                utils
+              </div>
+            </div>
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11z"/></svg>
+            </div>
+          </a>
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["announce.dismiss", "content.code.annotate", "content.code.copy", "content.code.select", "content.footnote.tooltips", "content.tabs.link", "content.tooltips", "navigation.footer", "navigation.indexes", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.preview", "navigation.instant.progress", "navigation.path", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "navigation.tracking", "search.highlight", "search.share", "search.suggest", "toc.follow"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+    
+  </body>
+</html>
