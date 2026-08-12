@@ -459,8 +459,8 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
         return cast(CIMDef, elem.getDefinition('V3'))
 
     def set_cim(self, cim: CIMDef, _force: bool = False) -> None:
-        """Set a CIM definition for an Element set `_force` to False to allow CIMType change.
-        (must be valid instance of original CIM by default)"""
+        """Set a CIM definition for an Element set `_force` to `True` to allow CIMType change.
+        (must be valid instance of original CIM type by default)"""
         elem = self.elem
         target_type = type(self.cim)
         if not isinstance(cim, target_type) and not _force:
@@ -504,7 +504,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
 
     @classmethod
     def diff(cls, a: Self, b: Self, *, outfile: Path | str | None = None) -> str:
-        """Generate a diff of two Layers using `cim_dict` and `difflib.unified_diff`
+        """Generate a diff of two Elements using `cim_dict` and `difflib.unified_diff`
 
         Args:
             a: The A Element of the diff
