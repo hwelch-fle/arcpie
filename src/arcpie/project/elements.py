@@ -2783,7 +2783,7 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         """Get the symbology CIM object (or `Layer.NotSupported`)."""
         if self.symbology is type(self).NotSupported:  # type: ignore
             return type(self).NotSupported  # type: ignore
-        return cast(cim.CIMSymbolizers.CIMRenderer, self.elem.getSymbologyDefinition('V3'))
+        return cast('cim.CIMSymbolizers.CIMRenderer', self.elem.getSymbologyDefinition('V3'))
 
     @cim_symbology.setter
     def cim_symbology(self, cim_symbology: cim.CIMSymbolizers.CIMRenderer) -> None:
