@@ -225,6 +225,8 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
                 raise ValueError('Root Dataset requires a valid gdb path!')
 
         # Traverse the dataset or its parent (all child datasets are subsets of their parent)
+        # If the table files cannot be read by gdb_parser, then the is_likeley_corrupt flag will be set
+        self.is_likeley_corrupt = False
         self.walk()
 
     @property
@@ -371,6 +373,7 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         try:
             datatypes = get_items(self.conn, *features)
         except Exception:
+            self.is_likeley_corrupt = True
             # Walk cannot filter by Annotation
             features.remove('Annotation')
             datatypes = _extract_types_threaded(self.conn, features)  # type: ignore (WalkDatatypes is uppercase??)
