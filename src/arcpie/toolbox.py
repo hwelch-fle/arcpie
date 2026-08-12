@@ -63,8 +63,8 @@ class Tool(ToolABC):
         return Project('CURRENT')
 
     @property
-    def active_map(self) -> Map | None:
-        return self.project.active_map if self.project.has_active_map else None
+    def active_map(self) -> Map:
+        return self.project.active_map
 
 
 def profile(*selectors: str):
