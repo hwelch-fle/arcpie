@@ -16,6 +16,7 @@ from typing import (
     Literal,
     Protocol,
     SupportsIndex,
+    cast,
     overload,
 )
 
@@ -60,7 +61,7 @@ from arcpy.management import (
     GenerateSchemaReport,  # pyright: ignore[reportUnknownVariableType]
 )
 
-from .project import (
+from .project.elements import (
     Layer,
     Map,
     Project,
@@ -227,7 +228,7 @@ def export_project_lyrx(project: Project, out_dir: Path, *, indent: int = 4, sor
                 continue
             if skip_empty and not lyrx:
                 continue
-            out_file = (map_dir / layer.longName).with_suffix('.lyrx')
+            out_file = (map_dir / layer.name).with_suffix('.lyrx')
             out_file.parent.mkdir(parents=True, exist_ok=True)
             out_file.write_text(json.dumps(lyrx, indent=indent, sort_keys=sort), encoding='utf-8')
 
@@ -255,7 +256,7 @@ def export_project_maps(project: Project, out_dir: Path | str, *, indent: int = 
 
 
 def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTable]) -> dict[str, Any]:
-    base_map = source_map.mapx
+    base_map = source_map.mapx_dict
 
     # Remove existing definitions
     base_map.pop('layerDefinition', None)
@@ -267,11 +268,11 @@ def build_mapx(source_map: Map, layers: list[Layer], tables: list[StandaloneTabl
     map_def.pop('standaloneTables', None)
 
     if layers:
-        map_def['layers'] = [lay.URI for lay in layers]
+        map_def['layers'] = [lay.uri for lay in layers]
         base_map['layerDefinitions'] = [lay.cim_dict for lay in layers]
 
     if tables:
-        map_def['standaloneTables'] = [t.URI for t in tables]
+        map_def['standaloneTables'] = [t.uri for t in tables]
         base_map['tableDefinitions'] = [t.cim_dict for t in tables]
 
     return base_map
@@ -541,7 +542,7 @@ def shortest_path(
         target = target.projectAs(network[0].spatialReference).centroid
     target_pt = (round(target.X, precision), round(target.Y, precision))
 
-    G = Graph(
+    G = Graph(  # type: ignore
         [
             (
                 (round(line.firstPoint.X, precision), round(line.firstPoint.Y, precision)),
@@ -549,13 +550,13 @@ def shortest_path(
                 {'shape': line, 'length': line.length}
             )
             for line in network
-        ]
+        ]  # type: ignore
     )
     try:
         if all_paths:
-            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_all_shortest_paths(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
         else:
-            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)
+            paths = nx_shortest_path(G, source_pt, target_pt, weight='length' if weighted else None, method=method)  # type: ignore
     except (NodeNotFound, NetworkXNoPath):
         return None
 
@@ -768,10 +769,11 @@ def iter_points(line: Polyline, start: bool = True, end: bool = True) -> Iterato
         PointGeometries for all points in the line
     """
     section = slice(0 if start else 1, None if end else -1)
+    ref = line.spatialReference
     yield from (
-        PointGeometry(point, line.spatialReference)
+        PointGeometry(point, ref)
         for part in line
-        for point in list[Point](part)[section]  # type: ignore
+        for point in cast(list[Point], list(part))[section]
     )
 
 
@@ -1339,11 +1341,9 @@ class PolylineEditor:
     def pop(self, index: SupportsIndex = -1, /) -> PointGeometry:
         """Remove a point from a polyline at the specified index (default: -1)"""
         part_idx, local_idx = self._part_at_index(index)
-
         parts = list(self.parts)
         new_part = list(self.part_editors[part_idx])
         pt = new_part.pop(local_idx)
-
         parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
         return pt
@@ -1359,11 +1359,9 @@ class PolylineEditor:
         """
         point = self._cast_point(point)
         part_idx, local_idx = self._part_at_index(index)
-
         parts = list(self.parts)
         new_part = list(self.part_editors[part_idx])
         new_part.insert(local_idx, point)
-
         parts[part_idx] = self.from_points(new_part, self.ref)
         self.polyline = self.merge_lines(parts)
 
@@ -1377,21 +1375,17 @@ class PolylineEditor:
     def append(self, point: Point | PointGeometry) -> None:
         """Append a point to the last part of the Polyline"""
         points = list(self.part_editors[-1])
-
         points.append(self._cast_point(point))
         parts = self.parts[:-1]
-
         parts.append(self.from_points(points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def extend(self, points: Iterable[Point | PointGeometry]) -> None:
         """Extend the last part of the polyline with the points"""
-        points = list(self.part_editors[-1])
-
-        points.extend(self._cast_point(p) for p in points)
+        self_points = list(self.part_editors[-1])
+        self_points.extend(self._cast_point(p) for p in points)
         parts = self.parts[:-1]
-
-        parts.append(self.from_points(points, self.ref))
+        parts.append(self.from_points(self_points, self.ref))
         self.polyline = self.merge_lines(parts)
 
     def reverse(self) -> None:

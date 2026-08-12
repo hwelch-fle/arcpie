@@ -19,6 +19,7 @@ from typing import (
     Literal,
     Self,
     TypeVar,
+    cast,
     overload,
 )
 
@@ -44,6 +45,11 @@ if TYPE_CHECKING:
     # )
     from arcpy.da import (
         SpatialRelationship,
+    )
+
+    from arcpie.project.elements import (
+        LayerLike,
+        TableLike,
     )
 else:
     SpatialRelationship = None
@@ -76,9 +82,8 @@ from arcpy import (
     SpatialReference,
 )
 from arcpy._mp import (
-    Layer,
-    Map,
-    Table as TableLayer,  # Alias
+    Layer,  # noqa: PLC2701
+    Map,  # Alias
 )
 from arcpy.analysis import (
     PairwiseBuffer,  # type: ignore
@@ -496,6 +501,22 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         return self.search_cursor(*self.fields)._dtype  # pyright: ignore[reportPrivateUsage]
 
     @property
+    def is_web(self) -> bool:
+        """Determine if the FeatureClass is pointing at a web FeatureServer"""
+        return self.path.startswith('http') and 'FeatureServer' in self.path.split('/')
+
+    @property
+    def exists(self) -> bool:
+        # Opening a Cursor on a FeatureServer is slow. Just assume weblayers exist
+        if self.is_web:
+            return True
+        try:
+            _ = self.search_cursor('OID@').fields
+            return True
+        except Exception:
+            return False
+
+    @property
     def py_types(self) -> dict[str, type]:
         """Get a mapping of fieldnames to python types for the Table"""
         return convert_dtypes(self.np_dtypes)
@@ -764,7 +785,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         with self.search_cursor(*field_names, **options) as cur:
             yield from cur
 
-    def insert_record(self, record: Schema, ignore_errors: bool = False) -> int | None:
+    def insert_record(self, record: Schema | dict[str, Any], ignore_errors: bool = False) -> int | None:
         """Insert a single record into the table
 
         Args:
@@ -789,7 +810,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                 if not ignore_errors:
                     raise ValueError(f'Malformed Row: {record}') from e
 
-    def insert_records(self, records: Iterable[Schema], ignore_errors: bool = False) -> Iterator[int]:
+    def insert_records(self, records: Iterable[Schema | dict[str, Any]], ignore_errors: bool = False) -> Iterator[int]:
         """Provide an iterable of records to insert
         Args:
             records (Iterable[RowRecord]): The sequence of records to insert
@@ -933,7 +954,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             fc.clause = self.clause
         return fc
 
-    def exists(self) -> bool:
+    def _exists(self) -> bool:
         """Check if the Table or FeatureClass actually exists (check for deletion or initialization with bad path)"""
         return Exists(str(self))
 
@@ -1255,11 +1276,11 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
 
     def __repr__(self) -> str:
         """Provide a constructor string e.g. `Table or FeatureClass[Polygon]('path')`"""
-        return f"{self.__class__.__name__}('{self.__fspath__()}')"
+        return f"{type(self).__name__}({self})"
 
     def __str__(self) -> str:
         """Return the `Table` or `FeatureClass` path for use with other arcpy methods"""
-        return self.__fspath__()
+        return self.path if self.is_web else self.__fspath__()
 
     def __eq__(self, other: Any) -> bool:
         """Determine if the datasource of two featureclass objects is the same"""
@@ -1313,10 +1334,12 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                 return str(self)
 
     def __fspath__(self) -> str:
+        if self.is_web:
+            raise AttributeError(f'{self} is a web layer and has no filesystem path representation')
         return str(Path(self.path).resolve())
 
     def __hash__(self) -> int:
-        return hash(self.__fspath__())
+        return hash(str(self))
 
     # Handle Fields
 
@@ -1446,7 +1469,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             yield self
 
     # Mapping interfaces (These pass common `Layer` operations up to the Table or FeatureClass)
-    def bind_to_layer(self, layer: Layer) -> None:
+    def bind_to_layer(self, layer: LayerLike) -> None:
         """Update the provided layer's datasource to this Table or FeatureClass
 
         Args:
@@ -1455,28 +1478,12 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         Raises: ValueError
         """
         # Use the wrapped Layer from arcpie.project so workspace can be inferred
-        from .project import Layer as _Layer  # noqa: PLC0415
-        layer = _Layer(layer)
+        from .project.elements import Layer as _Layer  # noqa: PLC0415
         # Try to update datasource using updateConnectionProperties
         try:
-            layer.updateConnectionProperties(layer.feature_class.workspace, self.workspace)
-            return
-        except Exception:
-            ...
-
-        # Fallback to direct CIM update (updateConnectionProperties is buggy)
-        # TODO: Integrate cimple.cim here for typing
-        try:
-            definition = layer.cim
-            dc = definition.featureTable.dataConnection  # type: ignore
-            dc.workspaceConnectionString = f'DATABASE={self.workspace}'
-            dc.dataset = self.name
-            # Remove missing FeatureDataset subpaths
-            if dc.featureDataset and dc.featureDataset not in Path(self.path).parts:  # type: ignore
-                dc.featureDataset = None
-            layer.setDefinition(definition)  # type: ignore
+            _Layer(layer).data_source = str(self)
         except Exception as e:
-            raise ValueError('Unable to bind to layer') from e
+            raise ValueError(f'Unable to bind {self} to {layer}') from e
 
     def add_to_map(self, map: Map, pos: Literal['AUTO_ARRANGE', 'BOTTOM', 'TOP'] = 'AUTO_ARRANGE') -> None:
         """Add the featureclass to a map
@@ -1585,18 +1592,18 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
 
     # Factory Constructors
     @classmethod
-    def from_table(cls, table: TableLayer,
+    def from_table(cls, table: TableLike,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> Table:
+                   ignore_def_query: bool = False,) -> Table[Schema]:
         """See `from_layer` for documentation, this is an alternative constructor that builds from a mp.Table object"""
         return Table.from_layer(table, ignore_selection=ignore_selection, ignore_def_query=ignore_def_query)  # type: ignore (this won't break the interface)
 
     @classmethod
-    def from_layer(cls, layer: Layer,
+    def from_layer(cls, layer: LayerLike,
                    *,
                    ignore_selection: bool = False,
-                   ignore_def_query: bool = False,) -> Table[Any]:
+                   ignore_def_query: bool = False,) -> Table[Schema]:
         """Build a Table or FeatureClass object from a layer applying the layer's current selection to the stored cursors
 
         Args:
@@ -1606,30 +1613,54 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
         Returns:
             ( Table or FeatureClass ): The Table or FeatureClass object with the layer query applied
         """
-        fc = cls(Path(layer.dataSource).resolve())
+        layer = cast(Layer, getattr(layer, 'elem', layer))
+        try:
+            source = layer.dataSource
+            if source.startswith('http'):
+                fc = cls(source)
+            else:
+                fc = cls(Path(layer.dataSource).resolve())
+            fc._layer = layer
+        except Exception:
+            cim_def = layer.getDefinition('V3')
+            if not hasattr(cim_def, 'featureTable'):
+                raise
+            conn: object = cast(object, cim_def.featureTable.dataConnection)  # type: ignore
+            f_ds = getattr(conn, 'featureDataset', '')
+            f_name = getattr(conn, 'dataset', '')
+            db = getattr(conn, 'workspaceConnectionString', '')
+            if not f_name or not db.startswith('DATABASE='):
+                raise
+            dataSource = Path(db[9:]) / f_ds / f_name
+            fc = cls(dataSource)
+            fc._layer = layer
 
-        selected_ids: set[int] | None = (
-            layer.getSelectionSet() or None
-            if not ignore_selection
-            else None
-        )
-        definition_query: str | None = (
-            layer.definitionQuery or None
-            if not ignore_def_query
-            else None
-        )
-        selection: str | None = (
-            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
-            if selected_ids
-            else None
-        )
+        try:
+            selected_ids: set[int] | None = (
+                layer.getSelectionSet() or None
+                if not ignore_selection
+                else None
+            )
+            definition_query: str | None = (
+                layer.definitionQuery or None
+                if not ignore_def_query
+                else None
+            )
+            selection: str | None = (
+                f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
+                if selected_ids
+                else None
+            )
+        except (RuntimeError, AttributeError):
+            selected_ids = None
+            definition_query = None
+            selection = None
 
         if (query_components := list(filter(None, [definition_query, selection]))):
             where_clause = ' AND '.join(query_components)
             fc.search_options = SearchOptions(where_clause=where_clause)
             fc.update_options = UpdateOptions(where_clause=where_clause)
 
-        fc.layer = layer
         return fc
 
     def copy(self) -> Table[Schema]:
@@ -1711,7 +1742,21 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         for shape in self.shapes:
             return type(shape)
         else:
-            return Geometry  # type: ignore
+            # Fallback to describe if quick shape access fails (no features)
+            s_type_name = self.describe.shapeType.lower()
+            if s_type_name == 'polygon':
+                s_type = Polygon
+            elif s_type_name == 'polyline':
+                s_type = Polyline
+            elif s_type_name == 'point':
+                s_type = PointGeometry
+            elif s_type_name == 'multipoint':
+                s_type = Multipoint
+            elif s_type_name == 'multipatch':
+                s_type = Multipatch
+            else:
+                s_type = Geometry
+        return cast(type[GeoType], s_type)
 
     @property
     def describe(self) -> dt.FeatureClass:  # pyright: ignore[reportIncompatibleMethodOverride]
@@ -2090,7 +2135,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
     # Factory Constructors
 
     @classmethod
-    def from_layer(cls, layer: Layer,
+    def from_layer(cls, layer: LayerLike,
                    *,
                    ignore_selection: bool = False,
                    ignore_def_query: bool = False,) -> FeatureClass[GeoType, Schema]:
@@ -2103,30 +2148,56 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         Returns:
             ( FeatureClass ): The FeatureClass object with the layer query applied
         """
-        fc = cls(layer.dataSource)
+        layer = cast(Layer, getattr(layer, 'elem', layer))
+        try:
+            source = layer.dataSource
+            if source.startswith('http'):
+                fc = cls(source)
+            else:
+                fc = cls(Path(layer.dataSource).resolve())
+            fc._layer = layer
+        except Exception as e:
+            cim_def = layer.getDefinition('V3')
+            if not hasattr(cim_def, 'featureTable'):
+                raise
+            conn: object = cast(object, cim_def.featureTable.dataConnection)  # type: ignore
+            f_ds = getattr(conn, 'featureDataset', '')
+            f_name = getattr(conn, 'dataset', '')
+            db = getattr(conn, 'workspaceConnectionString', '')
+            if not f_name or not db.startswith('DATABASE='):
+                raise e
+            dataSource = Path(db[9:]) / f_ds / f_name
+            fc = cls(dataSource)
+            fc._layer = layer
 
-        selected_ids: set[int] | None = (
-            layer.getSelectionSet() or None
-            if not ignore_selection
-            else None
-        )
-        definition_query: str | None = (
-            layer.definitionQuery or None
-            if not ignore_def_query
-            else None
-        )
-        selection: str | None = (
-            f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
-            if selected_ids
-            else None
-        )
+        try:
+            selected_ids: set[int] | None = (
+                layer.getSelectionSet() or None
+                if not ignore_selection
+                else None
+            )
+            definition_query: str | None = (
+                layer.definitionQuery or None
+                if not ignore_def_query
+                else None
+            )
+            selection: str | None = (
+                f"{fc.oid_field_name} IN ({format_query_list(selected_ids)})"
+                if selected_ids
+                else None
+            )
+        except (RuntimeError, AttributeError):
+            # Layer is technically invalid, but we want to allow
+            # creation anyways (user can validate later with `exists`)
+            definition_query = None
+            selected_ids = None
+            selection = None
 
         if (query_components := list(filter(None, [definition_query, selection]))):
             where_clause = ' AND '.join(query_components)
             fc.search_options = SearchOptions(where_clause=where_clause)
             fc.update_options = UpdateOptions(where_clause=where_clause)
 
-        fc.layer = layer
         return fc
 
     def copy(self) -> FeatureClass[GeoType, Schema]:

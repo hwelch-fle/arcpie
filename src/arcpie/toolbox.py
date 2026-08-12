@@ -24,11 +24,14 @@ from arcpy import (
     SetProgressorPosition,
 )
 
-from arcpie.parameters import Parameter, Parameters
+from arcpie.parameters import (
+    Parameter as Parameter,  # noqa: PLC0414
+    Parameters as Parameters,  # noqa: PLC0414
+)
 from arcpie.parameters.custom import *  # noqa: F403
-from arcpie.project import Map, Project
+from arcpie.project.elements import Map, Project
 from arcpie.types import ParameterDatatype
-from arcpie.utils import print
+from arcpie.utils import print as print  # noqa: PLC0414
 
 
 class ToolboxABC:
@@ -61,8 +64,7 @@ class Tool(ToolABC):
 
     @property
     def active_map(self) -> Map | None:
-        if self.project.aprx.activeMap:
-            return Map(self.project.aprx.activeMap, parent=self.project)
+        return self.project.active_map if self.project.has_active_map else None
 
 
 def profile(*selectors: str):

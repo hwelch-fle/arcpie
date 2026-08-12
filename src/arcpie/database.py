@@ -197,7 +197,7 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
                 raise ValueError('Root Dataset requires a valid gdb path!')
 
         # Traverse the dataset or its parent (all child datasets are subsets of their parent)
-        self.walk() if self.parent is None else self._walk_parent()
+        self.walk()
 
     @property
     def file_gdb(self) -> FileGDB:
@@ -302,7 +302,7 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
 
     def _walk_parent(self) -> None:
         """For child datasets, walk the parent dataset to discover features"""
-        assert self.parent
+        assert self.parent is not None
         self._feature_classes = {
             name: fc
             for name, fc in self.parent._feature_classes.items()
@@ -335,6 +335,9 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
             If the contents of a dataset change during its lifetime, you may need to call walk again. All
             children that are already initialized will be skipped and only new children will be initialized
         """
+        if self.parent is not None:
+            return self._walk_parent()
+
         features = ['FeatureClass', 'Table', 'RelationshipClass', 'FeatureDataset', 'Annotation']
 
         try:
@@ -434,7 +437,7 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
                             spatial_reference: SpatialReference | WKID = WGS84,
                             config_keyword: str | None = None,
                             alias: str | None = None,
-                            oid_type: Literal['64_BIT', '32_BIT'] | None = '64_BIT',
+                            oid_type: Literal['64_BIT', '32_BIT'] | None = None,
                             _ensure_dataset: bool = True,
         ) -> FeatureClass:
         """Create a new FeatureClass in the Dataset"""
@@ -833,6 +836,10 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
                             print(f'{field_name}: ', e)
                     yield fc
         return ds  # noqa: B901
+
+    @classmethod
+    def create_fgdb(cls, path: Path | str, name: str, version: Literal['CURRENT', '10.0', '9.3', '9.2'] | None = None) -> Dataset[Schema]:
+        return cls(CreateFileGDB(path, name, version)[0])
 
 
 def convert_cardinality(arg: str) -> Literal['ONE_TO_ONE', 'ONE_TO_MANY', 'MANY_TO_MANY']:
