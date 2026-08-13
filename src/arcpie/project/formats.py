@@ -86,6 +86,8 @@ class Format[Formatter: mpt.ExportFormat = Any, Opts: Mapping[str, Any] = Any]:
             elif hasattr(fmt, attr):
                 setattr(fmt, attr, val)
             else:
+                # Just ignore it (3.7 introduced new attributes)
+                continue
                 raise AttributeError(f'{type(self)} has no {attr} attribute')
         return fmt  # type: ignore
 
