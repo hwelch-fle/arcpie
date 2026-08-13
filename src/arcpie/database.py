@@ -211,10 +211,7 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
     def __init__(self, conn: str | Path, *, parent: Dataset[Any] | None = None) -> None:
         self.conn = Path(conn)
         self.parent = parent
-
-        # Used to hold a list of File Descriptors to prevent directory writes
-        # Does nothing if the Dataset is not a file GDB
-        self._locks = None
+        self._locks = []
 
         self._datasets = dict[str, Dataset]()
         self._feature_classes = dict[str, FeatureClass]()
@@ -233,6 +230,18 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         # If the table files cannot be read by gdb_parser, then the is_likeley_corrupt flag will be set
         self.is_likeley_corrupt = False
         self.walk()
+
+    @property
+    def is_locked(self) -> bool:
+        """Check if at least one lock is held."""
+        return bool(self._locks)
+
+    @property
+    def is_fully_locked(self) -> bool:
+        """Check if more than one lock is held."""
+        if not self.is_locked:
+            return False
+        return len(self._locks) > 1
 
     @property
     def file_gdb(self) -> FileGDB:
@@ -282,27 +291,55 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
     def editor(self) -> Editor:
         return Editor(str(self.conn))
 
-    def get_locks(self) -> None:
-        """Open all files in the gdb to prevent writing."""
-        self._locks = self._locks or [
-            fl.open('r')
-            for fl in self.conn.iterdir()
-            if fl.is_file() and not fl.suffix == '.lock'
-        ]
+    def get_full_lock(self, silent: bool = False) -> None:
+        """Lock ALL files in the gdb directory (prevents overwrite of table files)"""
+        if not self.conn.suffix == '.gdb':
+            if not silent:
+                raise PermissionError('Can only lock File Geodatabases.')
+            return
 
-    def clear_locks(self) -> None:
+        try:
+            self.release_lock()
+            self._locks = [
+                fl.open('r')
+                for fl in self.conn.iterdir()
+                if fl.is_file() and fl.suffix != '.lock'
+            ]
+        except Exception as e:
+            if not silent:
+                raise e
+
+    def get_lock(self, silent: bool = False) -> None:
+        """Lock the `gdb` file in the .gdb directory to prevent directory operations.
+        releases any previously held locks and locs only the .gdb file.
+        """
+        if not self.conn.suffix == '.gdb':
+            if not silent:
+                raise PermissionError('Can only lock File Geodatabases.')
+            return
+        try:
+            self.release_lock()
+            self._locks = [(self.conn / 'gdb').open('r')]
+        except Exception as e:
+            if not silent:
+                raise e
+
+    def release_lock(self) -> None:
         """Clear locks if held."""
-        for fd in self._locks or []:
-            fd.close()
-        self._locks = None
+        for lock in self._locks or []:
+            lock.close()
+            del lock
+        self._locks = []
 
     @contextmanager
-    def lock(self):
+    def lock(self, silent: bool = False):
+        if not self.conn.suffix == '.gdb':
+            raise PermissionError('Can only lock File Geodatabases.')
         try:
-            self.get_locks()
+            self.get_lock(silent=silent)
             yield self
         finally:
-            self.clear_locks()
+            self.release_lock()
 
     def export_rules(self, rule_dir: Path | str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
