@@ -232,15 +232,15 @@ class Parameter(_Parameter):
                 setattr(self, attr, value)
 
 
-class Parameters(list[Parameter]):
+class Parameters[Names = str](list[Parameter]):
     """Wrap a list of parameters and override the index to allow indexing by name"""
     @overload
     def __getitem__(self, key: SupportsIndex, /) -> Parameter: ...
     @overload
     def __getitem__(self, key: slice, /) -> list[Parameter]: ...
     @overload
-    def __getitem__(self, key: str, /) -> Parameter: ...
-    def __getitem__(self, key: SupportsIndex | slice | str, /) -> Parameter | list[Parameter]:
+    def __getitem__(self, key: str | Names, /) -> Parameter: ...
+    def __getitem__(self, key: SupportsIndex | slice | str | Names, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
             matches = [p for p in self if p.name.lower().replace(' ', '_') == key]
             if not matches:
@@ -255,8 +255,8 @@ class Parameters(list[Parameter]):
     @overload
     def get[D](self, key: slice, default: D = None, /) -> list[Parameter] | D: ...
     @overload
-    def get[D](self, key: str, default: D = None, /) -> Parameter | D: ...
-    def get[D](self, key: SupportsIndex | slice | str, default: D = None, /) -> Parameter | list[Parameter] | D:
+    def get[D](self, key: str | Names, default: D = None, /) -> Parameter | D: ...
+    def get[D](self, key: SupportsIndex | slice | str | Names, default: D = None, /) -> Parameter | list[Parameter] | D:
         try:
             return self[key]
         except KeyError:
