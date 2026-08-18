@@ -2617,6 +2617,10 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
     def props(self, props: SomeLayerProps) -> None:
         self.set_props(*props)
 
+    def has(self, prop: LayerProperty) -> bool:
+        """Alias for `elem.supports` that accepts lowercased `LayerProperties`"""
+        return self.elem.supports(cast(mpt.LayerProperty, prop.upper()))
+
     def get_props(self, *props: LayerProperty) -> SomeLayerProps:
         """Get requested layer properties.
 
