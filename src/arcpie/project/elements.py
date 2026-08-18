@@ -471,6 +471,7 @@ class Element[MPElem: MPElement, CIMDef, Parent: Element | None = None]:
                     with suppress(Exception):
                         assert callable(setter)
                         setter(cim)
+                        return
             raise AttributeError(f'{type(self).__name__} has no implemented CIM setter')
         elem.setDefinition(cast(str, cim))  # Signature here is wrong CIM obj OR string name
 
