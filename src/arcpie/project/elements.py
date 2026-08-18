@@ -1906,6 +1906,9 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         if type(elem).__name__ != 'Layer':
             raise ValueError(f'Expected Layer object, got {type(elem)}. use `add_table` to add Tables.')
 
+        if group is not None:
+            self.remove(layer)
+
         if not is_group:
             self.refresh('layers')
             return Layer(cast(mpt.Layer, elem), self)
@@ -2004,12 +2007,17 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
         self.elem.clipLayers(layer, selection='SELECTED' if selected else 'ALL')
 
     @overload
-    def add_data(self, path: fc.FeatureClass, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer: ...  # type: ignore
+    def add_data(self, path: fc.FeatureClass, service_type: mpt.WebServiceType = ..., group: GroupLayerLike | None = ..., **params: Any) -> Layer: ...  # type: ignore
     @overload
-    def add_data(self, path: fc.Table, service_type: mpt.WebServiceType = ..., **params: Any) -> Table: ...
+    def add_data(self, path: fc.Table, service_type: mpt.WebServiceType = ..., group: GroupLayerLike | None = ..., **params: Any) -> Table: ...
     @overload
-    def add_data(self, path: Path | str, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer | Table: ...
-    def add_data(self, path: fc.FeatureClass | fc.Table | Path | str, service_type: mpt.WebServiceType = 'AUTOMATIC', **params: Any) -> Layer | Table:
+    def add_data(self, path: Path | str, service_type: mpt.WebServiceType = ..., group: GroupLayerLike | None = ..., **params: Any) -> Layer | Table: ...
+    def add_data(self,
+                 path: fc.FeatureClass | fc.Table | Path | str,
+                 service_type: mpt.WebServiceType = 'AUTOMATIC',
+                 group: GroupLayerLike | None = None,
+                 **params: Any,
+        ) -> Layer | Table:
         """Add data to the map from a path or URL.
 
         Args:
@@ -2018,14 +2026,25 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
             **params: Additional keyword parameters passed to the webservice (optional)
         """
         elem = self.elem.addDataFromPath(str(path), web_service_type=service_type, custom_parameters=params or None)
+        group = group.elem if isinstance(group, GroupLayer) else group
 
         elem_name = type(elem).__name__
         if elem_name == 'Layer':
+            lay = Layer(cast(mpt.Layer, elem), self)
+            if group is not None:
+                group_lay = self.add_layer(lay, group=group)
+                lay.delete()
+                return group_lay
             self.refresh('layers')
-            return Layer(cast(mpt.Layer, elem), self)
+            return lay
         if elem_name == 'Table':
+            tbl = Table(cast(mpt.Table, elem), self)
+            if group is not None:
+                group_tbl = self.add_table(tbl, group=group)
+                tbl.delete()
+                return group_tbl
             self.refresh('tables')
-            return Table(cast(mpt.Table, elem), self)
+            return tbl
 
         # Unreachable ? (at least not documented as reachable...)
         raise ValueError(f'Something went wrong got {type(elem)} but expected Layer or Table')
@@ -2299,6 +2318,36 @@ class GroupLayer(Element[mpt.Layer, cim.CIMGroupLayer, "Map | GroupLayer"]):
         new_table = parent.add_table(table, group=self)
         parent.refresh('tables')
         return new_table
+
+    @overload
+    def add_data(self, path: fc.FeatureClass, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer: ...  # type: ignore
+    @overload
+    def add_data(self, path: fc.Table, service_type: mpt.WebServiceType = ..., **params: Any) -> Table: ...
+    @overload
+    def add_data(self, path: Path | str, service_type: mpt.WebServiceType = ..., **params: Any) -> Layer | Table: ...
+    def add_data(self, path: fc.FeatureClass | fc.Table | Path | str, service_type: mpt.WebServiceType = 'AUTOMATIC', **params: Any) -> Layer | Table:
+        """Add data to the Group from a path or URL.
+
+        Args:
+            path: A filepath or URL for the data element
+            service_type: An optional agument for web service type (default: `AUTOMATIC`)
+            **params: Additional keyword parameters passed to the webservice (optional)
+        """
+        parent = self.parent
+        while parent and not isinstance(parent, Map):
+            parent = parent.parent
+        if not parent:
+            raise ValueError(f'{self} has no associated Map')
+
+        item = parent.add_data(path, service_type, **params)
+        if isinstance(item, Layer):
+            item = parent.add_layer(item, group=self)
+            self.refresh('layers')
+            return item
+        else:
+            tbl = parent.add_table(item, group=self)
+            self.refresh('tables')
+            return tbl
 
     def export_lyrx(self, outdir: Path | str, *, name: str | None = None, indent: int = 2) -> Path:
         outdir = Path(outdir)
