@@ -50,6 +50,7 @@ class Format[Formatter: mpt.ExportFormat = Any, Opts: Mapping[str, Any] = Any]:
     height: float = 960
     width: float = 960
     resolution: int = 96
+    showSelectionSymbology: bool = False
 
     @abstractmethod
     def update(self, mapping: Opts | None = None, /, **opts: Unpack[Opts]) -> None:  # type: ignore
