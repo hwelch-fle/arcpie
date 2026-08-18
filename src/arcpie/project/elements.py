@@ -2505,6 +2505,9 @@ class _PropNotSupported:
     def __repr__(self) -> str:
         return 'Property Not Supported'
 
+    def __bool__(self):
+        return False
+
 
 NotSupported = _PropNotSupported()
 
