@@ -4079,6 +4079,19 @@ _MSFormatName = Literal['PDF', 'PNG', 'JPEG', 'TIFF']
 
 class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
 
+    def __iter__(self) -> Iterator[Self]:
+        pages = range(1, self.elem.pageCount + 1)
+        current = self.elem.currentPageNumber
+        try:
+            for page in pages:
+                self.elem.currentPageNumber = page
+                yield self
+        finally:
+            self.elem.currentPageNumber = current
+
+    def __len__(self) -> int:
+        return self.page_count
+
     @property
     def enabled(self) -> bool:
         """Determine if the MapSeries is enabled."""
@@ -4116,10 +4129,10 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
     def current_page_name(self) -> str:
         """The name of the current MapSeries page."""
         try:
-            return str(self.elem.currentPageName)
+            return str(self.page_row[self.page_name_field])
         except Exception:
             # <=3.6 compat
-            return str(self.page_row[self.page_name_field])
+            return str(self.elem.currentPageName)
 
     @property
     def page_map(self) -> dict[str, str]:
@@ -4141,11 +4154,15 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
     @property
     def page_numbers(self) -> list[str]:
         """String values for all page numbers in the MapSeries."""
+        if self.elem.pageCount == 0:
+            return []
         return [str(p.current_page_number) for p in self]
 
     @property
     def page_names(self) -> list[str]:
         """String values for all page names in the MapSeries."""
+        if self.elem.pageCount == 0:
+            return []
         return self._cached('page_names',
             lambda: [str(p.current_page_name) for p in self]
         )
@@ -4331,19 +4348,6 @@ class MapSeries(Element[mpt.MapSeries, cim.CIMMapSeries, Layout]):
         """Refresh/Reload the mapseries (refresh is shadowed by Element cache control)"""
         self.elem.refresh()
 
-    def __iter__(self) -> Iterator[MapSeries]:
-        pages = range(1, self.elem.pageCount + 1)
-        current = self.elem.currentPageNumber
-        try:
-            for page in pages:
-                self.elem.currentPageNumber = page
-                yield self
-        finally:
-            self.elem.currentPageNumber = current
-
-    def __len__(self) -> int:
-        return self.page_count
-
     def __repr__(self) -> str:
         return (
             f'{type(self).__name__}('
@@ -4393,13 +4397,22 @@ class Bookmark(Element[mpt.Bookmark, cim.CIMBookmark, Map]):
 
 class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries, Layout]):
 
+    def __iter__(self) -> Iterator[Self]:
+        current = self.current_bookmark
+        try:
+            for bookmark in self.bookmarks:
+                self.current_bookmark = bookmark
+                yield self
+        finally:
+            self.current_bookmark = current
+
+    def __len__(self) -> int:
+        return self.page_count
+
     @property
     def page_count(self) -> int:
         """Total number of pages in the BookmarkMapSeries."""
         return self.elem.pageCount
-
-    def __len__(self) -> int:
-        return self.page_count
 
     @property
     def map_frame(self) -> MapFrame:
@@ -4416,11 +4429,15 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
 
     @property
     def current_bookmark(self) -> Bookmark:
-        """Get the current Bookmark."""
+        """Get/Set the current Bookmark."""
         if not self.has_current_bookmark:
             raise AttributeError(f'{self} has no current Bookmark')
         assert self.elem.currentBookmark
         return Bookmark(self.elem.currentBookmark, self.map_frame.map)
+
+    @current_bookmark.setter
+    def current_bookmark(self, bookmark: BookmarkLike) -> None:
+        self.elem.currentBookmark = bookmark.elem if isinstance(bookmark, Element) else bookmark
 
     @property
     def has_current_bookmark(self) -> bool:
@@ -4458,9 +4475,171 @@ class BookmarkMapSeries(Element[mpt.BookmarkMapSeries, cim.CIMBookmarkMapSeries,
     def current_page_number(self, number: int) -> None:
         self.elem.currentPageNumber = number
 
+    @property
+    def page_names(self) -> list[str]:
+        """String values for all page names in the MapSeries."""
+        if self.elem.pageCount == 0:
+            return []
+        return self._cached('page_names',
+            lambda: [str(p.current_page_name) for p in self]
+        )
+
+    @overload
+    def export(self,  # type: ignore (No Overlap?)
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
+               *,
+               out: None = None,
+               antialiasing: mpt.Antialiasing | None = ...,
+               mapseries_options: mpt.MapSeriesExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               multi_file: bool = ...,
+               export_pages: mpt.ExportPages = ...,
+               print_count: bool = ...,
+        ) -> tuple[bytes, ...]: ...
+    @overload
+    def export(self,
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
+               *,
+               out: Path | str = ...,
+               antialiasing: mpt.Antialiasing | None = ...,
+               mapseries_options: mpt.MapSeriesExportOptions | None = ...,
+               custom_pages: str | None = ...,
+               multi_file: bool = ...,
+               export_pages: mpt.ExportPages = ...,
+               print_count: bool = ...,
+        ) -> tuple[Path, ...]: ...
+    def export(self,
+               format: _MSFormat | _MSFormatAlt | _MSFormatName,
+               *,
+               out: Path | str | None = None,
+               antialiasing: mpt.Antialiasing | None = None,
+               mapseries_options: mpt.MapSeriesExportOptions | None = None,
+               custom_pages: str | None = None,
+               multi_file: bool = False,
+               export_pages: mpt.ExportPages = 'ALL',
+               prefix: str | None = None,
+               print_count: bool = False,
+        ) -> tuple[Path, ...] | tuple[bytes, ...]:
+        """Export the MapSeries.
+
+        Args:
+            format: A string name for the output format or a Formatter object.
+            out: An optional output file for the export.
+            antialiasing: Antialiazing level for the export.
+            mapseries_options: MapSeriesExportOptions object (additional kwargs will set this too.)
+            custom_pages: An optional custom page range string for the export.
+            multi_file: Export the mapseries as multiple files (one per page).
+            export_pages: Page export type (All, Current, Selected, etc.)
+            prefix: A prefix to add to the output files.
+            print_count: When exporting with `multi_file` enabled, show export status with print/AddMessage.
+        """
+        ms_opts = mapseries_options or mp.CreateExportOptions('MAPSERIES')
+        ms_opts = cast(mpt.MapSeriesExportOptions, ms_opts)
+        ms_opts.showExportCount = print_count
+        if export_pages == 'CUSTOM' or custom_pages:
+            if not custom_pages:
+                raise ValueError("`export_pages` is set to 'custom', but no `custom_pages` argument given")
+            ms_opts.customPages = custom_pages
+            ms_opts.setExportPages('CUSTOM')
+        elif multi_file:
+            ms_opts.setExportFileOptions('MULTIPLE_FILES_PAGE_NUMBER')
+        elif export_pages == 'ALL':
+            ms_opts.setExportPages('ALL')
+        elif export_pages == 'CURRENT':
+            ms_opts.setExportPages('CURRENT')
+        elif export_pages == 'SELECTED_INDEX_FEATURES':
+            ms_opts.setExportPages('SELECTED_INDEX_FEATURES')
+
+        display = None
+        out = Path(out) if out else None
+
+        if antialiasing:
+            display = cast(mpt.DisplayOptions, mp.CreateExportOptions('DISPLAY'))
+            display.setAntialiasing(antialiasing)
+
+        if isinstance(format, fmts.Format):
+            format = format.fmt
+
+        if type(format).__name__.endswith('Format'):
+            suffix = type(format).__name__[:3].lower()
+            format = cast(_MSFormat, format)
+
+        elif isinstance(format, str):
+            if format not in _MSFormatName.__args__:
+                raise ValueError(f'{self} can only export to {_MSFormatName.__args__}, not {format}')
+            # Some type forcing required here for the subset
+            suffix = format[:3].lower()
+            format = cast(_MSFormat, mp.CreateExportFormat(format))
+
+        else:
+            raise ValueError(f'Unknown format {type(format)} : {format}')
+
+        out_name = f'MSPage.{suffix}' if multi_file else f'{self.name}.{suffix}'
+        page_names = self.page_names if multi_file else []
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            outfl = tmp / out_name
+            format.filePath = str(outfl)
+            self.elem.export(format, mapseries_export_options=ms_opts, display_options=display)
+            pages = tuple(
+                (name, fl.read_bytes())
+                for name, fl in zip(
+                    page_names,
+                    sorted(tmp.glob(f'*.{suffix}'), key=lambda f: f.stat().st_birthtime_ns),
+                    strict=True
+                )
+            ) if multi_file else ((out_name, outfl.read_bytes()),)
+
+        # Return the raw page data if an outfile is not specified
+        if out is None:
+            return tuple(page[1] for page in pages)
+
+        paths = list[Path]()
+
+        # If out is a pdf and there is only one page, write to it
+        if len(pages) == 1:
+            fl_name, data = pages[0]
+            fl_name = f'{prefix or ''}{fl_name}'
+            outfl = (
+                out
+                if out.suffix == f'.{suffix}'
+                else (out / fl_name).with_suffix(f'.{suffix}')
+            )
+            out.write_bytes(data)
+            out.parent.mkdir(exist_ok=True, parents=True)
+            paths.append(outfl)
+            return tuple(paths)
+
+        # If there are multiple pages, write them into the parent folder of out
+        for fl_name, data in pages:
+            # multi_file will add a prefix name to the file
+            pfx, *fl_name = fl_name.split('_', maxsplit=1)
+            fl_name = fl_name[0] if fl_name else pfx
+            pfx = prefix or ''
+            fl_name = f'{pfx}{fl_name}'
+            outfl = out / fl_name
+            duplicates = 0
+            while outfl.exists():
+                outfl = outfl.with_stem(f'{outfl.stem}({duplicates + 1})')
+                duplicates += 1
+            outfl.parent.mkdir(exist_ok=True, parents=True)
+            outfl.write_bytes(data)
+            paths.append(outfl)
+
+        return tuple(paths)
+
     def reload(self) -> None:
         """Reload the BookmarkMapseries. Alias of `refresh` since `refresh` is used for cache."""
         self.elem.refresh()
+
+    def __repr__(self) -> str:
+        return (
+            f'{type(self).__name__}('
+                f'current_bookmark="{self.current_bookmark.name or 'None'}", '
+                f'page_count={self.page_count}, '
+                f'parent={self.parent}'
+            ')'
+        )
 
 
 # Reports export only allows a subset of PDF exporting
