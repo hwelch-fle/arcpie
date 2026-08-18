@@ -315,6 +315,12 @@ class Progressor[T]:
         finally:
             self._reset()
 
+    def consume(self, callback: Callable[[T], T] | None = None) -> list[T]:
+        if callback:
+            return list(map(callback, self))
+        else:
+            return list(self)
+
 
 def _placeholder_tool(tool_name: str, exception: Exception, traceback: str) -> type[ToolABC]:
     """ Higher order function for creating a tool class that represents a broken tool. """
