@@ -38,6 +38,7 @@ from arcpy.da import (
 )
 from arcpy.management import (
     AddRuleToRelationshipClass,  # type: ignore (incorrect hinting from arcpy)
+    Compact,  # type: ignore (incorrect hinting from arcpy)
     ConvertSchemaReport,  # type: ignore (incorrect hinting from arcpy)
     CreateFeatureclass,  # type: ignore (incorrect hinting from arcpy)
     CreateFeatureDataset,  # type: ignore (incorrect hinting from arcpy)
@@ -341,6 +342,11 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
         finally:
             self.release_lock()
 
+    def compact(self) -> None:
+        if self.conn.suffix != '.gdb':
+            raise PermissionError('Can only compact File Geodatabases.')
+        Compact(str(self.conn))
+
     def export_rules(self, rule_dir: Path | str) -> Iterator[AttributeRule]:
         """Export all attribute rules from the dataset into feature subdirectories
 
@@ -393,6 +399,57 @@ class Dataset[Schema: Mapping[str, Any] = dict[str, Any]]:
                     yield e
                 else:
                     raise e
+
+    def disable_attribute_rules(self, *item_names: str) -> Iterator[str]:
+        for item in (*self.feature_classes.values(), *self.tables.values()):
+            if item_names and item.name not in item_names:
+                continue
+            rules = item.attribute_rules
+            if len(rules.names) > 0:
+                rules.disable_attribute_rule(disable_all=True)
+            yield item.name
+
+    def enable_attribute_rules(self, *item_names: str) -> Iterator[str]:
+        for item in (*self.feature_classes.values(), *self.tables.values()):
+            if item_names and item.name not in item_names:
+                continue
+            rules = item.attribute_rules
+            if len(rules.names) > 0:
+                rules.enable_attribute_rule(enable_all=True)
+            yield item.name
+
+    def set_attribute_rule_state(self, state: dict[str, dict[str, bool]]) -> Iterator[str]:
+        for name, item in (*self.feature_classes.items(), *self.tables.items()):
+            rules = item.attribute_rules
+            if (item_state := state.get(name)) is None:
+                continue
+            for rule_name, enabled in item_state.items():
+                if enabled:
+                    rules.enable_attribute_rule(rule_name)
+                else:
+                    rules.disable_attribute_rule(rule_name)
+            yield name
+
+    def get_attribute_rule_state(self, *item_names: str) -> Iterator[tuple[str, dict[str, bool]]]:
+        for name, item in (*self.feature_classes.items(), *self.tables.items()):
+            if item_names and item.name not in item_names:
+                continue
+            states = dict[str, bool]()
+            for rule in item.attribute_rules:
+                states[rule['name']] = rule['isEnabled']
+            yield name, states
+
+    @contextmanager
+    def with_attribute_rule_state(self, state: dict[str, dict[str, bool]] | None = None):
+        original_state = self.get_attribute_rule_state()
+        try:
+            if state is None:
+                list(self.disable_attribute_rules())
+            else:
+                list(self.set_attribute_rule_state(state))
+            yield self
+        finally:
+            self.set_attribute_rule_state(dict(original_state))
 
     def _walk_parent(self) -> None:
         """For child datasets, walk the parent dataset to discover features"""
