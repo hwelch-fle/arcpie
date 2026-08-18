@@ -3382,6 +3382,16 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         """Open the Table view in the avtive project."""
         self.elem.openTableView(show_selected)
 
+    def delete(self) -> None:
+        """Delete the table from the Map."""
+        parent = self.parent
+        while parent and not isinstance(parent, Map):
+            parent = parent.parent
+        if parent is None:
+            raise ValueError(f'{self} has no associated Map')
+        else:
+            parent.remove(self)
+
 
 class ElevationSurface(Element[mpt.ElevationSurface, cim.CIMLayerElevationSurface, Map]):
 
