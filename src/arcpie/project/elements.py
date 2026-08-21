@@ -2229,6 +2229,9 @@ class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
         if isinstance(elem, HasExtent):
             self.camera.setExtent(elem.extent)
             return
+        elif isinstance(elem, Extent):
+            self.camera.setExtent(elem)
+            return
         elif isinstance(elem, Element):
             elem = elem.elem
 
