@@ -962,7 +962,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         if view_type == 'Report':
             return Report(cast(mpt.Report, active), self)
 
-        raise AttributeError(f'{self} has no avtive view')
+        raise AttributeError(f'{self} has no active view')
 
     @active_view.setter
     def active_view(self, view: MapViewLike | LayoutLike | ReportLike) -> None:
@@ -3382,7 +3382,7 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         self.elem.pasteProperties(from_table, properties)
 
     def open_view(self, show_selected: bool = False) -> None:
-        """Open the Table view in the avtive project."""
+        """Open the Table view in the active project."""
         self.elem.openTableView(show_selected)
 
     def delete(self) -> None:
