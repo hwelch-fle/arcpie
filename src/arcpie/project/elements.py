@@ -2788,12 +2788,12 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         return self.get_prop('dataSource')
 
     @data_source.setter
-    def data_source(self, source: str | fc.FeatureClass) -> None:
+    def data_source(self, source: Path | str | fc.FeatureClass) -> None:
         if self.data_source is type(self).NotSupported:
             return
         if isinstance(source, fc.FeatureClass):
-            source = source.path
-        self.update_connection(source)
+            source = source.describe.workspace.connectionString
+        self.update_connection(str(source))
 
     @property
     def definition_queries(self) -> list[DefinitionQuery]:
