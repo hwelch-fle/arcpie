@@ -2391,9 +2391,12 @@ class AttributeRuleManager:
             *rule_name (str): The rule names to delete as positional varargs
             delete_all (bool): If this flag is set, the noarg case will delete all rules (default: False)
         """
+        rule_state = self.rules
         if not rule_name and delete_all:
             rule_name = tuple(self.names)
-        DeleteAttributeRule(str(self.parent), rule_name)
+        rule_name = tuple(r for r in rule_name if r in rule_state)
+        if rule_name:
+            DeleteAttributeRule(str(self.parent), rule_name)
 
     def disable_attribute_rule(self, *rule_name: str, disable_all: bool = False) -> None:
         """Disable provided attribute rules from the ruleset
@@ -2402,9 +2405,12 @@ class AttributeRuleManager:
             *rule_name (str): The rule names to delete as positional varargs
             disable_all (bool): If this flag is set, the noarg case will disable all rules (default: False)
         """
+        rule_state = self.rules
         if not rule_name and disable_all:
             rule_name = tuple(self.names)
-        DisableAttributeRules(str(self.parent), rule_name)
+        rule_name = tuple(r for r in rule_name if r in rule_state and rule_state[r]['isEnabled'])
+        if rule_name:
+            DisableAttributeRules(str(self.parent), rule_name)
 
     def enable_attribute_rule(self, *rule_name: str, enable_all: bool = False) -> None:
         """Enable provided attribute rules in the ruleset
@@ -2413,9 +2419,12 @@ class AttributeRuleManager:
             *rule_name (str): The rule names to delete as positional varargs
             enable_all (bool): If this flag is set, the noarg case will enable all rules (default: False)
         """
+        rule_state = self.rules
         if not rule_name and enable_all:
             rule_name = tuple(self.names)
-        EnableAttributeRules(str(self.parent), rule_name)
+        rule_name = tuple(r for r in rule_name if r in rule_state and not rule_state[r]['isEnabled'])
+        if rule_name:
+            EnableAttributeRules(str(self.parent), rule_name)
 
     def __iter__(self) -> Iterator[AttributeRule]:
         return iter(self.rules.values())
