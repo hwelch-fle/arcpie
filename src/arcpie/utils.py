@@ -1726,10 +1726,18 @@ class PolylineEditor:
 
     @classmethod
     def from_points(cls, points: Iterable[Point | PointGeometry], ref: SpatialReference | None = None) -> Polyline:
-        points = [
-            PointGeometry(p if isinstance(p, Point) else p.centroid, ref)
-            for p in points
-        ]
-        if ref is None and points:
-            ref = points[0].spatialReference
-        return Polyline(Array([p.centroid for p in points]), ref)
+        # Attempt to determine reference from points
+        if ref is None:
+            points = list(points)
+            for point in points:
+                if isinstance(point, PointGeometry):
+                    ref = point.spatialReference
+                    break
+
+        return Polyline(
+            Array(
+                p.centroid if isinstance(p, PointGeometry)else p
+                for p in points
+            ),
+            spatial_reference=ref
+        )
