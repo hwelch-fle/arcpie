@@ -1446,11 +1446,12 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             self._clause = clause
 
     @contextmanager
-    def where(self, where_clause: WhereClause | str):
+    def where(self, where_clause: WhereClause | str, *, join: bool = False):
         """Apply a where clause to a Table or FeatureClass in a context
 
         Args:
             where_clause (WhereClause|str): The where clause to apply to the Table or FeatureClass
+            join: If Table/FeatureClass already has a query, join the `where_clause` to it (default: `False`).
 
         Example:
             ```python
@@ -1470,6 +1471,8 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             This method of filtering a Table or FeatureClass will always be more performant than using the
              `.filter` method. If you can achieve the filtering you want with a where clause, do it.
         """
+        if join and (wc := self.search_options.get('where_clause')):
+            where_clause = f'({wc}) AND ({where_clause})'
         with self.options(
             search_options=SearchOptions(where_clause=str(where_clause)),
             update_options=UpdateOptions(where_clause=str(where_clause))):
