@@ -2092,7 +2092,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
             yield self
 
     @contextmanager
-    def spatial_filter(self, spatial_filter: GeometryType | Extent, spatial_relationship: SpatialRelationship = 'INTERSECTS'):
+    def spatial_filter(self, spatial_filter: GeometryType | Extent | None, spatial_relationship: SpatialRelationship = 'INTERSECTS'):
         """Apply a spatial filter to the FeatureClass in a context
 
         Args:
@@ -2125,7 +2125,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
             search_options=SearchOptions(
                 spatial_filter=spatial_filter,
                 spatial_relationship=spatial_relationship,
-                spatial_reference=spatial_filter.spatialReference)):
+                spatial_reference=spatial_filter.spatialReference if spatial_filter else None)):
             yield self
 
     def get_transformation(self, to_ref: SpatialReference) -> str | None:
