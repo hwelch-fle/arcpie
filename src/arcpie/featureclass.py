@@ -70,8 +70,10 @@ from arcpy import (
     EnvManager,
     Exists,
     Extent,
+    Field as FieldObject,
     Geometry,
     Index,
+    ListFields,
     ListIndexes,
     ListTransformations,
     Multipatch,
@@ -494,6 +496,11 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
     def field_defs(self) -> dict[FieldName, Field]:
         """Get a mapping of Field properties to fieldnames"""
         return {field.baseName: convert_field(field) for field in self.da_describe['fields']}
+
+    @property
+    def field_objs(self) -> dict[str, FieldObject]:
+        """Get a mapping of field names to `arcpy.Field` objects (useful for Parameter Defaults)"""
+        return {f.name: f for f in ListFields(self.path)}
 
     @property
     def np_dtypes(self):
