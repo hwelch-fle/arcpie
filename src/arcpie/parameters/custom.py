@@ -125,7 +125,11 @@ class ValueTable(p.GPValueTable):
                 continue
             self.filters[i].list = flts[k]
         if dfts:
-            self.values = dfts
+            # Allow passing field mapping or a list of values
+            self.values = [
+                [dft[col[0]] for col in self.columns] if isinstance(dft, dict) else dft  # type: ignore
+                for dft in dfts
+            ]
 
         # Don't allow default initializer to set these
         ctx.pop('defaults', None)
