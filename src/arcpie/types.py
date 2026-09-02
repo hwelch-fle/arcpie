@@ -34,7 +34,6 @@ else:
     SpatialRelationship = None
     SearchOrder = None
 
-import builtins
 from datetime import datetime
 from types import TracebackType
 
@@ -44,19 +43,15 @@ from .cursor import SQLClause
 
 
 def cast_type(dt: np.dtype[Any]) -> type:
-    match dt.type:
-        case np.int_:
-            return int
-        case np.float64:
-            return float
-        case np.str_:
-            return str
-        case np.datetime64:
-            return datetime
-        case builtins.object:
-            return builtins.object
-        case _:
-            return builtins.object
+    if issubclass(dt.type, np.integer):
+        return int
+    elif issubclass(dt.type, np.floating):
+        return float
+    elif issubclass(dt.type, str):
+        return str
+    elif issubclass(dt.type, np.datetime64):
+        return datetime
+    return object
 
 
 def convert_dtypes(dtypes: np.dtype[Any]) -> dict[str, type]:
