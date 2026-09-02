@@ -239,7 +239,7 @@ class Parameters[Names: str = str](list[Parameter]):
     @overload
     def __getitem__(self, key: slice, /) -> list[Parameter]: ...
     @overload
-    def __getitem__(self, key: Names, /) -> Parameter: ...
+    def __getitem__(self, key: Names | str, /) -> Parameter: ...
     def __getitem__(self, key: Names | SupportsIndex | slice | str, /) -> Parameter | list[Parameter]:
         if isinstance(key, str):
             matches = [p for p in self if p.name.lower().replace(' ', '_') == key]
@@ -255,8 +255,8 @@ class Parameters[Names: str = str](list[Parameter]):
     @overload
     def get[D](self, key: slice, default: D = None, /) -> list[Parameter] | D: ...
     @overload
-    def get[D](self, key: Names, default: D = None, /) -> Parameter | D: ...
-    def get[D](self, key: SupportsIndex | slice | Names, default: D = None, /) -> Parameter | list[Parameter] | D:
+    def get[D](self, key: Names | str, default: D = None, /) -> Parameter | D: ...
+    def get[D](self, key: SupportsIndex | slice | Names | str, default: D = None, /) -> Parameter | list[Parameter] | D:
         try:
             return self[key]
         except KeyError:
