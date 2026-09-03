@@ -3752,6 +3752,171 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         fields = list(fields) if fields else None
         return TableFrameElement(self.elem.createTableFrameElement(geometry, frame, table, fields, style_item, name), self)
 
+    def create_text_element(
+        self,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
+        text_type: mpt.TextType,
+        text: str,
+        container: GroupElementLike | None = None,
+        size: float | None = None,
+        font: str | None = None,
+        style: str | None = None,
+        style_item: StyleItemLike | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+        ) -> TextElement:
+        """Create a new TextElement in the Layout.
+
+        Args:
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            text_type: The type of textbox to create.
+            text: The text to add to the text element.
+            container: An optional GroupElement to create the TextElement in.
+            size: The font size (in points) of the text.
+            font: The font face to use (must be installed at system level).
+            style: The font style to use (e.g. bold, italic). Options depend on selected font face.
+            style_item: An optional style item that matches the geometry type provided to the `geometry` arg.
+            name: An optional name to give the TextElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If Layout has no parent Project.
+        """
+        if self.parent is None:
+            raise AttributeError(f'{self} has no parent project to create TextElements with.')
+        return self.parent.create_text_element(
+            geometry=geometry,
+            text_type=text_type,
+            text=text,
+            container=container or self,
+            size=size,
+            font=font,
+            style=style,
+            style_item=style_item,
+            name=name,
+            lock_aspect_ratio=lock_aspect_ratio,
+        )
+
+    def create_graphic_element(
+        self,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
+        container: GroupElementLike | None = None,
+        style_item: StyleItemLike | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> GraphicElement:
+        """Create a new GraphicElement in the Layout.
+
+        Args:
+            container: An optional GroupElement to create the GraphicElement in.
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            style_item: An optional style to apply to the GraphicElement.
+            name: An optional name to give the GraphicElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the Layout has no parent Project.
+        """
+        if self.parent is None:
+            raise ValueError(f'{self} has no parent Project to create GraphicElements with.')
+        return self.parent.create_graphic_element(
+            geometry=geometry,
+            container=container or self,
+            style_item=style_item,
+            name=name,
+            lock_aspect_ratio=lock_aspect_ratio,
+        )
+
+    def create_picture_element(
+        self,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
+        image: Path | str | bytes,
+        container: GroupElementLike | None = None,
+        image_extension: str | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> PictureElement:
+        """Create a new PictureElement in the Layout.
+
+        Args:
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            image: A file path or raw bytes to use as the image.
+            container: An optional GroupElement to create the PictureElement in.
+            image_extension: If passing raw image bytes, provide an extension (no dot) here. (default: `png`)
+            name: An optional name to give the PictureElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the Layout has no parent Project.
+        """
+        if self.parent is None:
+            raise ValueError(f'{self} has no parent Project to create PictureElements with.')
+        return self.parent.create_picture_element(
+            geometry=geometry,
+            image=image,
+            container=container or self,
+            image_extension=image_extension,
+            name=name,
+            lock_aspect_ratio=lock_aspect_ratio,
+        )
+
+    def create_predefined_graphics_element(
+        self,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
+        shape_type: mpt.ShapeType,
+        container: GroupElementLike | None = None,
+        style_item: StyleItemLike | None = None,
+        name: str | None = None,
+        lock_aspect_ratio: bool = True,
+    ) -> GraphicElement:
+        """Create a new GraphicElement in the Project using a predefined style.
+
+        Args:
+            geometry: A Point/Polygon/Polyline or Centroid having object to use as the graphic shape.
+            shape_type: The predefined shape type to create (see: [docs](https://doc.esri.com/en/arcgis-pro/latest/arcpy/mapping/arcgisproject-class.html#method-createPredefinedGraphicElement)).
+            container: An optional GroupElement to create the GraphicElement in.
+            style_item: An optional style item that matches the geometry type provided to the `geometry` arg.
+            name: An optional name to give the TextElement. (default: `Element{n}`)
+            lock_aspect_ratio: Lock the element aspect ratio to prevent skewing. (default: `True`)
+
+        Raises:
+            ValueError: If the Layout has no parent Project.
+        """
+        if not self.parent:
+            raise ValueError(f'{self} has no parent Project to create GraphicElements with.')
+        return self.parent.create_predefined_graphics_element(
+            geometry=geometry,
+            shape_type=shape_type,
+            container=container or self,
+            style_item=style_item,
+            name=name,
+            lock_aspect_ratio=lock_aspect_ratio,
+        )
+
+    def create_group_element(
+        self,
+        elements: Iterable[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
+        container: GroupElementLike | None = None,
+        name: str | None,
+    ) -> GroupElement:
+        """Create a new GroupElement in the Project.
+
+        Args:
+            elements: An iterable of LayoutElements to include in the group.
+            container: An optional GroupElement to create the GroupElement in.
+            name: An optional name to give the GroupElement. (default: `Group{n}`)
+
+        Raises:
+            ValueError: If the Layout has no parent Project
+        """
+        if self.parent is None:
+            raise ValueError(f'{self} has no parent Project to create GroupElements with.')
+        return self.parent.create_group_element(
+            elements=elements,
+            container=container or self,
+            name=name,
+        )
+
     def delete_element(self, elem: LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement):
         """Delete an element from the Layout."""
         if isinstance(elem, LayoutElement):
