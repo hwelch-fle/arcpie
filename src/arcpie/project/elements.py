@@ -1218,7 +1218,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def create_graphic_element(
         self,
         container: LayoutLike | GroupElementLike,
-        geometry: Point | Polyline | Polygon | HasCentroid,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
         style_item: StyleItemLike | None = None,
         name: str | None = None,
         lock_aspect_ratio: bool = True,
@@ -1240,7 +1240,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         if isinstance(style_item, Element):
             style_item = style_item.elem
         if not isinstance(geometry, Point | Polyline | Polygon):
-            geometry = geometry.centroid
+            geometry = _handle_geometry(geometry)
         container_type = type(container).__name__
         if container_type not in ('Layout', 'GroupElement'):
             raise ValueError(
@@ -1302,7 +1302,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def create_picture_element(
         self,
         container: LayoutLike | GroupElementLike,
-        geometry: Point | Polyline | Polygon | HasCentroid,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
         image: Path | str | bytes,
         image_extension: str | None = None,
         name: str | None = None,
@@ -1332,7 +1332,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             )
 
         if not isinstance(geometry, Point | Polyline | Polygon):
-            geometry = geometry.centroid
+            geometry = _handle_geometry(geometry)
 
         if isinstance(image, bytes):
             with tempfile.TemporaryDirectory() as tmp:
@@ -1352,7 +1352,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def create_text_element(
         self,
         container: LayoutLike | GroupElementLike,
-        geometry: Point | Polyline | Polygon | HasCentroid,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
         text_type: mpt.TextType,
         text: str,
         size: float | None = None,
@@ -1390,7 +1390,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             )
 
         if not isinstance(geometry, Point | Polyline | Polygon):
-            geometry = geometry.centroid
+            geometry = _handle_geometry(geometry)
 
         if isinstance(style_item, Element):
             style_item = style_item.elem
@@ -1406,7 +1406,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
     def create_predefined_graphics_element(
         self,
         container: LayoutLike | GroupElementLike,
-        geometry: Point | Polyline | Polygon | HasCentroid,
+        geometry: PointLike | PolygonLike | Polyline | HasCentroid | None,
         shape_type: mpt.ShapeType,
         style_item: StyleItemLike | None = None,
         name: str | None = None,
@@ -1436,7 +1436,7 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
             )
 
         if not isinstance(geometry, Point | Polyline | Polygon):
-            geometry = geometry.centroid
+            geometry = _handle_geometry(geometry)
 
         if isinstance(style_item, Element):
             style_item = style_item.elem
@@ -3655,7 +3655,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         *,
         name: str | None = None,
         map: MapLike | None = None,
-        geometry: Polygon | Point | HasCentroid | None = None,
+        geometry: PointLike | PolygonLike | HasCentroid | None = None,
     ) -> MapFrame:
         """Create a new MapFrame in the Layout.
 
@@ -3670,15 +3670,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
             After creating the MapFrame, the anchor point, width, and height can be set directly.
             If no geometry is used, the MapFrame will be created at the Layout origin.
         """
-        if geometry is None:
-            geometry = Point(0, 0)
-        if not isinstance(geometry, Polygon | Point):
-            if not isinstance(cast(Any, geometry), HasCentroid):
-                raise ValueError(
-                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
-                    'must have trueCentroid, centroid and spatialReference attributes'
-                )
-            geometry = geometry.centroid
+        geometry = _handle_geometry(geometry)
         if isinstance(map, Map):
             map = map.elem
         return MapFrame(self.elem.createMapFrame(geometry, map, name), self)
@@ -3689,7 +3681,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         *,
         name: str | None = None,
         frame: MapFrameLike | None = None,
-        geometry: Polygon | Point | HasCentroid | None = None,
+        geometry: PointLike | PolygonLike | HasCentroid | None = None,
         style_item: StyleItemLike | None = None,
     ) -> MapSurroundElement:
         """Create a new MapSurroundElement in the Layout.
@@ -3707,15 +3699,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
             After creating the MapSurroundElement, the anchor point, width, and height can be set directly.
             If no geometry is used, the MapSurroundElement will be created at the Layout origin.
         """
-        if geometry is None:
-            geometry = Point(0, 0)
-        if not isinstance(geometry, Polygon | Point):
-            if not isinstance(cast(Any, geometry), HasCentroid):
-                raise ValueError(
-                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
-                    'must have trueCentroid, centroid and spatialReference attributes'
-                )
-            geometry = geometry.centroid
+        geometry = _handle_geometry(geometry)
         if isinstance(frame, MapFrame):
             frame = frame.elem
         if isinstance(style_item, StyleItem):
@@ -3729,7 +3713,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         frame: MapFrameLike | None = None,
         table: LayerLike | TableLike | None = None,
         fields: Iterable[str] | None = None,
-        geometry: Point | Polygon | HasCentroid | None = None,
+        geometry: PointLike | PolygonLike | HasCentroid | None = None,
         style_item: StyleItemLike | None = None,
     ) -> TableFrameElement:
         """Create a new TableFrameElement in the Layout.
@@ -3748,15 +3732,7 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
             After creating the TableFrameElement, the anchor point, width, and height can be set directly.
             If no geometry is used, the TableFrameElement will be created at the Layout origin.
         """
-        if geometry is None:
-            geometry = Point(0, 0)
-        if not isinstance(geometry, Polygon | Point):
-            if not isinstance(cast(Any, geometry), HasCentroid):
-                raise ValueError(
-                    f'Invalid source geometry {type(geometry).__name__} for MapFrame, '
-                    'must have trueCentroid, centroid and spatialReference attributes'
-                )
-            geometry = geometry.centroid
+        geometry = _handle_geometry(geometry)
         if isinstance(frame, MapFrame):
             frame = frame.elem
         if isinstance(style_item, StyleItem):
