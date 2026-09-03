@@ -3896,8 +3896,8 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
     def create_group_element(
         self,
         elements: Iterable[LayoutElement[mpt.LayoutElement, Any] | mpt.LayoutElement],
-        container: GroupElementLike | None = None,
         name: str | None,
+        container: GroupElementLike | None = None,
     ) -> GroupElement:
         """Create a new GroupElement in the Project.
 
