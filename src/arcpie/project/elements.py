@@ -78,7 +78,7 @@ import arcpy.charts as cht
 import arcpy.cim as cim
 import arcpy.mp as mp
 import httpx
-from arcpy import Extent, Point, Polygon, Polyline, SpatialReference
+from arcpy import Array, Extent, Point, Polygon, Polyline, SpatialReference
 from arcpy.cim.cimloader import jsontocim
 from arcpy.cim.cimloader.cimtojson import CimJsonEncoder as CIMJsonEncoder
 
@@ -197,6 +197,11 @@ class ChartMap(TypedDict):
     ScatterMatrix: list[cht.ScatterMatrix]
 
 
+class PointDict(TypedDict):
+    x: float
+    y: float
+
+
 # Type unions that allow arcpie Elements and mp Elements to be used interchangeably
 type MapLike = Map | mpt.Map
 type MapViewLike = MapView | mpt.MapView
@@ -223,6 +228,8 @@ type PictureElementLike = PictureElement | mpt.PictureElement
 type TextElementLike = TextElement | mpt.TextElement
 type ReportSectionLike = ReportSection | mpt.ReportSection
 type ReportLayoutSectionLike = ReportLayoutSection | mpt.ReportLayoutSection
+type PointLike = Point | tuple[float, float] | PointDict
+type PolygonLike = Polygon | list[PointLike]
 
 
 def _get_props(elem: MPElement, *attrs: str) -> dict[str, Any]:
@@ -337,6 +344,36 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
             'ReportSection',
             'ReportLayoutSection',
         })
+
+
+def _handle_geometry(geometry: PointLike | PolygonLike | HasCentroid | None) -> Polygon | Point:
+    """Convert anything that could be interpreted as a geometry object into a geometry object"""
+    if geometry is None:
+        geometry = Point(0, 0)
+    if not isinstance(geometry, Polygon | Point):
+        if isinstance(geometry, dict) and not geometry.keys().isdisjoint(('x', 'y')):
+            geometry = Point(geometry['x'], geometry['y'])
+        elif isinstance(geometry, tuple):
+            geometry = Point(*geometry)
+        elif isinstance(geometry, list):
+            points = list[Point]()
+            for pt in geometry:
+                if isinstance(pt, Point):
+                    points.append(pt)
+                if isinstance(pt, tuple) and len(pt) == 2:
+                    points.append(Point(*pt))
+                if isinstance(pt, dict):
+                    points.append(Point(pt['x'], pt['y']))
+            geometry = Polygon(Array(points))
+        elif isinstance(geometry, HasCentroid):
+            geometry = geometry.centroid
+        else:
+            raise ValueError(
+                f'Invalid source geometry {type(geometry).__name__}({geometry}), '
+                'must be a Geometry object, or a `PointLike` or `list[PointLike]` '
+                'where PointLike is a 2-tuple of numbers or a dict with `x` and `y` keys'
+            )
+    return geometry
 
 
 # Element takes Base arcpy.mp element, cim definition (from `getDefinition`) and parent type
