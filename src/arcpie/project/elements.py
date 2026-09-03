@@ -1498,6 +1498,11 @@ class Project(Element[mpt.ArcGISProject, cim.CIMGISProject]):
         else:
             self.path.unlink()
 
+    def remove(self, elem: LayoutLike | MapLike | ReportLike) -> None:
+        """Remove a Layout, Map, or Report from the Project"""
+        elem = elem.elem if isinstance(elem, Element) else elem
+        self.elem.deleteItem(elem)
+
     def import_document(self, doc: Path | str | bytes,
                         *,
                         include_layout: bool = True,
@@ -2127,6 +2132,11 @@ class Map(Element[mpt.Map, cim.CIMMap, Project]):
 
     def open_view(self) -> None:
         self.elem.openView()
+
+    def delete(self) -> None:
+        """Delete the Map"""
+        if self.parent:
+            self.parent.remove(self)
 
 
 class MapView(Element[mpt.MapView, cim.CIMMapView, Project]):
@@ -3836,6 +3846,11 @@ class Layout(Element[mpt.Layout, cim.CIMLayout, Project]):
         """Open the Layout in the active Project."""
         self.elem.openView()
 
+    def delete(self) -> None:
+        """Delete the Layout"""
+        if self.parent:
+            self.parent.remove(self)
+
 
 class MapFrame(Element[mpt.MapFrame, cim.CIMMapFrame, Layout]):
 
@@ -4843,6 +4858,11 @@ class Report(Element[mpt.Report, cim.CIMReport, Project]):
     def open_view(self) -> None:
         """Open the Report in the active Project."""
         self.elem.openView()
+
+    def delete(self) -> None:
+        """Delete the Report"""
+        if self.parent:
+            self.parent.remove(self)
 
 
 class ElevationSource(Element[mpt.ElevationSource, None, Project]):
