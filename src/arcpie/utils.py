@@ -15,6 +15,7 @@ from typing import (
     Any,
     Literal,
     Protocol,
+    Self,
     SupportsIndex,
     cast,
     overload,
@@ -1422,7 +1423,7 @@ class PolylineEditor:
 
     # Special Operations
 
-    def dedupe(self, keep: Literal['first', 'last'] = 'last') -> int:
+    def dedupe(self, keep: Literal['first', 'last'] = 'last') -> Self:
         """Remove all duplicate points in a line keeping last instance (returns the number of points removed)
 
         Note:
@@ -1445,7 +1446,7 @@ class PolylineEditor:
             part.polyline = self.from_points(points, self.ref)
 
         self.polyline = self.merge_lines(p.polyline for p in parts)
-        return removed
+        return self
 
     def reset(self) -> None:
         """Revert all changes to `polyline` and restore the original geometry"""
