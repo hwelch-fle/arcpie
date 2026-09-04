@@ -346,33 +346,41 @@ def _cimless(obj: Any) -> TypeIs[_NoCIM]:
         })
 
 
+def _convert_pointlike(pt: PointLike) -> Point:
+    if isinstance(pt, Point):
+        return pt
+    if isinstance(pt, dict):
+        if 'x' in pt and 'y' in pt:
+            return Point(pt['x'], pt['y'])
+        else:
+            raise ValueError(f'Got Point {pt}, but missing `x` and `y` keys')
+    else:
+        return Point(*pt[:2])
+
+
 def _handle_geometry(geometry: PointLike | PolygonLike | HasCentroid | None) -> Polygon | Point:
     """Convert anything that could be interpreted as a geometry object into a geometry object"""
     if geometry is None:
         geometry = Point(0, 0)
-    if not isinstance(geometry, Polygon | Point):
-        if isinstance(geometry, dict) and not geometry.keys().isdisjoint(('x', 'y')):
-            geometry = Point(geometry['x'], geometry['y'])
-        elif isinstance(geometry, tuple):
-            geometry = Point(*geometry)
-        elif isinstance(geometry, list):
-            points = list[Point]()
-            for pt in geometry:
-                if isinstance(pt, Point):
-                    points.append(pt)
-                if isinstance(pt, tuple) and len(pt) == 2:
-                    points.append(Point(*pt))
-                if isinstance(pt, dict):
-                    points.append(Point(pt['x'], pt['y']))
-            geometry = Polygon(Array(points))
-        elif isinstance(geometry, HasCentroid):
-            geometry = geometry.centroid
-        else:
-            raise ValueError(
-                f'Invalid source geometry {type(geometry).__name__}({geometry}), '
-                'must be a Geometry object, or a `PointLike` or `list[PointLike]` '
-                'where PointLike is a 2-tuple of numbers or a dict with `x` and `y` keys'
-            )
+    if isinstance(geometry, Polygon | Point):
+        return geometry
+    if isinstance(geometry, dict) and not geometry.keys().isdisjoint(('x', 'y')):
+        geometry = Point(geometry['x'], geometry['y'])
+    elif isinstance(geometry, tuple):
+        geometry = Point(*geometry)
+    elif isinstance(geometry, list):
+        points = list(map(_convert_pointlike, geometry))
+        geometry = Polygon(Array(points))
+        if geometry.area == 0:
+            raise ValueError(f'Invalid Polygon from points {points}')
+    elif isinstance(geometry, HasCentroid):
+        geometry = geometry.centroid
+    else:
+        raise ValueError(
+            f'Invalid source geometry {type(geometry).__name__}({geometry}), '
+            'must be a Geometry object, or a `PointLike` or `list[PointLike]` '
+            'where PointLike is a 2-tuple of numbers or a dict with `x` and `y` keys'
+        )
     return geometry
 
 
