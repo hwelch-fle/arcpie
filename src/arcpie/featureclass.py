@@ -620,20 +620,20 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                       insert_options: InsertOptions | None = None,
                       **overrides: Unpack[InsertOptions]) -> InsertCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `InsertCursor`"""
-        if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
-            overrides.pop('datum_transformation')
-        if insert_options and 'datum_transformation' in insert_options and insert_options['datum_transformation'] is None:
-            insert_options.pop('datum_transformation')
+        if overrides.get('datum_transformation') is None:
+            overrides.pop('datum_transformation', None)
+        if insert_options and insert_options.get('datum_transformation') is None:
+            insert_options.pop('datum_transformation', None)
         return InsertCursor(self.path, field_names, **self._resolve_insert_options(insert_options, overrides))
 
     def update_cursor(self, *field_names: FieldName,
                     update_options: UpdateOptions | None = None,
                     **overrides: Unpack[UpdateOptions]) -> UpdateCursor:
         """See `Table.search_cursor` doc for general info. Operation of this method is identical but returns an `UpdateCursor`"""
-        if 'datum_transformation' in overrides and overrides['datum_transformation'] is None:
-            overrides.pop('datum_transformation')
-        if update_options and 'datum_transformation' in update_options and update_options['datum_transformation'] is None:
-            update_options.pop('datum_transformation')
+        if overrides.get('datum_transformation') is None:
+            overrides.pop('datum_transformation', None)
+        if update_options and update_options.get('datum_transformation') is None:
+            update_options.pop('datum_transformation', None)
         return UpdateCursor(self.path, field_names, **self._resolve_update_options(update_options, overrides))
 
     # TODO, Fix this
@@ -1804,6 +1804,15 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
     def spatial_reference(self) -> SpatialReference:
         """The SpatialReference object for the FeatureClass"""
         return self.describe.spatialReference
+
+    @property
+    def shape_filter(self) -> GeometryType | Extent | None:
+        return self._search_options.get('spatial_filter')
+
+    @shape_filter.setter
+    def shape_filter(self, filt: GeometryType | Extent | None) -> None:
+        self._search_options['spatial_filter'] = filt
+        self._update_options['spatial_filter'] = filt  # type: ignore
 
     @property
     def current_reference(self) -> SpatialReference:
