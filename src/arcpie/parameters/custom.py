@@ -127,7 +127,10 @@ class ValueTable(p.GPValueTable):
         if dfts:
             # Allow passing field mapping or a list of values
             self.values = [
-                [dft[col[0]] for col in self.columns] if isinstance(dft, dict) else dft  # type: ignore
+                [
+                    dft.get(col[1]) for col in self.columns
+                ]
+                if isinstance(dft, dict) else dft  # type: ignore
                 for dft in dfts
             ]
 
