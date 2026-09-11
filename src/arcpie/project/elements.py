@@ -2734,6 +2734,26 @@ class Layer(Element[mpt.Layer, cim.CIMBaseLayer, Map | GroupLayer]):
         setattr(self.elem, prop, val)
 
     @property
+    def fields(self) -> list['cim.CIMVectorLayers.CIMFieldDescription']:  # noqa: UP037
+        """Access the CIMFieldDescription objects for the Layer (does nothing if the layer has no featureTable)"""
+        lay_cim = self.cim
+        feature_table: 'cim.CIMVectorLayers.CIMFeatureTable' = getattr(lay_cim, 'featureTable', None)  # type: ignore # noqa: UP037
+        if not feature_table:
+            return []
+        fields = feature_table.fieldDescriptions  # type: ignore
+        return cast(list['cim.CIMVectorLayers.CIMFieldDescription'], fields)
+
+    @fields.setter
+    def fields(self, fields: Iterable['cim.CIMVectorLayers.CIMFieldDescription']) -> None:  # noqa: UP037
+        """Set the CIMFieldDescription objects for the Layer (does nothing if the layer has no featureTable)"""
+        lay_cim = self.cim
+        feature_table: 'cim.CIMVectorLayers.CIMFeatureTable' = getattr(lay_cim, 'featureTable', None)  # type: ignore # noqa: UP037
+        if not feature_table:
+            return
+        feature_table.fieldDescriptions = fields  # type: ignore
+        self.cim = lay_cim
+
+    @property
     def page_query(self) -> PageQuery:
         """Get the active PageQuery of the layer."""
         return cast(PageQuery, self.elem.pageQuery)
@@ -3226,6 +3246,26 @@ class Table(Element[mpt.Table, cim.CIMFeatureTable, Map | GroupLayer]):
         lyrx['tables'] = [self.uri]
         lyrx['layerDefinitions'] = [self.cim_dict]
         return lyrx
+
+    @property
+    def fields(self) -> list['cim.CIMVectorLayers.CIMFieldDescription']:  # noqa: UP037
+        """Access the CIMFieldDescription objects for the Table (does nothing if the table has no featureTable)"""
+        lay_cim = self.cim
+        feature_table: 'cim.CIMVectorLayers.CIMFeatureTable' = getattr(lay_cim, 'featureTable', None)  # type: ignore # noqa: UP037
+        if not feature_table:
+            return []
+        fields = feature_table.fieldDescriptions  # type: ignore
+        return cast(list['cim.CIMVectorLayers.CIMFieldDescription'], fields)
+
+    @fields.setter
+    def fields(self, fields: Iterable['cim.CIMVectorLayers.CIMFieldDescription']) -> None:  # noqa: UP037
+        """Set the CIMFieldDescription objects for the Table (does nothing if the table has no featureTable)"""
+        lay_cim = self.cim
+        feature_table: 'cim.CIMVectorLayers.CIMFeatureTable' = getattr(lay_cim, 'featureTable', None)  # type: ignore # noqa: UP037
+        if not feature_table:
+            return
+        feature_table.fieldDescriptions = fields  # type: ignore
+        self.cim = lay_cim
 
     @property
     def definition_queries(self) -> list[DefinitionQuery]:
