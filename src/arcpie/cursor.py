@@ -207,7 +207,7 @@ class UpdateOptions(TypedDict, total=False):
     # null_value: dict[str, Any]
     datum_transformation: str | None
     explicit: bool
-    spatial_filter: GeometryType | Extent
+    spatial_filter: GeometryType | Extent | None
     spatial_relationship: SpatialRelationship
     search_order: SearchOrder
 
