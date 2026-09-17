@@ -1120,7 +1120,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
     @overload
     def __getitem__(self, field: WhereClause) -> Iterator[Schema]: ...
     @overload
-    def __getitem__(self, field: None) -> Iterator[None]: ...
+    def __getitem__(self, field: None) -> Iterator[Schema]: ...
 
     def __getitem__(self, field: _IndexableTypes | FilterFunc[Schema]) -> Iterator[Any]:
         """Handle all defined overloads using pattern matching syntax
@@ -1132,6 +1132,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
             field (set[str]): Yield dictionaries of values for requested columns (requested fields)
             field (FilterFunc): Yield rows that match function (all fields)
             field (WhereClause): Yield rows that match clause (all fields)
+            field (None): Allow passing a null filter, same as `iter(table)`
 
         Example:
             ```python
@@ -1180,7 +1181,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
                 with self.search_cursor(*field) as cur:
                     yield from (row for row in self.as_dict(cur))
             case None:
-                yield from ()  # This allows a side effect None to be used to get nothing
+                yield from self
 
             # Conditional Requests
             case wc if isinstance(wc, WhereClause):
@@ -1209,7 +1210,7 @@ class Table[Schema: Mapping[Any, Any] = dict[str, Any]]:
     @overload
     def get(self, field: WhereClause, default: _T) -> Iterator[Schema] | _T: ...
     @overload
-    def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
+    def get(self, field: None, default: _T) -> Iterator[Schema] | _T: ...
 
     def get(self, field: _IndexableTypes | FilterFunc[Schema], default: _T = None) -> Iterator[Any] | _T:
         """Allow accessing the implemented indexes defined by `__getitem__` with a default shielding a raised `KeyError`
@@ -1965,7 +1966,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
     @overload
     def __getitem__(self, field: WhereClause) -> Iterator[Schema]: ...
     @overload
-    def __getitem__(self, field: None) -> Iterator[None]: ...
+    def __getitem__(self, field: None) -> Iterator[Schema]: ...
     @overload
     def __getitem__(self, field: GeometryType | Extent) -> Iterator[Schema]: ...
 
@@ -1980,6 +1981,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
             field (Geometry | Extent): Yield dictionaries of values for all features intersecting the specified shape
             field (FilterFunc): Yield rows that match function (all fields)
             field (WhereClause): Yield rows that match clause (all fields)
+            field (None): Allow passing a null filter (same as `iter(feature_class)`)
 
         Example:
             ```python
@@ -2042,7 +2044,7 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
     @overload
     def get(self, field: WhereClause, default: _T) -> Iterator[Schema] | _T: ...
     @overload
-    def get(self, field: None, default: _T) -> Iterator[None] | _T: ...
+    def get(self, field: None, default: _T) -> Iterator[Schema] | _T: ...
     @overload
     def get(self, field: GeometryType | Extent, default: _T) -> Iterator[Schema] | _T: ...
 
