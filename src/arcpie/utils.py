@@ -4,6 +4,7 @@ from __future__ import annotations
 import builtins
 import json
 import math
+import re
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from functools import reduce
@@ -102,6 +103,39 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
     if digit_chars:
         digits.append(int(''.join(digit_chars)))
     return tuple(digits), tuple(alpha)
+
+
+# Pass compilation to default so it is compiled on module load
+def nat2(val: str, _at: re.Pattern[str] = re.compile(r'(\d+)')) -> tuple[str | int, ...]:
+    """Generate a tuple of integers and strings from a string for natural sorting.
+
+    Example:
+    ```python
+    >>> nat2('AB-12.3-C')
+    ('AB-', 12, '.', 3, '-C')
+    >>> nat2('ABRACADABRA')
+    ('ABRACADABRA',)
+    >>> nat2('0ABRACADABRA1')
+    ('', 0, 'ABRACADABRA', 1, '')
+    ```
+    Usage:
+    ```python
+    >>> vals = ['A1', 'A10', 'A17', 'A2']
+    >>> sorted(vals)
+    ['A1', 'A10', 'A17', 'A2']
+    >>> sorted(vals, key=nat2)
+    ['A1', 'A2', 'A10', 'A17']
+    ```
+    Note:
+        output will always have an odd number of elements with the first and last being strings, 
+        and every other element being an integer.
+        This key function is also ~25x slower than the builtin string sort.
+    """
+    return tuple(
+        int(p) if i % 2  # integers at odd indexes
+        else p           # strings at even indexes
+        for i, p in enumerate(_at.split(val))
+    )
 
 
 def get_subtype_count(fc: Table | FeatureClass, drop_empty: bool = False) -> dict[str, int]:
