@@ -71,8 +71,8 @@ from .project.elements import (
 )
 
 
-def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
-    """Natural sort key for use in string sorting
+def nat_(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    """[DEPRECATED] Natural sort key for use in string sorting
 
     Args:
         val (str): A value that you want the natural sort key for
@@ -106,7 +106,7 @@ def nat(val: str) -> tuple[tuple[int, ...], tuple[str, ...]]:
 
 
 # Pass compilation to default so it is compiled on module load
-def nat2(val: str, _at: re.Pattern[str] = re.compile(r'(\d+)')) -> tuple[str | int, ...]:
+def nat(val: str, _at: re.Pattern[str] = re.compile(r'(\d+)')) -> tuple[str | int, ...]:
     """Generate a tuple of integers and strings from a string for natural sorting.
 
     Example:
