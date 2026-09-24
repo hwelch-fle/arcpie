@@ -171,6 +171,7 @@ class Parameter(_Parameter):
         category: str | None = None,
         symbology: str | None = None,
         multiValue: bool = False,
+        controlCLSID: Controls | None = None,
         **kwargs: Unpack[ParameterAttrs],
     ) -> None:
 
@@ -201,6 +202,8 @@ class Parameter(_Parameter):
 
         self.datatype: ParameterDatatype
         self.filter: Filter
+        if controlCLSID is not None:
+            self.controlCLSID = controlCLSID
         self._post_init(kwargs)
 
     def __repr__(self) -> str:
