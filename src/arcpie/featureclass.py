@@ -1806,6 +1806,16 @@ class FeatureClass[GeoType: GeometryType = Geometry, Schema: Mapping[Any, Any] =
         """The SpatialReference object for the FeatureClass"""
         return self.describe.spatialReference
 
+    @spatial_reference.setter
+    def spatial_reference(self, ref: SpatialReference) -> None:
+        """Set the SpatialReference (cursor override, not table level reprojection)"""
+        if ref == self.current_reference:
+            return
+
+        self._search_options['spatial_reference'] = ref
+        if trans := self.get_transformation(ref):
+            self._search_options['datum_transformation'] = trans
+
     @property
     def shape_filter(self) -> GeometryType | Extent | None:
         return self._search_options.get('spatial_filter')
