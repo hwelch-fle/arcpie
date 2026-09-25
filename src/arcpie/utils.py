@@ -127,7 +127,7 @@ def nat(val: str, _at: re.Pattern[str] = re.compile(r'(\d+)')) -> tuple[str | in
     ['A1', 'A2', 'A10', 'A17']
     ```
     Note:
-        output will always have an odd number of elements with the first and last being strings, 
+        output will always have an odd number of elements with the first and last being strings,
         and every other element being an integer.
         This key function is also ~25x slower than the builtin string sort.
     """
